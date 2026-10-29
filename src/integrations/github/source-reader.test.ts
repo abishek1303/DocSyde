@@ -315,3 +315,19 @@ test("CLI reports invalid arguments and missing credentials on stderr", () => {
     assert.equal(JSON.parse(result.stderr).code, args.length === 4 ? "missing-credentials" : "invalid-input");
   }
 });
+
+test("optional commit budget rejects before requesting further pages", async t => {
+  const calls = mockGithub(t, url => compareReply(url, comparison({ total_commits: 101 })));
+  await assert.rejects(compareCommits(comparisonInput, { maxCommits: 100 }), hasCode("incomplete-evidence"));
+  assert.equal(calls.length, 3);
+});
+test("optional cancellation reaches the request signal", async t => {
+  const controller = new AbortController(); controller.abort();
+  const previous = process.env.GITHUB_TOKEN; process.env.GITHUB_TOKEN = "test";
+  t.after(() => { if(previous === undefined) delete process.env.GITHUB_TOKEN; else process.env.GITHUB_TOKEN = previous; });
+  t.mock.method(globalThis, "fetch", async (_url: unknown, init?: RequestInit) => {
+    assert.equal(init?.signal?.aborted, true);
+    throw new DOMException("cancelled", "AbortError");
+  });
+  await assert.rejects(compareCommits(comparisonInput, { signal: controller.signal }), hasCode("timeout"));
+});

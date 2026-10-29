@@ -56,10 +56,13 @@ function incomplete(message: string): never {
 
 export async function compareCommits(input: {
   owner: string; repo: string; base: string; head: string;
-}): Promise<ChangeEvidence> {
+}, options: { maxCommits?: number; signal?: AbortSignal } = {}): Promise<ChangeEvidence> {
   const { owner, repo, base, head } = parseInput(compareInput, input);
+  if (options.maxCommits !== undefined && (!Number.isSafeInteger(options.maxCommits) || options.maxCommits < 1)) {
+    throw new SourceReadError("invalid-input", "Commit budget must be a positive integer.");
+  }
   return withGithubErrors(async () => {
-    const client = await createGithubClient();
+    const client = await createGithubClient(options.signal);
     const [baseResponse, headResponse] = await Promise.all([
       client.rest.repos.getCommit({ owner, repo, ref: base, per_page: 1 }),
       client.rest.repos.getCommit({ owner, repo, ref: head, per_page: 1 }),
@@ -90,6 +93,9 @@ export async function compareCommits(input: {
         additions: file.additions, deletions: file.deletions, patch: file.patch ?? null,
       };
     });
+    if (options.maxCommits !== undefined && first.total_commits > options.maxCommits) {
+      throw new SourceReadError("incomplete-evidence", "Comparison exceeds the requested commit budget. Choose a narrower revision range.");
+    }
     const commits = [...first.commits];
     if (!Number.isSafeInteger(first.total_commits) || first.total_commits < 1 || commits.length === 0) {
       incomplete("GitHub did not return a complete commit list.");

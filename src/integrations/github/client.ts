@@ -2,7 +2,7 @@ import "server-only";
 
 import { SourceReadError } from "@/integrations/github/errors";
 
-export async function createGithubClient() {
+export async function createGithubClient(signal?: AbortSignal) {
   const token = process.env.GITHUB_TOKEN?.trim();
   if (!token) {
     throw new SourceReadError("missing-credentials", "Set GITHUB_TOKEN before reading GitHub repositories.");
@@ -21,7 +21,7 @@ export async function createGithubClient() {
   });
   client.hook.before("request", (options) => {
     // Installed Octokit forwards signals but does not implement request.timeout.
-    options.request.signal = AbortSignal.timeout(30_000);
+    options.request.signal = AbortSignal.any([AbortSignal.timeout(30_000), ...(signal ? [signal] : [])]);
     options.request.redirect = "error";
     options.headers["X-GitHub-Api-Version"] = "2026-03-10";
   });
@@ -34,13 +34,13 @@ export async function withGithubErrors<T>(operation: () => Promise<T>): Promise<
   } catch (error) {
     if (error instanceof SourceReadError) throw error;
     if (error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name)) {
-      throw new SourceReadError("timeout", "GitHub request timed out after 30 seconds.");
+      throw new SourceReadError("timeout", "GitHub request was cancelled or exceeded its deadline.");
     }
     const { RequestError } = await import("octokit");
     if (error instanceof RequestError) {
       // Octokit wraps fetch TimeoutError as a 500 RequestError with its cause.
       if (error.cause instanceof Error && ["AbortError", "TimeoutError"].includes(error.cause.name)) {
-        throw new SourceReadError("timeout", "GitHub request timed out after 30 seconds.");
+        throw new SourceReadError("timeout", "GitHub request was cancelled or exceeded its deadline.");
       }
       const headers = error.response?.headers;
       const retry = headers?.["retry-after"];

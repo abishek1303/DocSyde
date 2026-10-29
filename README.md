@@ -2,9 +2,12 @@
 
 Contextual documentation, inside your product.
 
-DocSyde will generate documentation from source code and product context, and surface relevant documentation and answers inside a host application. This repository currently contains a minimal Next.js homepage, shared UI primitives, and a modular monolith scaffold. Independent persistence, source evidence, model invocation, runtime, SDK context, and browser capture proofs are implemented; the combined product workflow remains planned.
+DocSyde will generate documentation from source code and product context, and surface relevant documentation and answers inside a host application. This repository currently contains a minimal Next.js homepage, shared UI primitives, and a modular monolith scaffold. Independent persistence, source evidence, model invocation, runtime, SDK context, and browser capture proofs are implemented; the homepage connects GitHub evidence to AI change summaries; documentation workflows remain planned.
 
 ## Local development
+
+See [SETUP.md](SETUP.md) for the working setup and testing notes. Keep that guide
+updated as capabilities are connected; it is intentionally lightweight.
 
 Use Node.js 20.9 or newer and npm with the checked-in lockfile.
 
@@ -112,7 +115,7 @@ src/
 - Fetch server-rendered data through feature server functions. Use HTTP endpoints only for real HTTP boundaries, and validate untrusted input and enforce resource permissions in server operations.
 - Preserve shared UI, theme tokens, and `src/lib/utils.ts`. Add implementation files only for concrete requirements.
 
-See [AGENTS.md](AGENTS.md) for the full development rules. Model invocation and the host-context SDK are implemented as independent capability proofs. User authentication, provider installation flows, embeddings, ingestion, documentation delivery and embed UI, and background infrastructure remain future work. The combined product workflow is not implemented yet.
+See [AGENTS.md](AGENTS.md) for the full development rules. Model invocation and the host-context SDK are implemented as independent capability proofs. User authentication, provider installation flows, embeddings, ingestion, documentation delivery and embed UI, and background infrastructure remain future work. The GitHub-to-AI summary workflow is implemented; broader documentation workflows remain planned.
 
 ## Independent capability proofs
 
@@ -133,3 +136,26 @@ Model live verification needs `BASETEN_API_KEY`; the event model defaults to
 chromium`. No new npm dependencies are required. Screenshots and compiled SDK
 output stay under ignored `.artifacts/`. Source evidence, runtime evidence, and
 model invocation remain separate; DOM extraction is not visual understanding.
+
+## Local change summaries
+
+Run `npm run dev -- --hostname 127.0.0.1` and open http://127.0.0.1:3000.
+Enter repository owner/name and ancestor base/head revisions, then Analyze changes.
+GitHub and Baseten credentials are required only when running analysis; PostgreSQL
+is unnecessary. The initial allowed repository is `abishek1303/DocSyde`. Override
+with server-only `DOCSYDE_ANALYSIS_REPOSITORIES` (comma-separated); an empty value
+disables analysis. Never expose this trusted local interface through a public host
+or tunnel without authentication and per-user repository authorization.
+
+The UI separates observed source changes from possible effects, shows pinned
+commits and evidence coverage, and expands citations and file patches. Missing or
+oversized patches are explicit; supplied patches are not guaranteed complete.
+Citation matching establishes traceability, not semantic accuracy. Source patches
+are sent to the hosted model. Results are not persisted.
+
+Checks: `npm run sources:test`; live smoke: `npm run sources:verify`. The live
+command defaults to base `40bd71f8adb0a8380f0de20ff65aa6915fb7654c` and head
+`78695f525dce698832c9ef9dbdb4109dd86fdd9c`. For the existing database application-code
+comparison use `npm run sources:verify -- 4cf816fc9e4b9cc644228db3f3156b0c3e46bdb1 40bd71f8adb0a8380f0de20ff65aa6915fb7654c`.
+These commands use API credits. See the [Sources guide](src/features/sources/README.md)
+for budgets, failure behavior, and local access limitations.

@@ -23,7 +23,9 @@
     "capture:verify": "node --conditions=react-server --import tsx infra/local/capture/verify.ts",
     "sdk:test": "node --import tsx --test src/sdk/context-client.test.ts",
     "sdk:build": "tsc -p infra/local/sdk/tsconfig.json",
-    "sdk:verify": "npm run sdk:build && node --import tsx infra/local/sdk/verify.ts"
+    "sdk:verify": "npm run sdk:build && node --import tsx infra/local/sdk/verify.ts",
+    "sources:test": "node --conditions=react-server --import tsx --test src/features/sources/*.test.ts",
+    "sources:verify": "node --conditions=react-server --import tsx infra/local/sources/verify.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
