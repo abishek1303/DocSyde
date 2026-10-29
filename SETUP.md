@@ -12,7 +12,8 @@ For architectural decisions, use [ARCHITECTURE.md](ARCHITECTURE.md).
   register explicit route/feature context inside that application.
 
 These capabilities are implemented independently. The homepage now connects GitHub comparison evidence to structured AI summaries.
-Structured documentation drafts are now generated in the local demo; storage, publishing and contextual delivery remain unimplemented.
+Structured documentation drafts can be generated, previewed, explicitly saved to
+PostgreSQL, and reopened without model calls. Publishing and contextual delivery remain unimplemented.
 
 ## First setup
 
@@ -33,6 +34,8 @@ exists, merge missing settings into it; do not overwrite existing credentials.
   **Contents: read-only**. Start with `abishek1303/DocSyde` for the example below.
 - `BASETEN_API_KEY`: your Baseten key.
 - `BASETEN_MODEL`: defaults to `meta-models/muse-spark-open-1026` when unset.
+- `DOCSYDE_DRAFT_SIGNING_KEY`: at least 32 random characters for preview → save;
+  generate locally with `openssl rand -hex 32`. Not needed to load saved drafts.
 - PostgreSQL settings: keep `DATABASE_URL`, `POSTGRES_*`, and `COMPOSE_FILE`
   consistent with `.env.example`. See [local infrastructure](infra/local/README.md).
 
@@ -104,8 +107,8 @@ See the [integration guides](README.md#independent-capability-proofs) for limits
 - Browser checks require permission to launch Chromium and bind local ports.
 - Turbopack builds have encountered port-binding restrictions in the agent environment.
   A webpack build has passed; `npm run build -- --webpack` is the fallback to try.
-- Full-product testing comes after connecting the integrations. Documentation
-  impact analysis, updates, storage, and delivery remain to be implemented.
+- Full-product testing comes after connecting the integrations. Targeting existing
+  documentation, automatic updates, publishing, and delivery remain to be implemented.
 
 ## Local change summaries
 
@@ -157,7 +160,27 @@ for budgets, validation limits, and failure handling.
 Open `/documentation/draft` from semantic analysis. Fresh runs perform analysis
 then one draft-generation call using existing GitHub/Baseten credentials. The UI
 shows rendered sections, server-preserved qualifications, canonical JSON and
-block-to-finding-to-citation provenance. Nothing is saved or published.
+block-to-finding-to-citation provenance. Saving is explicit; nothing is published.
 Run `npm run documentation:test` or the credit-using `npm run documentation:verify`.
 See the [Documentation guide](src/features/documentation/README.md) for the v1
 model, limits, grounding checks, renderer restrictions and deferred work.
+
+## Persisted documentation drafts
+
+Run `npm run db:setup` to apply the additive draft migration. Configure the signing
+key above before generating a preview you want to save. On `/documentation/draft`,
+generate once, inspect, then choose **Save draft**. Save failures can be retried
+without regenerating. Rotating the key invalidates old unsaved handoffs; persisted
+drafts remain readable. Existing Projects data and the Docker volume are preserved.
+
+Open `/documentation/drafts` to list and reopen saved drafts. This requires only
+`DATABASE_URL` and PostgreSQL: no signing key, GitHub token or model credentials.
+Drafts are immutable and remain unreviewed. These routes share the existing trusted
+local-demo scope; do not expose them publicly without resource authorization.
+
+`npm run documentation:persistence:test` runs isolated PostgreSQL tests, cleans up
+only its own fixture IDs, and verifies save/load/list/render with external HTTP
+disabled and provider credentials absent. `npm run documentation:persistence:verify`
+leaves one clearly labeled verification draft for inspecting the actual routes;
+rerun with `-- <id>` after a restart to reopen it without creating another row.
+See the [Documentation guide](src/features/documentation/README.md#persistence-and-signed-saving).

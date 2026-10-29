@@ -388,5 +388,18 @@ independent of Markdown, which is content only. Draft blocks reference semantic
 facts/findings and their validated citations; server assembly preserves uncertainty.
 Documentation calls Sources through a narrow entry and uses the existing structured
 AI boundary for one generation call. The local demo composes analysis + generation
-in one request. Drafts are unreviewed and ephemeral. Persistence, version history,
-targeting existing docs, updates, publishing and SDK delivery remain deferred.
+in one request. Drafts remain unreviewed; explicit saving now persists one complete
+canonical document per JSONB row in `docsyde.documentation_drafts`, with the existing
+document UUID and a separate first-save timestamp. Sections, associations and bounded
+provenance remain structured JSON, preserving identities without normalization or a
+Project binding. Saves are immutable and idempotent by PostgreSQL JSONB equality.
+
+Documentation's three persistence operations validate canonical graph integrity on
+write/read and call narrow database queries; database JSON enters the feature as
+`unknown`. Corrupt rows are isolated during listing. A documentation-specific HMAC
+handoff authenticates the exact generated preview string before save parsing, with
+signing metadata outside the canonical document. This does not add authentication.
+Saved list/detail routes use persistence and the existing renderer independently of
+AI, semantic analysis, GitHub/source retrieval and signing credentials. Lazy database
+initialization remains intact. Version history, editing, targeting existing docs,
+updates, publishing and SDK delivery remain deferred.

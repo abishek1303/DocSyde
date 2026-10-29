@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { documentSchema, draftProposal, type DraftFacts, type DocumentationDocument } from "./document";
+import { draftProposal, type DraftFacts, type DocumentationDocument } from "./document";
+import { validateDocumentationDocument } from "./document-validation";
 export function assembleDraft(raw: unknown, input: DraftFacts, model: string): DocumentationDocument {
   const proposal = draftProposal.parse(raw);
   const choices = new Map(input.context.map(c => [c.id, c]));
@@ -24,6 +25,6 @@ export function assembleDraft(raw: unknown, input: DraftFacts, model: string): D
   for (const id of associationRefs) { const c = choices.get(id)!; if (c.findingRef && !findingRefs.has(c.findingRef)) throw new Error("Association lacks a referenced finding."); }
   const findings = input.provenance.findings.filter(f => findingRefs.has(f.id));
   const evidenceIds = new Set(findings.flatMap(f => f.citations.map(c => c.evidenceId)));
-  return documentSchema.parse({ id: randomUUID(), schemaVersion: 1, status: "draft", title: proposal.title, associations: proposal.associations, sections,
+  return validateDocumentationDocument({ id: randomUUID(), schemaVersion: 1, status: "draft", title: proposal.title, associations: proposal.associations, sections,
     context: input.context.filter(c => associationRefs.has(c.id)), provenance: { ...input.provenance, facts: input.facts.filter(f => factRefs.has(f.id)), findings, evidence: input.provenance.evidence.filter(e => evidenceIds.has(e.id)) }, generation: { model, createdAt: new Date().toISOString() } });
 }

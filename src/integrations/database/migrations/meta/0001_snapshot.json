@@ -1,0 +1,125 @@
+{
+  "id": "31c3a807-126c-4689-bbf5-99ce6dffa4f3",
+  "prevId": "7bb81023-87dc-4276-a4ec-be7614c9da01",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "docsyde.documentation_drafts": {
+      "name": "documentation_drafts",
+      "schema": "docsyde",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "document": {
+          "name": "document",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "saved_at": {
+          "name": "saved_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "documentation_drafts_saved_at_id_idx": {
+          "name": "documentation_drafts_saved_at_id_idx",
+          "columns": [
+            {
+              "expression": "saved_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "documentation_drafts_canonical_envelope": {
+          "name": "documentation_drafts_canonical_envelope",
+          "value": "(\n    jsonb_typeof(\"docsyde\".\"documentation_drafts\".\"document\") = 'object'\n    AND \"docsyde\".\"documentation_drafts\".\"document\"->>'id' = \"docsyde\".\"documentation_drafts\".\"id\"::text\n    AND \"docsyde\".\"documentation_drafts\".\"document\"->'schemaVersion' = '1'::jsonb\n    AND \"docsyde\".\"documentation_drafts\".\"document\"->>'status' = 'draft'\n  ) IS TRUE"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "docsyde.projects": {
+      "name": "projects",
+      "schema": "docsyde",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "projects_name_not_blank": {
+          "name": "projects_name_not_blank",
+          "value": "length(trim(\"docsyde\".\"projects\".\"name\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {
+    "docsyde": "docsyde"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

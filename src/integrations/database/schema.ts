@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, pgSchema, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import { check, index, jsonb, pgSchema, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
 
 export const docsydeSchema = pgSchema("docsyde");
 
@@ -11,4 +11,18 @@ export const projects = docsydeSchema.table("projects", {
     .$onUpdate(() => new Date()),
 }, (table) => [
   check("projects_name_not_blank", sql`length(trim(${table.name})) > 0`),
+]);
+
+export const documentationDrafts = docsydeSchema.table("documentation_drafts", {
+  id: uuid("id").primaryKey(),
+  document: jsonb("document").$type<unknown>().notNull(),
+  savedAt: timestamp("saved_at", { withTimezone: true, precision: 3 }).defaultNow().notNull(),
+}, table => [
+  check("documentation_drafts_canonical_envelope", sql`(
+    jsonb_typeof(${table.document}) = 'object'
+    AND ${table.document}->>'id' = ${table.id}::text
+    AND ${table.document}->'schemaVersion' = '1'::jsonb
+    AND ${table.document}->>'status' = 'draft'
+  ) IS TRUE`),
+  index("documentation_drafts_saved_at_id_idx").on(table.savedAt, table.id),
 ]);

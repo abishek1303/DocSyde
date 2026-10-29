@@ -23,6 +23,12 @@ overwrites `.env` or removes volumes.
 preserves the existing `docsyde_postgres_data` volume when relocating the file.
 The setup script uses explicit paths and does not depend on Compose discovery.
 
+The additive documentation-draft migration uses this same PostgreSQL service and
+volume. `npm run documentation:persistence:test` creates/cleans only isolated test
+rows; `npm run documentation:persistence:verify` leaves a labeled draft for the local
+list/detail UI. These checks make no model/source calls. See the
+[documentation guide](../../src/features/documentation/README.md#persistence-and-signed-saving).
+
 All application tables are schema-qualified under `docsyde`, independently of
 the connection's `search_path`. The initial migration creates that schema before
 creating `docsyde.projects`. For a database from the earlier uncommitted proof,

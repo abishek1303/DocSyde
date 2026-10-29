@@ -19,4 +19,4 @@ export type DocumentationDocument = z.infer<typeof documentSchema>;
 export type DraftProposal = z.infer<typeof draftProposal>;
 export type AssociationChoice = z.infer<typeof associationChoice>;
 export type DraftFacts = { facts: z.infer<typeof fact>[]; context: AssociationChoice[]; provenance: z.infer<typeof provenance> };
-export type DraftResult = { status: "draft" | "no-draft" | "insufficient-evidence" | "error"; document: DocumentationDocument | null; reason?: string; analysisRejection?: AnalysisRejection; input?: DraftFacts };
+export type DraftResult = { status: "draft" | "no-draft" | "insufficient-evidence" | "error"; document: DocumentationDocument | null; reason?: string; analysisRejection?: AnalysisRejection; input?: DraftFacts; preview?: { serialized: string; signature: string }; saveUnavailable?: string };

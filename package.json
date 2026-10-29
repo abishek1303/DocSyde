@@ -29,7 +29,9 @@
     "sources:context:verify": "node --conditions=react-server --import tsx infra/local/sources/verify-context.ts",
     "sources:product:verify": "node --conditions=react-server --import tsx infra/local/sources/verify-product-changes.ts",
     "documentation:test": "node --conditions=react-server --import tsx --test src/features/documentation/*.test.ts",
-    "documentation:verify": "node --conditions=react-server --import tsx infra/local/documentation/verify-draft.ts"
+    "documentation:verify": "node --conditions=react-server --import tsx infra/local/documentation/verify-draft.ts",
+    "documentation:persistence:test": "node --conditions=react-server --import tsx --test infra/local/documentation/persistence.test.ts",
+    "documentation:persistence:verify": "node --conditions=react-server --import tsx infra/local/documentation/verify-persistence.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

@@ -8,6 +8,13 @@
       "when": 1793246679324,
       "tag": "0000_create-docsyde-projects",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793312358416,
+      "tag": "0001_persist-documentation-drafts",
+      "breakpoints": true
     }
   ]
 }

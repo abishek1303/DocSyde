@@ -2,7 +2,7 @@
 
 Contextual documentation, inside your product.
 
-DocSyde will generate documentation from source code and product context, and surface relevant documentation and answers inside a host application. This repository currently contains a minimal Next.js homepage, shared UI primitives, and a modular monolith scaffold. Independent persistence, source evidence, model invocation, runtime, SDK context, and browser capture proofs are implemented; the homepage connects GitHub evidence to AI change summaries; structured proposed drafts are implemented, while storage, publishing and delivery remain planned.
+DocSyde will generate documentation from source code and product context, and surface relevant documentation and answers inside a host application. This repository currently contains a minimal Next.js homepage, shared UI primitives, and a modular monolith scaffold. Independent persistence, source evidence, model invocation, runtime, SDK context, and browser capture proofs are implemented; the homepage connects GitHub evidence to AI change summaries. Structured proposed drafts can be explicitly saved to PostgreSQL and reopened without model calls; publishing and delivery remain planned.
 
 ## Local development
 
@@ -115,7 +115,7 @@ src/
 - Fetch server-rendered data through feature server functions. Use HTTP endpoints only for real HTTP boundaries, and validate untrusted input and enforce resource permissions in server operations.
 - Preserve shared UI, theme tokens, and `src/lib/utils.ts`. Add implementation files only for concrete requirements.
 
-See [AGENTS.md](AGENTS.md) for the full development rules. Model invocation and the host-context SDK are implemented as independent capability proofs. User authentication, provider installation flows, embeddings, ingestion, documentation delivery and embed UI, and background infrastructure remain future work. The GitHub-to-AI summary workflow is implemented; broader structured proposed drafts are implemented, while storage, publishing and delivery remain planned.
+See [AGENTS.md](AGENTS.md) for the full development rules. Model invocation and the host-context SDK are implemented as independent capability proofs. User authentication, provider installation flows, embeddings, ingestion, documentation delivery and embed UI, and background infrastructure remain future work. GitHub-to-AI summaries and structured proposed drafts with explicit PostgreSQL saving are implemented; publishing and delivery remain planned.
 
 ## Independent capability proofs
 
@@ -187,7 +187,16 @@ for budgets, validation limits, and failure handling.
 Open `/documentation/draft` from semantic analysis. Fresh runs perform analysis
 then one draft-generation call using existing GitHub/Baseten credentials. The UI
 shows rendered sections, server-preserved qualifications, canonical JSON and
-block-to-finding-to-citation provenance. Nothing is saved or published.
+block-to-finding-to-citation provenance. Choose **Save draft** after previewing to
+persist the canonical document; nothing is published. Configure server-only
+`DOCSYDE_DRAFT_SIGNING_KEY` (at least 32 random characters) for saving.
 Run `npm run documentation:test` or the credit-using `npm run documentation:verify`.
 See the [Documentation guide](src/features/documentation/README.md) for the v1
 model, limits, grounding checks, renderer restrictions and deferred work.
+
+Saved drafts are listed at `/documentation/drafts`. Reopening uses PostgreSQL and
+the existing renderer only, preserving document/section IDs without AI calls or
+provider credentials. Run `npm run db:setup` for the additive migration and
+`npm run documentation:persistence:test` for isolated round-trip/zero-call checks.
+The [setup notes](SETUP.md#persisted-documentation-drafts) cover signing and the
+no-model verification CLI.
