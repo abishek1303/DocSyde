@@ -1,0 +1,13 @@
+{
+  "baseUrl": "http://127.0.0.1:45873",
+  "path": "/requests",
+  "readySelector": "#app[data-ready=true]",
+  "steps": [],
+  "regions": [
+    {
+      "name": "requests",
+      "selector": "#request-list"
+    }
+  ],
+  "outputDirectory": "test-app/.artifacts/captures"
+}

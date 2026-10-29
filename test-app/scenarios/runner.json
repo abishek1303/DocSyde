@@ -1,0 +1,10 @@
+{
+  "cwd": "test-app",
+  "command": "node",
+  "args": [
+    "dist/src/server.js"
+  ],
+  "baseUrl": "http://127.0.0.1:45873",
+  "readinessPath": "/health",
+  "startupTimeoutMs": 5000
+}

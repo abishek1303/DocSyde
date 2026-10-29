@@ -1,0 +1,6 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { initialRequests, createRequest, closeRequest } from "../src/public/requests.js";
+test("deterministic independent initial data", () => { const first = initialRequests(); first[0].title = "changed"; assert.equal(initialRequests()[0].title, "Update team contact"); assert.deepEqual(initialRequests().map(r => r.id), ["r-001", "r-002"]); });
+test("creation requires a nonblank title and permits optional description", () => { for (const title of ["", "   "]) assert.throws(() => createRequest(initialRequests(), title, ""), /title/); const initial = initialRequests(); const next = createRequest(initial, "  Help  ", ""); assert.equal(initial.length, 2); assert.deepEqual(next[2], { id: "r-003", title: "Help", description: "", status: "open" }); assert.equal(createRequest(next, "Next", "Details")[3].id, "r-004"); });
+test("closing is immutable, idempotent, and rejects missing requests", () => { const initial = initialRequests(); const next = closeRequest(initial, "r-001"); assert.equal(initial[0].status, "open"); assert.equal(next[0].status, "closed"); assert.deepEqual(closeRequest(next, "r-001"), next); assert.throws(() => closeRequest(initial, "missing"), /not found/); });

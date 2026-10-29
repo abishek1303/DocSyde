@@ -1,0 +1,6 @@
+body { font: 17px/1.6 system-ui, sans-serif; color: #183043; background: #f4f7fa; max-width: 850px; margin: 0 auto; padding: 32px; }
+header, nav { display: flex; align-items: center; gap: 24px; } header { justify-content: space-between; }
+main { margin: 32px 0; padding: 28px; background: white; border: 1px solid #c7d5df; border-radius: 8px; }
+a { color: #125e98; } button { cursor: pointer; padding: 8px 16px; font: inherit; } input, textarea { display: block; width: 100%; box-sizing: border-box; padding: 10px; font: inherit; margin-bottom: 20px; }
+li { margin: 16px 0; } :focus-visible { outline: 3px solid #e08b00; outline-offset: 3px; } [role=alert] { color: #a51e1e; } .description { white-space: pre-wrap; }
+@media (max-width: 600px) { body { padding: 16px; } header { align-items: start; flex-direction: column; gap: 8px; } }
