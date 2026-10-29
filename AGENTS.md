@@ -88,3 +88,25 @@ This is an ownership map. Create subfolders and implementation files when there 
 - Test meaningful business behavior, validation, and authorization when implementing those paths. Do not introduce a testing framework for a static starter cleanup or tests that only mirror folder structure.
 - For visible UI changes, check the page in a browser when available. Report any verification that could not be performed.
 - Finish with a concise description of the resulting behavior, important files or boundaries, and actual validation results. Distinguish planned architecture from implemented functionality.
+
+# Architecture Instructions
+
+Before making architectural or structural changes, read `ARCHITECTURE.md` and treat it as the source of truth for this repository.
+
+Follow the existing architecture unless the user explicitly asks to revisit it.
+
+Rules:
+
+- Preserve the boundaries and responsibilities defined in `ARCHITECTURE.md`.
+- Inspect the existing repository and conventions before adding new structure.
+- Prefer extending existing patterns over creating parallel implementations.
+- Keep application logic, persistence, external providers, runner/runtime code, SDK/client code, and demo UI responsibilities separated.
+- Do not move responsibilities between layers without a clear reason.
+- Prefer small, testable vertical slices over broad speculative implementations.
+- Avoid unnecessary abstractions and production-scale complexity.
+- Keep secrets and environment-specific configuration out of source code.
+- Do not reintroduce previously rejected technologies or architectural approaches unless explicitly discussed.
+- If a requested change conflicts with `ARCHITECTURE.md`, call out the conflict before changing the architecture.
+- If the architecture is intentionally changed, update `ARCHITECTURE.md` so future work follows the new decision.
+
+For implementation tasks, first determine where the change belongs in the documented architecture, then make the smallest coherent change that fits it.
