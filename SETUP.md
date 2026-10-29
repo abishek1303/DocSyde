@@ -129,3 +129,14 @@ command defaults to base `40bd71f8adb0a8380f0de20ff65aa6915fb7654c` and head
 comparison use `npm run sources:verify -- 4cf816fc9e4b9cc644228db3f3156b0c3e46bdb1 40bd71f8adb0a8380f0de20ff65aa6915fb7654c`.
 These commands use API credits. See the [Sources guide](src/features/sources/README.md)
 for budgets, failure behavior, and local access limitations.
+
+## Review source context
+
+Open http://127.0.0.1:3000/sources/context (linked from the homepage) to select
+a revision and up to 10 file paths. The screen displays pinned source contents,
+content IDs, and explicit coverage. It uses the existing GitHub credentials and
+repository allowlist, with no AI calls, database, or persistence.
+
+Run `npm run sources:context:verify` for the live example at `cb08108`; optional
+arguments are a revision followed by paths. See the [Sources guide](src/features/sources/README.md#review-source-context)
+for budgets, unsupported content, local access restrictions, and failure behavior.

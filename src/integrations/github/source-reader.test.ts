@@ -331,3 +331,16 @@ test("optional cancellation reaches the request signal", async t => {
   });
   await assert.rejects(compareCommits(comparisonInput, { signal: controller.signal }), hasCode("timeout"));
 });
+
+test("resolves a single revision and supports cancelled pinned reads", async t => {
+  const { resolveRevision } = await import("./source-reader");
+  const calls = mockGithub(t, () => ({ body: commit(HEAD) }));
+  assert.equal((await resolveRevision({ ...repository, revision: "main" })).commitId, HEAD);
+  assert.equal(calls.length, 1);
+  await assert.rejects(resolveRevision({ ...repository, revision: "bad..ref" }), hasCode("invalid-input"));
+  const controller = new AbortController(); controller.abort();
+  t.mock.method(globalThis, "fetch", async (_url: unknown, init?: RequestInit) => {
+    assert.equal(init?.signal?.aborted, true); throw new DOMException("aborted", "AbortError");
+  });
+  await assert.rejects(readFileAtCommit(fileInput, { signal: controller.signal }), hasCode("timeout"));
+});

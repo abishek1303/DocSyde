@@ -9,15 +9,16 @@ const repositoryInput = z.object({
   owner: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9-]*$/),
   repo: z.string().regex(/^[A-Za-z0-9_.-]+$/).refine((name) => name !== "." && name !== ".."),
 });
-const revision = z.string().min(1).max(1024).refine((value) =>
+export const revisionInput = z.string().min(1).max(1024).refine((value) =>
   !/[\s\x00-\x1f\x7f:]/.test(value) && !value.includes("..") &&
   !value.split("/").some((part) => part === "" || part === "."));
-const compareInput = repositoryInput.extend({ base: revision, head: revision });
+const compareInput = repositoryInput.extend({ base: revisionInput, head: revisionInput });
+export const repositoryPathInput = z.string().min(1).refine((path) =>
+    !/[\x00-\x1f\x7f\\]/.test(path) &&
+    !path.split("/").some((part) => part === "" || part === "." || part === ".."));
 const fileInput = repositoryInput.extend({
   commitSha: z.string().regex(/^[a-fA-F0-9]{40}$/),
-  path: z.string().min(1).refine((path) =>
-    !/[\x00-\x1f\x7f\\]/.test(path) &&
-    !path.split("/").some((part) => part === "" || part === "." || part === "..")),
+  path: repositoryPathInput,
 });
 
 function parseInput<T>(schema: z.ZodType<T>, input: unknown): T {
@@ -52,6 +53,15 @@ const changeKinds: Record<string, FileChange["kind"]> = {
 
 function incomplete(message: string): never {
   throw new SourceReadError("incomplete-evidence", message);
+}
+
+export async function resolveRevision(input: { owner: string; repo: string; revision: string }, options: { signal?: AbortSignal } = {}): Promise<CommitEvidence> {
+  const parsed = parseInput(repositoryInput.extend({ revision: revisionInput }), input);
+  return withGithubErrors(async () => {
+    const client = await createGithubClient(options.signal);
+    const { data } = await client.rest.repos.getCommit({ owner: parsed.owner, repo: parsed.repo, ref: parsed.revision, per_page: 1 });
+    return commitEvidence(data);
+  });
 }
 
 export async function compareCommits(input: {
@@ -118,10 +128,10 @@ export async function compareCommits(input: {
 
 export async function readFileAtCommit(input: {
   owner: string; repo: string; commitSha: string; path: string;
-}): Promise<FileEvidence> {
+}, options: { signal?: AbortSignal } = {}): Promise<FileEvidence> {
   const { owner, repo, commitSha, path } = parseInput(fileInput, input);
   return withGithubErrors(async () => {
-    const client = await createGithubClient();
+    const client = await createGithubClient(options.signal);
     const { data: commit } = await client.rest.git.getCommit({ owner, repo, commit_sha: commitSha });
     let treeId = commit.tree.sha;
     const parts = path.split("/");

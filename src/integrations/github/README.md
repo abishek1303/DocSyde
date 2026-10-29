@@ -93,3 +93,11 @@ No repository writes, database, app server, or model credentials are involved.
 
 This is a trusted local CLI proof, not a user-authorized API. Project/resource
 authorization belongs in feature operations before any future user-facing exposure.
+
+### Single revision source review
+
+`resolveRevision({ owner, repo, revision }, { signal? })` returns normalized commit
+metadata for one branch, tag, or commit. `readFileAtCommit` accepts an optional
+second `{ signal }` argument, combined with its existing request deadline. Existing
+callers remain valid. The Sources feature owns authorization and review budgets.
+The adapter exports its revision/path validators for preflight batch validation.
