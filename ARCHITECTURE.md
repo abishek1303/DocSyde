@@ -155,6 +155,23 @@ It should not be responsible for deciding what the product change means or which
 
 That semantic interpretation belongs in application/model-driven logic.
 
+The first implemented provider slice is a read-only GitHub adapter under
+`src/integrations/github`, using Octokit and `GITHUB_TOKEN`. It resolves base/head
+refs to immutable commits, returns normalized change evidence, and separately
+reads text files at pinned commits. The result types are plain, provider-neutral
+TypeScript structures colocated with their first producer; no Octokit response
+types escape the integration. GitHub is one provider, not the core source-change
+abstraction. A future local Git provider can produce equivalent evidence without
+implementing GitHub payloads; no provider registry or broad abstraction is added.
+
+Comparisons require ancestor-to-descendant history, paginate commit metadata,
+and fail rather than claim completeness at GitHub's 300-file comparison cap.
+Patch availability is explicit and distinct from file-list completeness. File
+reads inspect Git tree modes and support regular UTF-8 text up to 1 MiB, with
+explicit unsupported results for binary content and other file types. The local
+`npm run github:verify` CLI lives under `infra/local/github`. This slice adds no
+model analysis, persistence, user-facing endpoint, local Git provider, or runner.
+
 ---
 
 ### Runner
@@ -325,3 +342,29 @@ When an intentional architectural decision changes:
 Previously rejected technologies or patterns should not be reintroduced silently.
 
 If a new requirement appears to conflict with this architecture, discuss the conflict before restructuring the project.
+
+## Independent capability proofs
+
+The remaining infrastructure slices are now implemented independently:
+
+- `src/integrations/ai`: narrow text-only `generateStructured` capability with
+  Baseten transport, JSON parsing, local Zod validation and sanitized failures.
+  The event model is configurable; schema enforcement is not assumed remotely.
+- `src/integrations/local-git`: committed comparisons and pinned file reads using
+  type-only reuse of the existing neutral GitHub evidence definitions. No GitHub
+  type relocation or provider registry is introduced.
+- `src/runner/runtime`: explicit local launch/attach, readiness, runtime identity,
+  and direct-child cleanup using Node APIs, without process-group assumptions.
+- `src/sdk`: dependency-free host context registration and an inert JSON DOM
+  bridge. No documentation delivery API or embed UI exists yet.
+- `src/integrations/browser`: caller-scripted Playwright capture. PNG screenshots
+  are visual evidence; DOM text, regions, headings and SDK metadata are runtime
+  evidence. This layer does not interpret either kind of evidence.
+
+Verification CLIs live in corresponding `infra/local` directories. Test fixtures
+are not product/demo implementations. Generated artifacts live under ignored
+`.artifacts`. All five slices use existing dependencies, and none adds persistence,
+application HTTP routes, source-to-model wiring, semantic interpretation, or
+orchestration. Application/feature ownership of documentation impact, generation,
+review, publishing, and contextual delivery remains future work. Runtime-to-commit
+provenance is not inferred by these infrastructure proofs.

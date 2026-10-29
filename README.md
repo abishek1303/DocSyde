@@ -2,7 +2,7 @@
 
 Contextual documentation, inside your product.
 
-DocSyde will generate documentation from source code and product context, and surface relevant documentation and answers inside a host application. This repository currently contains a minimal Next.js homepage, shared UI primitives, and a modular monolith scaffold. A local PostgreSQL Project create/read proof is implemented; other capabilities remain planned.
+DocSyde will generate documentation from source code and product context, and surface relevant documentation and answers inside a host application. This repository currently contains a minimal Next.js homepage, shared UI primitives, and a modular monolith scaffold. Independent persistence, source evidence, model invocation, runtime, SDK context, and browser capture proofs are implemented; the combined product workflow remains planned.
 
 ## Local development
 
@@ -48,6 +48,25 @@ The committed SQL migration creates only `docsyde.projects` (`id`, `name`, `crea
 
 The proof is CLI-only, with no public create/read API or Project UI. Authentication and resource authorization must be added before exposing these operations to users.
 
+## GitHub source inspection proof
+
+Set `GITHUB_TOKEN` in the ignored root `.env`. A fine-grained token with
+**Contents: read** for selected repositories is recommended; any token with the
+required GitHub access is supported. It is not needed to render or build the app.
+
+```sh
+npm run github:verify -- <owner> <repo> <base> <head> [--path <path>]
+npm run github:test
+```
+
+The CLI resolves two refs to immutable commits, prints normalized commit/file
+evidence, and optionally reads a text file at head. It rejects unsupported histories
+and comparisons at GitHub's file-list cap rather than claiming incomplete evidence
+is complete. Missing patches and unsupported file contents are explicit. This slice
+does not clone repositories, run applications, call models, or write to GitHub.
+See [GitHub integration](src/integrations/github/README.md) for a reproducible
+example, credential setup, output semantics, and limits.
+
 ## Checks and production
 
 ```bash
@@ -74,8 +93,8 @@ src/
     assistant/            retrieval, answer generation, citations
     embed/                documentation and assistant UI inside host apps
   integrations/
-    github/               planned GitHub client and provider operations
-    ai/                   planned model and embedding provider operations
+    github/               read-only GitHub comparison and pinned file reader
+    ai/                   typed text model invocation through Baseten
     database/             PostgreSQL client, schema, queries, and migrations
   components/ui/          existing shared UI primitives
   lib/                    small shared helpers, including utils.ts
@@ -93,4 +112,24 @@ src/
 - Fetch server-rendered data through feature server functions. Use HTTP endpoints only for real HTTP boundaries, and validate untrusted input and enforce resource permissions in server operations.
 - Preserve shared UI, theme tokens, and `src/lib/utils.ts`. Add implementation files only for concrete requirements.
 
-See [AGENTS.md](AGENTS.md) for the full development rules. Authentication, provider connections, AI calls, ingestion, an embedded SDK, and background infrastructure are outside the current scaffold.
+See [AGENTS.md](AGENTS.md) for the full development rules. Model invocation and the host-context SDK are implemented as independent capability proofs. User authentication, provider installation flows, embeddings, ingestion, documentation delivery and embed UI, and background infrastructure remain future work. The combined product workflow is not implemented yet.
+
+## Independent capability proofs
+
+The following slices are implemented without connecting them into a product
+workflow. No documentation generation, new persistence, UI, or orchestration is
+included.
+
+| Slice | Independent checks | Guide |
+| --- | --- | --- |
+| Text-only Baseten model | `npm run ai:test`, `npm run ai:verify` | [AI](src/integrations/ai/README.md) |
+| Local committed Git evidence | `npm run git:test`, `npm run git:verify -- . HEAD~1 HEAD` | [Local Git](src/integrations/local-git/README.md) |
+| Local launch/attach | `npm run runner:test`, `npm run runner:verify -- infra/local/runner/example.json` | [Runtime](src/runner/runtime/README.md) |
+| Thin host context SDK | `npm run sdk:test`, `npm run sdk:verify` | [SDK](src/sdk/README.md) |
+| Scripted browser evidence | `npm run capture:test`, `npm run capture:verify -- infra/local/capture/example.json` | [Capture](src/integrations/browser/README.md) |
+
+Model live verification needs `BASETEN_API_KEY`; the event model defaults to
+`meta-models/muse-spark-open-1026`. Browser proofs need `npx playwright install
+chromium`. No new npm dependencies are required. Screenshots and compiled SDK
+output stay under ignored `.artifacts/`. Source evidence, runtime evidence, and
+model invocation remain separate; DOM extraction is not visual understanding.

@@ -10,7 +10,20 @@
     "db:generate": "drizzle-kit generate --config=infra/local/postgres/drizzle.config.ts",
     "db:migrate": "drizzle-kit migrate --config=infra/local/postgres/drizzle.config.ts",
     "db:verify": "node --conditions=react-server --import tsx infra/local/postgres/verify-project.ts",
-    "db:setup": "sh infra/local/postgres/setup.sh"
+    "db:setup": "sh infra/local/postgres/setup.sh",
+    "github:verify": "node --conditions=react-server --import tsx infra/local/github/verify-source.ts",
+    "github:test": "node --conditions=react-server --import tsx --test src/integrations/github/source-reader.test.ts",
+    "ai:test": "node --conditions=react-server --import tsx --test src/integrations/ai/generate-structured.test.ts",
+    "ai:verify": "node --conditions=react-server --import tsx infra/local/ai/verify.ts",
+    "git:test": "node --conditions=react-server --import tsx --test src/integrations/local-git/source-reader.test.ts",
+    "git:verify": "node --conditions=react-server --import tsx infra/local/git/verify.ts",
+    "runner:test": "node --conditions=react-server --import tsx --test src/runner/runtime/runtime.test.ts",
+    "runner:verify": "node --conditions=react-server --import tsx infra/local/runner/verify.ts",
+    "capture:test": "node --conditions=react-server --import tsx --test src/integrations/browser/capture.test.ts",
+    "capture:verify": "node --conditions=react-server --import tsx infra/local/capture/verify.ts",
+    "sdk:test": "node --import tsx --test src/sdk/context-client.test.ts",
+    "sdk:build": "tsc -p infra/local/sdk/tsconfig.json",
+    "sdk:verify": "npm run sdk:build && node --import tsx infra/local/sdk/verify.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

@@ -28,3 +28,9 @@ the connection's `search_path`. The initial migration creates that schema before
 creating `docsyde.projects`. For a database from the earlier uncommitted proof,
 it moves `public.projects` into `docsyde` without losing rows. Drizzle migration
 history stays in the separate `drizzle` schema.
+
+GitHub source verification lives in `github/verify-source.ts` and runs through
+`npm run github:verify -- <owner> <repo> <base> <head> [--path <path>]`. It reads
+`GITHUB_TOKEN` from the root `.env` or process environment, uses only read-only
+GitHub requests, and does not depend on Docker or PostgreSQL. See the
+[GitHub integration guide](../../src/integrations/github/README.md).

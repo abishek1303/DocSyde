@@ -1,0 +1,8 @@
+{
+  "baseUrl": "http://127.0.0.1:3000",
+  "path": "/",
+  "readySelector": "h1",
+  "steps": [],
+  "regions": [{ "name": "heading", "selector": "h1" }],
+  "outputDirectory": ".artifacts/captures"
+}
