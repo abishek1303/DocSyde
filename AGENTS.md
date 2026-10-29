@@ -14,6 +14,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 DocSyde generates documentation from source code and product context, and surfaces relevant documentation and answers inside a host application.
 
+Read [hackathon.md](hackathon.md) when planning integrations, choosing models, scoping features, or preparing the demo and submission. It records the participant guide supplied by the user, including required Meta model usage, eligibility rules, deadlines, and judging criteria. Keep architectural decisions aligned with `ARCHITECTURE.md`.
+
 Build the requested slice completely. Keep changes small enough to review. Do not invent product requirements, backend services, demo data, or integrations to fill gaps in a scaffold.
 
 ## Architecture
