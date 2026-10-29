@@ -2,7 +2,7 @@
 
 Contextual documentation, inside your product.
 
-DocSyde will generate documentation from source code and product context, and surface relevant documentation and answers inside a host application. This repository currently contains a minimal Next.js homepage, shared UI primitives, and a modular monolith scaffold. Feature modules and integrations are planned, not implemented.
+DocSyde will generate documentation from source code and product context, and surface relevant documentation and answers inside a host application. This repository currently contains a minimal Next.js homepage, shared UI primitives, and a modular monolith scaffold. A local PostgreSQL Project create/read proof is implemented; other capabilities remain planned.
 
 ## Local development
 
@@ -14,6 +14,39 @@ npm run dev
 ```
 
 Open http://localhost:3000. No provider credentials or environment variables are required for the starter. The existing Geist fonts use `next/font/google`, which requires network access to Google Fonts during compilation.
+
+## Local PostgreSQL persistence proof
+
+Start Docker Desktop. For a new checkout:
+
+```bash
+cp .env.example .env
+docker compose up -d
+docker compose ps
+npm run db:migrate
+npm run db:verify
+```
+
+If `.env` exists, merge the PostgreSQL variables from `.env.example` instead of overwriting it. Wait for `docker compose ps` to show `healthy` before migrating, or use `docker compose up -d --wait`.
+
+`COMPOSE_FILE` in `.env` points Docker Compose to `infra/local/compose.yaml`. PostgreSQL setup and verification entry points live under `infra/local/postgres/`. Run `npm run db:setup` to start PostgreSQL, wait for health, and apply migrations in one repeatable step; a future repository setup script can call the same entry point. See [local infrastructure](infra/local/README.md).
+
+The app and CLI use `DATABASE_URL` from `.env`; Compose uses `POSTGRES_*`. Keep them in sync. If port 5432 is occupied, change both `POSTGRES_PORT` and the port in `DATABASE_URL`. Next.js can override `.env` through `.env.local`; keep any database override consistent with the CLI, which reads `.env`. Defaults are local development credentials; the port is published only on `127.0.0.1`. PostgreSQL initializes credentials only for a new volume; changing environment variables does not alter an existing database.
+
+`db:verify` calls the Projects application operations through the persistence boundary. It checks invalid input and a missing project, saves a Project, and retrieves the same four fields through a fresh connection. Each normal run leaves one verification project in the local database. It prints a command to read that ID in another process:
+
+```bash
+npm run db:verify -- <printed-project-id>
+docker compose restart postgres
+# Wait for healthy, then read the same ID again.
+npm run db:verify -- <printed-project-id>
+```
+
+The named `postgres_data` volume survives restarts and `docker compose down`. Stop normally with `docker compose down`. Adding `-v` deletes the volume and all local data.
+
+The committed SQL migration creates only `docsyde.projects` (`id`, `name`, `createdAt`, `updatedAt`). `updatedAt` defaults on creation and is refreshed by Drizzle updates; no update operation is implemented yet. Fresh databases never create application tables in `public`. Existing projects from the earlier uncommitted proof are moved into `docsyde` with their data preserved. Drizzle records migration history separately in `drizzle`; `db:migrate` applies only unapplied migrations. After an intentional schema change, run `npm run db:generate -- --name=<description>`, review the SQL, then run `npm run db:migrate`.
+
+The proof is CLI-only, with no public create/read API or Project UI. Authentication and resource authorization must be added before exposing these operations to users.
 
 ## Checks and production
 
@@ -29,7 +62,7 @@ npm run start
 
 ## Architecture
 
-One Next.js application, organized by product feature. README-only folders document planned ownership:
+One Next.js application, organized by product feature. Folders follow this ownership map:
 
 ```text
 src/
@@ -43,7 +76,7 @@ src/
   integrations/
     github/               planned GitHub client and provider operations
     ai/                   planned model and embedding provider operations
-    database/             planned database clients and connection configuration
+    database/             PostgreSQL client, schema, queries, and migrations
   components/ui/          existing shared UI primitives
   lib/                    small shared helpers, including utils.ts
 ```

@@ -102,6 +102,21 @@ For the hackathon, prefer local PostgreSQL through Docker Compose.
 
 Do not depend on Supabase-specific features.
 
+The first implemented slice uses local PostgreSQL 17 in Docker Compose, a named
+volume, and Drizzle ORM with `pg`. Local service configuration lives under
+`infra/local`, with PostgreSQL setup and verification entry points under
+`infra/local/postgres`. `npm run db:setup` is a repeatable infrastructure step
+that a future repository setup script can invoke. Root `.env` selects the Compose
+file; an explicit Compose project name preserves the existing named volume.
+Application tables live in the dedicated `docsyde` PostgreSQL schema and ORM
+queries qualify that schema explicitly. The client, physical schema, SQL queries, and
+versioned migrations live in `src/integrations/database`. Project application
+types and validation live in `src/features/projects`; application operations call
+narrow persistence functions without using driver or ORM APIs. This keeps the
+persistence implementation separate without adding a generic repository layer.
+The local `npm run db:verify` CLI exercises create/read through those operations;
+no HTTP endpoint, authorization system, or Project UI is implemented in this slice.
+
 ---
 
 ### Model Providers
