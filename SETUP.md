@@ -140,3 +140,14 @@ repository allowlist, with no AI calls, database, or persistence.
 Run `npm run sources:context:verify` for the live example at `cb08108`; optional
 arguments are a revision followed by paths. See the [Sources guide](src/features/sources/README.md#review-source-context)
 for budgets, unsupported content, local access restrictions, and failure behavior.
+
+## Semantic product-change analysis
+
+Open `/sources/analysis` (linked from Sources) to interpret original Git evidence
+and selected pinned source context. Findings separate product behavior, internal
+changes, and insufficient evidence, with confidence, qualifications, and exact
+line citations. No generated summary is used as input. No results are persisted.
+Run `npm run sources:product:verify -- <base> <head> [context-paths...]` for a live
+check using the existing GitHub/Baseten credentials and local repository allowlist.
+See the [Sources guide](src/features/sources/README.md#semantic-product-change-analysis)
+for budgets, validation limits, and failure handling.

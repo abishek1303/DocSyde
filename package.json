@@ -26,7 +26,8 @@
     "sdk:verify": "npm run sdk:build && node --import tsx infra/local/sdk/verify.ts",
     "sources:test": "node --conditions=react-server --import tsx --test src/features/sources/*.test.ts",
     "sources:verify": "node --conditions=react-server --import tsx infra/local/sources/verify.ts",
-    "sources:context:verify": "node --conditions=react-server --import tsx infra/local/sources/verify-context.ts"
+    "sources:context:verify": "node --conditions=react-server --import tsx infra/local/sources/verify-context.ts",
+    "sources:product:verify": "node --conditions=react-server --import tsx infra/local/sources/verify-product-changes.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

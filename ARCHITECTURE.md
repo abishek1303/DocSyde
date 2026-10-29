@@ -368,3 +368,14 @@ application HTTP routes, source-to-model wiring, semantic interpretation, or
 orchestration. Application/feature ownership of documentation impact, generation,
 review, publishing, and contextual delivery remains future work. Runtime-to-commit
 provenance is not inferred by these infrastructure proofs.
+
+## Connected Sources workflows
+
+Sources now implements GitHub change summaries, pinned selected-file review, and
+semantic product-change interpretation in the existing modular monolith. Semantic
+analysis composes normalized comparison evidence and pinned context through the
+existing structured-model capability. Feature operations own authorization, coverage,
+limits and evidence validation; GitHub and Baseten implementations remain isolated.
+This supersedes earlier descriptions of source-to-model wiring as entirely planned.
+Documentation generation/mutation, persistence of analyses, runtime orchestration,
+and contextual delivery remain future work. No architecture boundary has moved.

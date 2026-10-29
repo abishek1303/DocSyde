@@ -62,3 +62,63 @@ Run `npm run sources:context:verify` for the real pinned-file smoke test. Option
 arguments are a revision followed by paths. The CLI reports metadata without file
 contents and exits nonzero for incomplete contexts. `npm run sources:test` includes
 context regression tests; GitHub adapter checks remain in `npm run github:test`.
+
+## Semantic product-change analysis
+
+`analyzeProductChanges` owns the server-only workflow behind `/sources/analysis`:
+comparison → pinned base/head context → bounded evidence → one structured model
+call → local schema/citation validation. Existing summary/review screens remain.
+The pinned-reader extraction shares retrieval logic without nested lock acquisition.
+The existing repository allowlist and single-process guard apply. Keep the app
+loopback-only; authentication/resource permissions are required before wider exposure.
+
+`PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES` in `product-change-limits.ts` is the named
+64 KiB limit on the actual serialized evidence payload. Existing patch selection
+limits apply, with up to ten explicit context paths and two simultaneous file reads.
+There is no silent truncation or automatic selection of extra files. Expected absent
+sides for added/deleted files differ from unexpected missing context. All changed
+files remain in the inventory. Endpoint context shares the comparison's pinned IDs.
+
+Output starts with assessment product-change/internal-only/insufficient-evidence,
+findings and uncertainties. No-change is deterministic and skips AI; limited-evidence
+is separate coverage metadata and prohibits range-wide internal-only conclusions.
+Missing/unsupported text can yield qualified findings; transport failures stop analysis.
+Each citation has evidenceId, startLine, endLine and exact contiguous excerpt within that range. Patch
+citations alone can suffice. Audience/surface are optional. New symbols do not prove
+reachable behavior: capability claims require cited caller/route/configuration context.
+Reference validation proves traceability, not semantic correctness or runtime behavior;
+confidence is not calibrated probability. Review findings before downstream use.
+
+Model output initially used 4,096 tokens. The real source-review comparison with two
+context paths (42,658 evidence bytes) hit incomplete-output, so the configured budget
+is 8,192. Evidence collection has a shared 60-second deadline and the operation a
+180-second deadline; the model transport retains its 120-second ceiling. No retries,
+repair loops, tools, persistence, docs generation or autonomous investigation are added.
+Model/schema/citation failures show an error without generated findings, retaining
+evidence. Untrusted source is separate from trusted instructions; commit messages
+are excluded. Raw provider responses, credentials and source bodies are not logged.
+
+`npm run sources:product:verify` defaults to cb08108 → e321954 with no extra paths;
+append explicit context paths for surrounding code. The CLI prints evidence metadata
+and validated analysis, not full source bodies. Run `npm run sources:test` for
+regression/connected tests. Test fixtures are not demonstrations of real product changes.
+
+Citation reliability: a larger-comparison failure quoted text from patch line 15
+but cited line 14, confusing source coordinates with the extra patch hunk header.
+The model payload now represents each entry with evidenceId and exact
+[lineNumber, text] tuples, rather than N| prefixes in a multiline string. The
+public citation contract and exact range/excerpt validation are unchanged; no
+nearby-line search, fuzzy matching, citation rewriting, or repair call is added.
+A regression rejects both that off-by-one reference and altered text. The existing
+8,192-token output budget is retained. Numbered tuples count toward the same
+64 KiB serialized-payload budget.
+
+The docs-only and database comparisons previously returned valid internal findings
+with limited, insufficient-evidence overall assessments. Citation validity remains
+model-dependent: invalid output is withheld and manual retries can still fail.
+Interactive browser verification remains blocked when local Browser Use is disabled.
+
+Follow-up live check: cb08108 → e321954 with source-context page/form paths
+passed schema and citation validation in two independent single-call runs (14
+validated citations total; 45,529 evidence bytes each). A fresh old-format baseline
+also passed, so these small samples do not establish a statistical reliability rate.
