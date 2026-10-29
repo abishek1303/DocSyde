@@ -12,7 +12,7 @@ For architectural decisions, use [ARCHITECTURE.md](ARCHITECTURE.md).
   register explicit route/feature context inside that application.
 
 These capabilities are implemented independently. The homepage now connects GitHub comparison evidence to structured AI summaries.
-Documentation generation and contextual documentation delivery remain unimplemented.
+Structured documentation drafts are now generated in the local demo; storage, publishing and contextual delivery remain unimplemented.
 
 ## First setup
 
@@ -151,3 +151,13 @@ Run `npm run sources:product:verify -- <base> <head> [context-paths...]` for a l
 check using the existing GitHub/Baseten credentials and local repository allowlist.
 See the [Sources guide](src/features/sources/README.md#semantic-product-change-analysis)
 for budgets, validation limits, and failure handling.
+
+## Proposed structured documentation drafts
+
+Open `/documentation/draft` from semantic analysis. Fresh runs perform analysis
+then one draft-generation call using existing GitHub/Baseten credentials. The UI
+shows rendered sections, server-preserved qualifications, canonical JSON and
+block-to-finding-to-citation provenance. Nothing is saved or published.
+Run `npm run documentation:test` or the credit-using `npm run documentation:verify`.
+See the [Documentation guide](src/features/documentation/README.md) for the v1
+model, limits, grounding checks, renderer restrictions and deferred work.

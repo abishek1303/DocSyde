@@ -379,3 +379,14 @@ limits and evidence validation; GitHub and Baseten implementations remain isolat
 This supersedes earlier descriptions of source-to-model wiring as entirely planned.
 Documentation generation/mutation, persistence of analyses, runtime orchestration,
 and contextual delivery remain future work. No architecture boundary has moved.
+
+## Canonical documentation drafts
+
+`features/documentation/document.ts` owns canonical structured documentation v1.
+Document/section UUIDs, explicit context associations and bounded provenance are
+independent of Markdown, which is content only. Draft blocks reference semantic
+facts/findings and their validated citations; server assembly preserves uncertainty.
+Documentation calls Sources through a narrow entry and uses the existing structured
+AI boundary for one generation call. The local demo composes analysis + generation
+in one request. Drafts are unreviewed and ephemeral. Persistence, version history,
+targeting existing docs, updates, publishing and SDK delivery remain deferred.

@@ -5,7 +5,7 @@ import { assertAllowedRepository, withSourceAccess } from "./local-source-access
 import { readPinnedSourceContext } from "./read-source-context";
 import { selectEvidence } from "./summary-evidence";
 import { productChangeInput, productChangeOutput, type ProductBundle, type ProductResult } from "./product-change-analysis";
-import { serializeProductEvidence, validateProductAnalysis } from "./product-change-evidence";
+import { serializeProductEvidence, validateProductAnalysis, ProductAnalysisValidationError } from "./product-change-evidence";
 import { productChangeInstructions } from "./product-change-prompt";
 import { PRODUCT_CHANGE_OUTPUT_TOKENS } from "./product-change-limits";
 export async function analyzeProductChanges(raw: unknown): Promise<ProductResult> {
@@ -47,7 +47,8 @@ export async function analyzeProductChanges(raw: unknown): Promise<ProductResult
       validateProductAnalysis(generated.data, bundle);
       return { ...result, status: generated.data.assessment === "insufficient-evidence" ? "insufficient-evidence" : "analyzed", analysis: generated.data, model: generated.model, elapsedMs: generated.elapsedMs };
     } catch (error) {
-      return { ...result, status: "error", error: error instanceof ModelError ? `Model analysis failed (${error.code}). Retry manually.` : "Generated evidence references or assessment failed validation. Retry manually." };
+      const rejection = error instanceof ModelError ? { stage: "model-output" as const, code: error.code } : error instanceof ProductAnalysisValidationError ? error.rejection : undefined;
+      return { ...result, status: "error", ...(rejection ? { rejection } : {}), error: rejection ? `Semantic analysis rejected (${rejection.stage}: ${rejection.code}). Draft generation must be skipped. Retry manually.` : "Semantic analysis validation failed. Retry manually." };
     }
   });
 }

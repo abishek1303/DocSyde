@@ -122,3 +122,9 @@ Follow-up live check: cb08108 → e321954 with source-context page/form paths
 passed schema and citation validation in two independent single-call runs (14
 validated citations total; 45,529 evidence bytes each). A fresh old-format baseline
 also passed, so these small samples do not establish a statistical reliability rate.
+
+Semantic rejection diagnostics use fixed stage/code values and optional zero-based
+finding/citation indices. Citation errors distinguish missing evidence, unavailable
+text, invalid line ranges and exact excerpt mismatch. Assessment/qualification
+failures have separate codes. These diagnostics expose no source or raw model output
+and do not change any acceptance rule. Failed analysis remains withheld.

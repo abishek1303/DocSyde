@@ -19,5 +19,6 @@ export const productChangeOutput = z.object({
 export type ProductAnalysis = z.infer<typeof productChangeOutput>;
 export type ProductEvidence = { id: string; path: string; side: "patch" | "base" | "head"; commitId: string | null; text: string | null; status: string; contentId?: string | null; changed: boolean };
 export type ProductBundle = { repository: string; base: string; head: string; evidence: ProductEvidence[]; inventory: { path: string; previousPath: string | null; kind: string }[]; limited: boolean; notice: string };
-export type ProductResult = { bundle: ProductBundle; bytes: number; status: "no-change" | "analyzed" | "insufficient-evidence" | "error"; analysis: ProductAnalysis | null; model?: string; elapsedMs?: number; error?: string };
+export type AnalysisRejection = { stage: "model-output" | "evidence-validation"; code: string; findingIndex?: number; citationIndex?: number };
+export type ProductResult = { bundle: ProductBundle; bytes: number; status: "no-change" | "analyzed" | "insufficient-evidence" | "error"; analysis: ProductAnalysis | null; model?: string; elapsedMs?: number; error?: string; rejection?: AnalysisRejection };
 export type ProductState = { result?: ProductResult; error?: string };

@@ -60,10 +60,18 @@ test("patch citations keep the hunk header offset: exact excerpt on nearby line 
   const fixture = { ...bundle, evidence: [evidence] };
   const withCitation = (line: number, quote = excerpt) => ({ ...analysis, findings: [{ ...finding, citations: [{ evidenceId: evidence.id, startLine: line, endLine: line, excerpt: quote }] }] });
   validateProductAnalysis(withCitation(15), fixture);
-  assert.throws(() => validateProductAnalysis(withCitation(14), fixture), /Untraceable/);
-  assert.throws(() => validateProductAnalysis(withCitation(15, excerpt.replace("verification", "validation")), fixture), /Untraceable/);
+  assert.throws(() => validateProductAnalysis(withCitation(14), fixture), /citation-range-mismatch/);
+  assert.throws(() => validateProductAnalysis(withCitation(15, excerpt.replace("verification", "validation")), fixture), /citation-range-mismatch/);
   const payload = JSON.parse(serializeProductEvidence(fixture));
   assert.equal(payload.evidence[0].evidenceId, evidence.id);
   assert.deepEqual(payload.evidence[0].lines[14], [15, excerpt]);
   assert.ok(!("numberedText" in payload.evidence[0]));
+});
+test("citation diagnostics identify a wrong range without accepting nearby text or exposing source", () => {
+  const wrong = { ...analysis, findings: [{ ...finding, citations: [{ evidenceId: "p1", startLine: 2, endLine: 2, excerpt: "+required" }] }] };
+  assert.throws(() => validateProductAnalysis(wrong, bundle), (error: unknown) => {
+    assert.ok(error instanceof Error && "rejection" in error);
+    assert.deepEqual(error.rejection, { stage: "evidence-validation", code: "citation-range-mismatch", findingIndex: 0, citationIndex: 0 });
+    assert.ok(!error.message.includes("required")); return true;
+  });
 });
