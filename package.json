@@ -15,6 +15,8 @@
     "github:test": "node --conditions=react-server --import tsx --test src/integrations/github/source-reader.test.ts",
     "ai:test": "node --conditions=react-server --import tsx --test src/integrations/ai/generate-structured.test.ts",
     "ai:verify": "node --conditions=react-server --import tsx infra/local/ai/verify.ts",
+    "ai:billing": "node --conditions=react-server --import tsx infra/local/ai/billing.ts",
+    "ai:billing:test": "node --conditions=react-server --import tsx --test src/integrations/ai/baseten/billing.test.ts",
     "git:test": "node --conditions=react-server --import tsx --test src/integrations/local-git/source-reader.test.ts",
     "git:verify": "node --conditions=react-server --import tsx infra/local/git/verify.ts",
     "runner:test": "node --conditions=react-server --import tsx --test src/runner/runtime/runtime.test.ts",
@@ -30,6 +32,7 @@
     "sources:product:verify": "node --conditions=react-server --import tsx infra/local/sources/verify-product-changes.ts",
     "documentation:test": "node --conditions=react-server --import tsx --test src/features/documentation/*.test.ts",
     "documentation:verify": "node --conditions=react-server --import tsx infra/local/documentation/verify-draft.ts",
+    "documentation:context:test": "node --conditions=react-server --import tsx --test infra/local/documentation/repository-context.test.ts",
     "documentation:persistence:test": "node --conditions=react-server --import tsx --test infra/local/documentation/persistence.test.ts",
     "documentation:persistence:verify": "node --conditions=react-server --import tsx infra/local/documentation/verify-persistence.ts"
   },

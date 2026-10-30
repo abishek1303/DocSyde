@@ -75,3 +75,14 @@ test("citation diagnostics identify a wrong range without accepting nearby text 
     assert.ok(!error.message.includes("required")); return true;
   });
 });
+
+test("semantic instructions require exact coordinates and cited capability reachability", () => {
+  assert.ok(productChangeInstructions.includes("Copy citation IDs, tuple coordinates, line ranges and excerpts directly from supplied evidence"));
+  assert.ok(productChangeInstructions.includes("Never infer, approximate, increment, decrement or reconstruct tuple coordinates"));
+  assert.ok(productChangeInstructions.includes("omit or narrow the claim rather than guess a coordinate"));
+  assert.ok(productChangeInstructions.includes("reachabilityEvidenceIds must be nonempty"));
+  assert.ok(productChangeInstructions.includes("reachabilityEvidenceIds ⊆ finding.citations[].evidenceId"));
+  assert.ok(productChangeInstructions.includes("omit the unsupported capability claim rather than fabricate support"));
+  assert.ok(productChangeInstructions.includes("Before returning, check:"));
+  assert.ok(productChangeInstructions.includes("every reachability ID is also cited by that same finding"));
+});

@@ -1,9 +1,10 @@
 import type { ProductAnalysis, ProductBundle, AnalysisRejection } from "./product-change-analysis";
 import { PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES } from "./product-change-limits";
-export function serializeProductEvidence(bundle: ProductBundle): string {
+import { noGenerationContext, type GenerationContextSnapshot } from "./generation-context";
+export function serializeProductEvidence(bundle: ProductBundle, generationSnapshot: GenerationContextSnapshot = noGenerationContext): string {
   // Keep each exact excerpt next to its patch-local line number. Hunk headers
   // contain different source-file coordinates and must never be used as citations.
-  const payload = JSON.stringify({ ...bundle, evidence: bundle.evidence.map(({ id, text, ...entry }) => ({ ...entry, evidenceId: id, lines: text === null ? null : text.split("\n").map((line, i) => [i + 1, line]) })) });
+  const payload = JSON.stringify({ ...bundle, repositoryContext: generationSnapshot.repositoryContextUsed, runContext: generationSnapshot.runContextUsed, evidence: bundle.evidence.map(({ id, text, ...entry }) => ({ ...entry, evidenceId: id, lines: text === null ? null : text.split("\n").map((line, i) => [i + 1, line]) })) });
   if (Buffer.byteLength(payload, "utf8") > PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES) throw new Error(`Combined evidence exceeds the ${PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES}-byte budget. Select fewer context files or a narrower revision range; no model call was made.`);
   return payload;
 }

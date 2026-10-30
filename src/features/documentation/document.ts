@@ -13,10 +13,11 @@ export const provenanceFinding = z.object({ id: ref, kind: z.string(), descripti
 export const provenance = z.object({ analysisId: z.uuid(), repository: z.string().url(), base: z.string().regex(/^[a-f0-9]{40}$/i), head: z.string().regex(/^[a-f0-9]{40}$/i), assessment: z.string(), limited: z.boolean(), limitations: z.array(z.string()), facts: z.array(fact), findings: z.array(provenanceFinding), evidence: z.array(z.object({ id: ref, path: z.string(), side: z.enum(["patch", "base", "head"]), commitId: z.string().nullable(), contentId: z.string().nullable() }).strict()) }).strict();
 export const documentSchema = z.object({ id: z.uuid(), schemaVersion: z.literal(1), status: z.literal("draft"), title: draftProposal.shape.title, associations: z.array(ref),
   sections: z.array(draftProposal.shape.sections.element.extend({ id: z.uuid(), findingRefs: z.array(ref), qualifications: z.array(z.object({ findingRef: ref, ...qualifications.shape }).strict()) }).strict()),
-  context: z.array(associationChoice), provenance, generation: z.object({ model: z.string(), createdAt: z.string().datetime() }).strict(),
+  context: z.array(associationChoice), provenance, generation: z.object({ model: z.string(), createdAt: z.string().datetime(), repositoryContextUsed: z.string().max(500).nullable().optional(), runContextUsed: z.string().max(300).nullable().optional() }).strict(),
 }).strict();
 export type DocumentationDocument = z.infer<typeof documentSchema>;
 export type DraftProposal = z.infer<typeof draftProposal>;
 export type AssociationChoice = z.infer<typeof associationChoice>;
-export type DraftFacts = { facts: z.infer<typeof fact>[]; context: AssociationChoice[]; provenance: z.infer<typeof provenance> };
+import type { GenerationContextSnapshot } from "@/features/sources/generation-context";
+export type DraftFacts = { generationSnapshot?: GenerationContextSnapshot; facts: z.infer<typeof fact>[]; context: AssociationChoice[]; provenance: z.infer<typeof provenance> };
 export type DraftResult = { status: "draft" | "no-draft" | "insufficient-evidence" | "error"; document: DocumentationDocument | null; reason?: string; analysisRejection?: AnalysisRejection; input?: DraftFacts; preview?: { serialized: string; signature: string }; saveUnavailable?: string };

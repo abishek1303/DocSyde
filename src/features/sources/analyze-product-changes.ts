@@ -5,11 +5,15 @@ import { assertAllowedRepository, withSourceAccess } from "./local-source-access
 import { readPinnedSourceContext } from "./read-source-context";
 import { selectEvidence } from "./summary-evidence";
 import { productChangeInput, productChangeOutput, type ProductBundle, type ProductResult } from "./product-change-analysis";
-import { serializeProductEvidence, validateProductAnalysis, ProductAnalysisValidationError } from "./product-change-evidence";
+import { serializeProductEvidence, ProductAnalysisValidationError } from "./product-change-evidence";
+import { validateWithDiagnostics } from "./analysis-diagnostics";
 import { productChangeInstructions } from "./product-change-prompt";
 import { PRODUCT_CHANGE_OUTPUT_TOKENS } from "./product-change-limits";
-export async function analyzeProductChanges(raw: unknown): Promise<ProductResult> {
+import { captureGenerationContext } from "./repository-context";
+import { type GenerationContextSnapshot } from "./generation-context";
+export async function analyzeProductChanges(raw: unknown, capturedSnapshot?: GenerationContextSnapshot): Promise<ProductResult> {
   const input = productChangeInput.parse(raw);
+  const generationSnapshot = capturedSnapshot ?? await captureGenerationContext(input, null);
   const paths = [...new Set(input.paths.map(path => repositoryPathInput.parse(path)))];
   assertAllowedRepository(input.owner, input.repo);
   return withSourceAccess(async () => {
@@ -21,7 +25,7 @@ export async function analyzeProductChanges(raw: unknown): Promise<ProductResult
       inventory: comparison.files.map(({ path, previousPath, kind }) => ({ path, previousPath, kind })),
       evidence: selected.files.map(file => ({ id: `patch-${file.id}`, path: file.path, side: "patch", commitId: null, text: file.patch, status: file.coverage, changed: true })),
       limited: selected.limited, notice: "Selected context only. Supplied patches may be incomplete. Runtime behavior, deployment and tests are unverified." };
-    if (!comparison.files.length) return { bundle, bytes: Buffer.byteLength(serializeProductEvidence(bundle)), status: "no-change", analysis: null };
+    if (!comparison.files.length) return { bundle, bytes: Buffer.byteLength(serializeProductEvidence(bundle, generationSnapshot)), status: "no-change", analysis: null };
     // Sequential endpoint batches preserve the existing two-read concurrency ceiling.
     for (const side of ["base", "head"] as const) {
       const requested: string[] = [];
@@ -39,12 +43,12 @@ export async function analyzeProductChanges(raw: unknown): Promise<ProductResult
       for (const file of context.files) bundle.evidence.push({ id: `${side}-${bundle.evidence.length}`, path: file.path, side, commitId: bundle[side], contentId: file.contentId,
         text: file.status === "available" ? file.text : null, status: file.status === "available" ? "available" : `${file.status}: ${file.reason}`, changed: comparison.files.some(f => f.path === file.path || f.previousPath === file.path) });
     }
-    const payload = serializeProductEvidence(bundle);
+    const payload = serializeProductEvidence(bundle, generationSnapshot);
     const result: ProductResult = { bundle, bytes: Buffer.byteLength(payload, "utf8"), status: "insufficient-evidence", analysis: null };
     if (!bundle.evidence.some(e => e.changed && e.text)) return result;
     try {
       const generated = await generateStructured({ instructions: productChangeInstructions, input: payload, schema: productChangeOutput, maxOutputTokens: PRODUCT_CHANGE_OUTPUT_TOKENS, signal: deadline });
-      validateProductAnalysis(generated.data, bundle);
+      await validateWithDiagnostics(generated.data, bundle, payload);
       return { ...result, status: generated.data.assessment === "insufficient-evidence" ? "insufficient-evidence" : "analyzed", analysis: generated.data, model: generated.model, elapsedMs: generated.elapsedMs };
     } catch (error) {
       const rejection = error instanceof ModelError ? { stage: "model-output" as const, code: error.code } : error instanceof ProductAnalysisValidationError ? error.rejection : undefined;

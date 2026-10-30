@@ -26,3 +26,9 @@ export const documentationDrafts = docsydeSchema.table("documentation_drafts", {
   ) IS TRUE`),
   index("documentation_drafts_saved_at_id_idx").on(table.savedAt, table.id),
 ]);
+
+export const repositoryContexts = docsydeSchema.table("repository_contexts", {
+  repository: varchar("repository", { length: 512 }).primaryKey(),
+  text: varchar("text", { length: 500 }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});

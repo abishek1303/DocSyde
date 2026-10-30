@@ -12,6 +12,8 @@ const proposal = { title: "Field requirement", associations: [], sections: [{ ti
 test("canonical identity, bounded provenance and qualifications are assembled server-side", () => {
   const input = prepareDraftInput(result)!;
   const doc = assembleDraft(proposal, input, "fixture");
+  assert.equal(doc.generation.repositoryContextUsed, null);
+  assert.equal(doc.generation.runContextUsed, null);
   assert.deepEqual(documentSchema.parse(JSON.parse(JSON.stringify(doc))), doc);
   assert.deepEqual(doc.sections[0].qualifications[0].assumptions, ["Caller uses schema"]);
   assert.equal(doc.provenance.limited, true); assert.ok(doc.provenance.limitations.includes("Not comprehensive"));

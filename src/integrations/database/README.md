@@ -18,3 +18,19 @@ are compared using PostgreSQL JSONB equality; no UPDATE is issued. JSONB stays t
 abstraction, Project relationship or caching are introduced. See the
 [documentation guide](../../features/documentation/README.md#persistence-and-signed-saving)
 for operations, validation, corrupt-row isolation and tests.
+
+Repository context: the draft screen offers an optional saved product note (500
+characters) and optional run note (300). Sources owns the setting; narrow Drizzle
+queries store it in `docsyde.repository_contexts` (migration 0002). Provider
+coordinate validation/location and access checks share trimmed, case-insensitive
+GitHub identity. Existing draft provenance is never rewritten. Empty notes become
+null; nonempty notes retain their exact whitespace. With no DATABASE_URL configured,
+no repository context exists; database read failures otherwise remain explicit.
+A frozen pair is read once before analysis and passed separately as advisory data
+to both calls under unchanged budgets. New draft generation metadata records both
+values (or null); historical drafts retain absent fields. Saving run context never
+updates the repository setting. Save/update/clear use explicit controls; selection
+changes discard stale form responses. Context cannot establish behavior or bypass
+citations. Reopening a draft reads only historical JSON. Run
+`npm run documentation:context:test` for isolated PostgreSQL/mocked-provider checks.
+These tests establish plumbing and boundaries, not universal factual correctness.

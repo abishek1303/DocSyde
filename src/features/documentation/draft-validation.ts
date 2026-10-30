@@ -1,3 +1,4 @@
+import { noGenerationContext } from "@/features/sources/generation-context";
 import { randomUUID } from "node:crypto";
 import { draftProposal, type DraftFacts, type DocumentationDocument } from "./document";
 import { validateDocumentationDocument } from "./document-validation";
@@ -26,5 +27,5 @@ export function assembleDraft(raw: unknown, input: DraftFacts, model: string): D
   const findings = input.provenance.findings.filter(f => findingRefs.has(f.id));
   const evidenceIds = new Set(findings.flatMap(f => f.citations.map(c => c.evidenceId)));
   return validateDocumentationDocument({ id: randomUUID(), schemaVersion: 1, status: "draft", title: proposal.title, associations: proposal.associations, sections,
-    context: input.context.filter(c => associationRefs.has(c.id)), provenance: { ...input.provenance, facts: input.facts.filter(f => factRefs.has(f.id)), findings, evidence: input.provenance.evidence.filter(e => evidenceIds.has(e.id)) }, generation: { model, createdAt: new Date().toISOString() } });
+    context: input.context.filter(c => associationRefs.has(c.id)), provenance: { ...input.provenance, facts: input.facts.filter(f => factRefs.has(f.id)), findings, evidence: input.provenance.evidence.filter(e => evidenceIds.has(e.id)) }, generation: { ...(input.generationSnapshot ?? noGenerationContext), model, createdAt: new Date().toISOString() } });
 }

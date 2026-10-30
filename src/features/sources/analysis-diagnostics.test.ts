@@ -1,0 +1,35 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { validateWithDiagnostics } from "./analysis-diagnostics";
+import { serializeProductEvidence, validateProductAnalysis } from "./product-change-evidence";
+import type { ProductAnalysis, ProductBundle } from "./product-change-analysis";
+
+test("only evidence rejections retain exact supplied input, output and snapshot without provider secrets", async t => {
+  const directory = await mkdtemp(join(tmpdir(), "docsyde-diagnostics-"));
+  t.mock.method(process, "cwd", () => directory);
+  const previous = process.env.BASETEN_API_KEY;
+  process.env.BASETEN_API_KEY = "secret-provider-credential";
+  t.after(async () => { if(previous===undefined) delete process.env.BASETEN_API_KEY; else process.env.BASETEN_API_KEY=previous; await rm(directory,{recursive:true,force:true}); });
+  const bundle: ProductBundle = {repository:"https://github.com/example/product",base:"a".repeat(40),head:"b".repeat(40),inventory:[],limited:false,notice:"Selected source",evidence:[{id:"patch-f1",path:"app.ts",side:"patch",commitId:null,text:"+render();",status:"included",changed:true}]};
+  const analysis: ProductAnalysis = {assessment:"product-change",findings:[{kind:"capability-added",description:"App renders",before:null,after:"Renders",support:"directly-supported",confidence:"high",confidenceReason:"Entry point",citations:[{evidenceId:"patch-f1",startLine:1,endLine:1,excerpt:"+render();"}],reachabilityEvidenceIds:[],assumptions:[],uncertainties:[]}],uncertainties:[]};
+  const snapshot={repositoryContextUsed:"  Staff\n ",runContextUsed:" Focus on rendering. "};
+  const payload=serializeProductEvidence(bundle,snapshot);
+  const original=JSON.stringify(analysis);
+  assert.throws(()=>validateProductAnalysis(analysis,bundle),/missing-reachability-evidence/);
+  await assert.rejects(validateWithDiagnostics(analysis,bundle,payload),/missing-reachability-evidence/);
+  const artifactDirectory=join(directory,".artifacts","semantic-analysis-rejections");
+  const files=await readdir(artifactDirectory); assert.equal(files.length,1);
+  const text=await readFile(join(artifactDirectory,files[0]),"utf8"); const record=JSON.parse(text);
+  assert.equal(record.serializedInput,payload); assert.deepEqual(record.modelOutput,analysis);
+  assert.equal(record.suppliedInput.repositoryContext,snapshot.repositoryContextUsed); assert.equal(record.suppliedInput.runContext,snapshot.runContextUsed);
+  const citation=record.modelOutput.findings[0].citations[0]; const entry=record.suppliedInput.evidence.find((e:{evidenceId:string})=>e.evidenceId===citation.evidenceId);
+  assert.equal(entry.path,"app.ts"); assert.deepEqual(entry.lines,[[1,"+render();"]]);
+  assert.deepEqual(record.rejection,{stage:"evidence-validation",code:"missing-reachability-evidence",findingIndex:0});
+  assert.ok(!text.includes("secret-provider-credential")); assert.ok(!text.includes("Authorization")); assert.equal(JSON.stringify(analysis),original);
+  const valid=structuredClone(analysis); valid.findings[0].reachabilityEvidenceIds=["patch-f1"];
+  await validateWithDiagnostics(valid,bundle,payload);
+  assert.equal((await readdir(artifactDirectory)).length,1);
+});

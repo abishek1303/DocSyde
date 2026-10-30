@@ -140,3 +140,25 @@ with a filter over the latest loaded titles, and section navigation. Mobile navi
 is collapsible. The generation prompt favors task-oriented help; analysis may retain
 up to four focused findings with supported UI labels. Existing documents remain unchanged;
 use a fresh generation to evaluate the updated writing instructions.
+
+Repository context: the draft screen offers an optional saved product note (500
+characters) and optional run note (300). Sources owns the setting; narrow Drizzle
+queries store it in `docsyde.repository_contexts` (migration 0002). Provider
+coordinate validation/location and access checks share trimmed, case-insensitive
+GitHub identity. Existing draft provenance is never rewritten. Empty notes become
+null; nonempty notes retain their exact whitespace. With no DATABASE_URL configured,
+no repository context exists; database read failures otherwise remain explicit.
+A frozen pair is read once before analysis and passed separately as advisory data
+to both calls under unchanged budgets. New draft generation metadata records both
+values (or null); historical drafts retain absent fields. Saving run context never
+updates the repository setting. Save/update/clear use explicit controls; selection
+changes discard stale form responses. Context cannot establish behavior or bypass
+citations. Reopening a draft reads only historical JSON. Run
+`npm run documentation:context:test` for isolated PostgreSQL/mocked-provider checks.
+These tests establish plumbing and boundaries, not universal factual correctness.
+
+Live context check: the Request Desk baseline comparison with the documented support-
+staff context and creating/closing focus rejected finding 0 with
+`evidence-validation: missing-reachability-evidence`. Draft generation was skipped;
+no retry, repair or validation relaxation was performed. No context-enabled draft
+is available from that attempt for a qualitative before/after comparison.

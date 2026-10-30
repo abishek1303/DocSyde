@@ -128,3 +128,13 @@ finding/citation indices. Citation errors distinguish missing evidence, unavaila
 text, invalid line ranges and exact excerpt mismatch. Assessment/qualification
 failures have separate codes. These diagnostics expose no source or raw model output
 and do not change any acceptance rule. Failed analysis remains withheld.
+
+Evidence-validation rejections retain local diagnostics under ignored
+`.artifacts/semantic-analysis-rejections/<uuid>.json`: exact serialized semantic
+input (including immutable SHAs, source mappings and advisory snapshots), parsed
+model output and fixed validator rejection metadata. Successful runs and provider
+failures create no diagnostic files. Transport headers, credentials and provider
+envelopes are not captured. Files contain private repository source/user text;
+keep them local and delete when no longer needed. Files use owner-only permissions.
+Diagnostic write failure leaves the original rejection unchanged and emits a fixed
+warning; there is no retry, product evidence ingestion or diagnostic UI.

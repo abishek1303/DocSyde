@@ -85,6 +85,7 @@ This is an ownership map. Create subfolders and implementation files when there 
 
 ## Verification and handoff
 
+- Update `SETUP.md` when setup commands, required configuration, or implemented workflows change. Keep it concise, distinguish working behavior from planned work, and link to existing integration guides rather than duplicating their details.
 - Inspect `package.json` and use the available scripts. For source changes, run lint, type checking, and the production build when applicable. Resolve failures caused by your change and report unrelated or environment failures accurately.
 - For TypeScript checking, use the project's typecheck script if present; otherwise use the installed TypeScript compiler with `--noEmit`. Generate Next.js route types first if the installed version requires it.
 - Test meaningful business behavior, validation, and authorization when implementing those paths. Do not introduce a testing framework for a static starter cleanup or tests that only mirror folder structure.

@@ -3,7 +3,8 @@ import { z } from "zod";
 import { productChangeOutput, validateProductAnalysis, type ProductResult } from "@/features/sources/product-analysis";
 import { associationChoice, type AssociationChoice, type DraftFacts } from "./document";
 import { DOCUMENTATION_DRAFT_INPUT_BUDGET_BYTES } from "./draft-limits";
-export function prepareDraftInput(result: ProductResult, supplied: AssociationChoice[] = []): DraftFacts | null {
+import { noGenerationContext, type GenerationContextSnapshot } from "@/features/sources/generation-context";
+export function prepareDraftInput(result: ProductResult, supplied: AssociationChoice[] = [], generationSnapshot: GenerationContextSnapshot = noGenerationContext): DraftFacts | null {
   if (result.status === "error" || result.status === "no-change" || !result.analysis) return null;
   const analysis = productChangeOutput.parse(result.analysis);
   validateProductAnalysis(analysis, result.bundle);
@@ -24,14 +25,14 @@ export function prepareDraftInput(result: ProductResult, supplied: AssociationCh
   });
   if (new Set(context.map(c => c.id)).size !== context.length) throw new Error("Association IDs collide with analysis context.");
   const citedIds = new Set(findings.flatMap(f => f.citations.map(c => c.evidenceId)));
-  return { facts, context, provenance: { analysisId, repository: result.bundle.repository, base: result.bundle.base, head: result.bundle.head, assessment: analysis.assessment, limited: result.bundle.limited,
+  return { generationSnapshot, facts, context, provenance: { analysisId, repository: result.bundle.repository, base: result.bundle.base, head: result.bundle.head, assessment: analysis.assessment, limited: result.bundle.limited,
     limitations: [...new Set([result.bundle.notice, ...analysis.uncertainties])], facts, findings,
     evidence: result.bundle.evidence.filter(e => citedIds.has(e.id)).map(e => ({ id: e.id, path: e.path, side: e.side, commitId: e.commitId, contentId: e.contentId ?? null })) } };
 }
 export function serializeDraftInput(input: DraftFacts): string {
   // Provenance is assembled by the server; the model only needs allowed facts,
   // association choices and limitations, not duplicated evidence snapshots.
-  const payload = JSON.stringify({ facts: input.facts, context: input.context, assessment: input.provenance.assessment, limited: input.provenance.limited, limitations: input.provenance.limitations });
+  const payload = JSON.stringify({ repositoryContext: input.generationSnapshot?.repositoryContextUsed ?? null, runContext: input.generationSnapshot?.runContextUsed ?? null, facts: input.facts, context: input.context, assessment: input.provenance.assessment, limited: input.provenance.limited, limitations: input.provenance.limitations });
   if (Buffer.byteLength(payload, "utf8") > DOCUMENTATION_DRAFT_INPUT_BUDGET_BYTES) throw new Error("Draft input exceeds 32 KiB; reduce the upstream selection. Nothing was omitted.");
   return payload;
 }

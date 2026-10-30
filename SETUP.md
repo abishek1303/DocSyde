@@ -83,6 +83,24 @@ npm run ai:verify
 Expect `data.receiptId` to be `proof-123`, plus model and elapsed-time fields.
 This uses API credit; it does not analyze Git changes yet.
 
+Baseten billing (read-only; no inference call): `npm run ai:billing` prints
+organization-wide month-to-date gross cost, credits applied, and cost after credits
+in USD using `BASETEN_API_KEY`. The server-only API is `getBasetenBilling` in
+`src/integrations/ai/baseten/billing.ts`; no public HTTP endpoint is exposed.
+Optional start/end ISO timestamps select a range of at most 31 days, starting no
+earlier than January 1, 2026. Null categories mean unavailable usage, not a confirmed
+zero. Remaining credits are explicitly unavailable: the public API reports credits
+used, not the account balance; check the workspace Billing page for that balance.
+Usage may lag and is not a finalized invoice. Provider reference:
+[Baseten Management API specification](https://api.baseten.co/v1/spec).
+Run `npm run ai:billing:test` for mocked validation and failure checks.
+An optional third argument supplies starting credits for a clearly labeled estimate:
+`npm run ai:billing -- 2026-10-01T00:00:00Z 2026-10-30T00:00:00Z 100`.
+The estimate subtracts gross usage in the range from the grant; choose dates that
+cover all grant usage. It cannot account for expired credits or unreported charges.
+If Baseten returns HTTP 403, the configured key is denied billing access. Use a
+key with access to the organization's Management API billing data, then rerun.
+
 Other independent checks:
 
 | Command | What it checks |
@@ -198,3 +216,29 @@ with a filter over the latest loaded titles, and section navigation. Mobile navi
 is collapsible. The generation prompt favors task-oriented help; analysis may retain
 up to four focused findings with supported UI labels. Existing documents remain unchanged;
 use a fresh generation to evaluate the updated writing instructions.
+
+Repository context: the draft screen offers an optional saved product note (500
+characters) and optional run note (300). Sources owns the setting; narrow Drizzle
+queries store it in `docsyde.repository_contexts` (migration 0002). Provider
+coordinate validation/location and access checks share trimmed, case-insensitive
+GitHub identity. Existing draft provenance is never rewritten. Empty notes become
+null; nonempty notes retain their exact whitespace. With no DATABASE_URL configured,
+no repository context exists; database read failures otherwise remain explicit.
+A frozen pair is read once before analysis and passed separately as advisory data
+to both calls under unchanged budgets. New draft generation metadata records both
+values (or null); historical drafts retain absent fields. Saving run context never
+updates the repository setting. Save/update/clear use explicit controls; selection
+changes discard stale form responses. Context cannot establish behavior or bypass
+citations. Reopening a draft reads only historical JSON. Run
+`npm run documentation:context:test` for isolated PostgreSQL/mocked-provider checks.
+These tests establish plumbing and boundaries, not universal factual correctness.
+
+Evidence-validation rejections retain local diagnostics under ignored
+`.artifacts/semantic-analysis-rejections/<uuid>.json`: exact serialized semantic
+input (including immutable SHAs, source mappings and advisory snapshots), parsed
+model output and fixed validator rejection metadata. Successful runs and provider
+failures create no diagnostic files. Transport headers, credentials and provider
+envelopes are not captured. Files contain private repository source/user text;
+keep them local and delete when no longer needed. Files use owner-only permissions.
+Diagnostic write failure leaves the original rejection unchanged and emits a fixed
+warning; there is no retry, product evidence ingestion or diagnostic UI.

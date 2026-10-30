@@ -5,10 +5,8 @@ import { createGithubClient, withGithubErrors } from "@/integrations/github/clie
 import { SourceReadError } from "@/integrations/github/errors";
 import type { ChangeEvidence, CommitEvidence, FileChange, FileEvidence } from "@/integrations/github/change-evidence";
 
-const repositoryInput = z.object({
-  owner: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9-]*$/),
-  repo: z.string().regex(/^[A-Za-z0-9_.-]+$/).refine((name) => name !== "." && name !== ".."),
-});
+import { repositoryCoordinates, repositoryLocation } from "./repository-identity";
+const repositoryInput = repositoryCoordinates;
 export const revisionInput = z.string().min(1).max(1024).refine((value) =>
   !/[\s\x00-\x1f\x7f:]/.test(value) && !value.includes("..") &&
   !value.split("/").some((part) => part === "" || part === "."));
@@ -80,7 +78,7 @@ export async function compareCommits(input: {
     const baseCommit = commitEvidence(baseResponse.data);
     const headCommit = commitEvidence(headResponse.data);
     const result: ChangeEvidence = {
-      repository: { location: `https://github.com/${owner}/${repo}` },
+      repository: { location: repositoryLocation({ owner, repo }) },
       base: baseCommit, head: headCommit, commits: [], files: [],
     };
     if (baseCommit.commitId === headCommit.commitId) return result;
