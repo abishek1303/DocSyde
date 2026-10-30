@@ -1,8 +1,9 @@
 # Request Desk: external product fixture
 
-Standalone Node HTTP server and TypeScript browser app. No DocSyde imports, SDK,
+Standalone Node HTTP server and TypeScript browser app. The baseline has no SDK,
 database, authentication, provider credentials, or third-party runtime dependencies.
-The inherited repository files are unchanged; all test-application work lives here.
+The local delivery integration below adds compiled dependency-free SDK assets;
+provider and persistence operations stay in DocSyde. All host work lives here.
 
 ## Build and run
 
@@ -60,3 +61,30 @@ to this baseline. Future product changes are separate commits. Compare immutable
 local SHAs with the existing local Git provider first; GitHub semantic/draft wiring
 is separate DocSyde work. Runtime IDs and screenshots do not prove a Git revision;
 record the clean checkout SHA alongside captures. No model call is needed here.
+
+
+## Local contextual documentation proof
+
+The product baseline and `test-project-baseline-v1` tag remain unchanged. This
+integration adds only a host-owned help surface on existing routes, with
+`/requests/new` as the static publication target. Blocks render consistently as
+escaped plain text, including Markdown markers; no Markdown parser or model is used.
+
+In the active DocSyde implementation checkout, run `npm run sdk:build`. Copy its
+`.artifacts/sdk/*.js` and `.artifacts/sdk/*.d.ts` into this directory's
+`.artifacts/sdk/` (create it first). These are ignored build artifacts. The host
+server exposes only the two SDK ESM entries through explicit asset mappings.
+Then use the existing build/test/start commands above.
+
+Delivery defaults to `http://127.0.0.1:3000/api/documentation/context` and repository
+`abishek1303/DocSyde`. Optional public local server settings are
+`DOCSYDE_DELIVERY_ENDPOINT`, `DOCSYDE_REPOSITORY_OWNER`, and
+`DOCSYDE_REPOSITORY_NAME`. The server embeds only these public values, never secrets.
+In DocSyde `.env`, set `DOCSYDE_HOST_ORIGIN=http://127.0.0.1:45873`.
+
+Publish an existing saved create-request document explicitly in DocSyde, then open
+**Help for this page** at `/requests/new`. `/requests` and request details remain
+empty unless separately explicitly published. Refresh/reopen fetches current state;
+unpublish removes the association without changing the document. Context changes
+clear old content and cancel pending retrieval. This remains a local-only demo,
+without credentialed delivery, authentication redesign or baseline product changes.

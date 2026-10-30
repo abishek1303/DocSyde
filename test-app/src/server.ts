@@ -1,6 +1,9 @@
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 const assets = new Map([
+  ["/contextual-help.js", [new URL("./public/contextual-help.js", import.meta.url), "text/javascript"]],
+  ["/.artifacts/sdk/context-client.js", [new URL("../../.artifacts/sdk/context-client.js", import.meta.url), "text/javascript"]],
+  ["/.artifacts/sdk/documentation-client.js", [new URL("../../.artifacts/sdk/documentation-client.js", import.meta.url), "text/javascript"]],
   ["/app.js", [new URL("./public/app.js", import.meta.url), "text/javascript"]],
   ["/requests.js", [new URL("./public/requests.js", import.meta.url), "text/javascript"]],
   ["/styles.css", [new URL("../../public/styles.css", import.meta.url), "text/css"]],
@@ -16,7 +19,13 @@ const server = createServer(async (request, response) => {
   try {
     const content = await readFile(asset?.[0] ?? new URL("../../public/index.html", import.meta.url));
     response.writeHead(200, { "Content-Type": `${asset?.[1] ?? "text/html"}; charset=utf-8`, "Cache-Control": "no-store" });
-    response.end(request.method === "HEAD" ? undefined : content);
+    if (applicationRoute && request.method !== "HEAD") {
+      // Local demo configuration only. These are public coordinates, never secrets.
+      const endpoint = new URL(process.env.DOCSYDE_DELIVERY_ENDPOINT ?? "http://127.0.0.1:3000/api/documentation/context");
+      if (!["http:", "https:"].includes(endpoint.protocol)) throw new Error("Invalid delivery endpoint");
+      const configuration = JSON.stringify({ endpoint: endpoint.href, owner: process.env.DOCSYDE_REPOSITORY_OWNER ?? "abishek1303", repo: process.env.DOCSYDE_REPOSITORY_NAME ?? "DocSyde" }).replace(/</g, "\\u003c");
+      response.end(content.toString().replace("</head>", `<script id="docsyde-delivery-config" type="application/json">${configuration}</script></head>`));
+    } else response.end(request.method === "HEAD" ? undefined : content);
   } catch { response.writeHead(500).end("Application assets unavailable. Run the build first."); }
 });
 server.on("error", (error: NodeJS.ErrnoException) => {

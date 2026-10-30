@@ -1,3 +1,4 @@
+import { updateHelpContext } from "./contextual-help.js";
 import { initialRequests, createRequest, closeRequest, reopenRequest, type Request } from "./requests.js";
 const key = "request-desk-baseline";
 const app = document.querySelector<HTMLElement>("#app")!;
@@ -16,6 +17,7 @@ function render() {
   try {
     const requests = readRequests();
     const path = location.pathname;
+    updateHelpContext(path);
     if (path === "/requests") {
       app.append(text("h1", "Requests"));
       const list = document.createElement("ul"); list.id = "request-list";
