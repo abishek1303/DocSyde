@@ -1,4 +1,4 @@
-import { initialRequests, createRequest, closeRequest, type Request } from "./requests.js";
+import { initialRequests, createRequest, closeRequest, reopenRequest, type Request } from "./requests.js";
 const key = "request-desk-baseline";
 const app = document.querySelector<HTMLElement>("#app")!;
 function readRequests(): Request[] {
@@ -50,6 +50,10 @@ function render() {
         if (request.status === "open") {
           const button = text("button", "Close request"); button.id = "close-request";
           button.addEventListener("click", () => { try { save(closeRequest(readRequests(), request.id)); render(); } catch (error) { showError(error); } }); detail.append(button);
+        }
+        if (request.status === "closed") {
+          const button = text("button", "Reopen request"); button.id = "reopen-request";
+          button.addEventListener("click", () => { try { save(reopenRequest(readRequests(), request.id)); render(); } catch (error) { showError(error); } }); detail.append(button);
         }
         app.append(detail);
       }

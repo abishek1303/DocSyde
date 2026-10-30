@@ -15,3 +15,7 @@ export function closeRequest(requests: Request[], id: string): Request[] {
   if (!requests.some(request => request.id === id)) throw new Error("Request not found.");
   return requests.map(request => request.id === id ? { ...request, status: "closed" } : request);
 }
+export function reopenRequest(requests: Request[], id: string): Request[] {
+  if (!requests.some(request => request.id === id)) throw new Error("Request not found.");
+  return requests.map(request => request.id === id ? { ...request, status: "open" } : request);
+}
