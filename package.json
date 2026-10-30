@@ -22,6 +22,7 @@
     "runner:test": "node --conditions=react-server --import tsx --test src/runner/runtime/runtime.test.ts",
     "runner:verify": "node --conditions=react-server --import tsx infra/local/runner/verify.ts",
     "capture:test": "node --conditions=react-server --import tsx --test src/integrations/browser/capture.test.ts",
+    "storage:test": "node --conditions=react-server --import tsx --test src/integrations/storage/*.test.ts",
     "capture:verify": "node --conditions=react-server --import tsx infra/local/capture/verify.ts",
     "sdk:test": "node --import tsx --test src/sdk/*.test.ts",
     "sdk:build": "tsc -p infra/local/sdk/tsconfig.json",

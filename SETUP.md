@@ -15,6 +15,25 @@ These capabilities are implemented independently. The homepage now connects GitH
 Structured documentation drafts can be generated, previewed, explicitly saved to
 PostgreSQL, and reopened without model calls. Publishing and contextual delivery remain unimplemented.
 
+## Local artifact storage
+
+The independent server-only storage boundary exposes `store(bytes)` and `read(key)`
+through `getArtifactStorage()` in `src/integrations/storage/storage.ts`.
+Set `DOCSYDE_STORAGE_DIRECTORY=.artifacts/storage` in `.env` or the process environment.
+Configuration is read only when obtaining storage; relative paths resolve once
+against that process's working directory. No configuration is needed to render the app.
+
+The local adapter creates the trusted root recursively on the first store, creates
+private files exclusively, and returns opaque UUID v4 keys to persist. Reads return
+bytes or `null` only for an absent artifact; a missing root, permissions, collisions,
+symlinks and nonregular files remain errors. Keep the directory outside `public/`
+and preserve it to keep stored keys usable. To reset demo data, manually remove only
+the configured artifact directory when its contents are no longer needed.
+Browser capture remains independent and does not use this storage yet.
+
+Run `npm run storage:test` for isolated temporary-directory tests. These do not load
+developer `.env` or require any external service.
+
 ## First setup
 
 The app theme uses the Docsyde Figma foundations in `src/app/globals.css`, mapped
