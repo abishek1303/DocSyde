@@ -88,7 +88,7 @@ This is an ownership map. Create subfolders and implementation files when there 
 - Inspect `package.json` and use the available scripts. For source changes, run lint, type checking, and the production build when applicable. Resolve failures caused by your change and report unrelated or environment failures accurately.
 - For TypeScript checking, use the project's typecheck script if present; otherwise use the installed TypeScript compiler with `--noEmit`. Generate Next.js route types first if the installed version requires it.
 - Test meaningful business behavior, validation, and authorization when implementing those paths. Do not introduce a testing framework for a static starter cleanup or tests that only mirror folder structure.
-- For visible UI changes, check the page in a browser when available. Report any verification that could not be performed.
+- For visible UI changes, check the page in a browser when available. If direct browser access is unavailable, use available desktop controls to operate the browser, exercise visible workflows, and inspect the rendered result. Do not treat unavailable browser automation alone as a blocker when desktop controls can verify the behavior. Respect access restrictions and report any checks that still could not be performed, including console, network, or DOM diagnostics unavailable through desktop controls.
 - Finish with a concise description of the resulting behavior, important files or boundaries, and actual validation results. Distinguish planned architecture from implemented functionality.
 
 # Architecture Instructions
