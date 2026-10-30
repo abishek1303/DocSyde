@@ -23,7 +23,7 @@
     "runner:verify": "node --conditions=react-server --import tsx infra/local/runner/verify.ts",
     "capture:test": "node --conditions=react-server --import tsx --test src/integrations/browser/capture.test.ts",
     "capture:verify": "node --conditions=react-server --import tsx infra/local/capture/verify.ts",
-    "sdk:test": "node --import tsx --test src/sdk/context-client.test.ts",
+    "sdk:test": "node --import tsx --test src/sdk/*.test.ts",
     "sdk:build": "tsc -p infra/local/sdk/tsconfig.json",
     "sdk:verify": "npm run sdk:build && node --import tsx infra/local/sdk/verify.ts",
     "sources:test": "node --conditions=react-server --import tsx --test src/features/sources/*.test.ts",
@@ -35,7 +35,9 @@
     "documentation:verify": "node --conditions=react-server --import tsx infra/local/documentation/verify-draft.ts",
     "documentation:context:test": "node --conditions=react-server --import tsx --test infra/local/documentation/repository-context.test.ts",
     "documentation:persistence:test": "node --conditions=react-server --import tsx --test infra/local/documentation/persistence.test.ts",
-    "documentation:persistence:verify": "node --conditions=react-server --import tsx infra/local/documentation/verify-persistence.ts"
+    "documentation:persistence:verify": "node --conditions=react-server --import tsx infra/local/documentation/verify-persistence.ts",
+    "documentation:publications:test": "node --conditions=react-server --import tsx --test infra/local/documentation/publications.test.ts",
+    "documentation:publications:verify": "node --conditions=react-server --import tsx infra/local/documentation/verify-publication.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

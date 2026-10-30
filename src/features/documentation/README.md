@@ -58,7 +58,8 @@ proposed draft and bounded provenance, not full source bodies. Requires existing
 GitHub/Baseten credentials and uses API credit. Invalid output is withheld.
 
 Deferred: editing, document history, stale-doc targeting, automatic updates,
-publishing, Markdown export, embeddings, SDK delivery and investigation.
+Markdown export, embeddings and investigation. Explicit publication and SDK delivery
+are implemented narrowly below.
 
 Live verification: the existing database comparison (4cf816f → 40bd71f) produced
 a three-section draft faithful to supplied create/read and local-setup facts,
@@ -162,3 +163,41 @@ staff context and creating/closing focus rejected finding 0 with
 `evidence-validation: missing-reachability-evidence`. Draft generation was skipped;
 no retry, repair or validation relaxation was performed. No context-enabled draft
 is available from that attempt for a qualitative before/after comparison.
+
+## Explicit contextual publication (local demo)
+
+Saving remains separate from publication. A publication row references an immutable
+saved document; canonical JSON and its first-save timestamp never change. The saved
+reader provides Check target, Publish, explicit Replace and Unpublish controls.
+Targets are exact case-sensitive pathnames (max 300 characters). Only ASCII letters,
+digits, `.`, `_`, `~`, `-` and segment separators are accepted; dot segments,
+patterns, encodings and trailing slashes except `/` are rejected. Query/hash are
+excluded from host matching. The proof target is `/requests/new`.
+
+Migration 0004 adds `docsyde.documentation_publications`: UUID, existing canonical
+repository identity, route, saved-draft FK, publication time; repository/route is
+unique. Row existence means published. Same-document publishing is idempotent.
+Replace/unpublish require the observed publication UUID; replacement changes the
+association UUID/time and FK atomically. No history, content copy or status exists.
+
+`publication-operations.ts` owns validation, repository allowlist enforcement and
+host-visible projection. `integrations/database/documentation-publications.ts`
+owns SQL. `GET /api/documentation/context?owner=...&repo=...&route=...` returns a
+version-1 structured delivery DTO or a normal `publication: null`. Invalid persisted
+content fails closed. No draft search, AI, source fetch or semantic fallback occurs.
+Sections retain ordered blocks with the existing Markdown field; the DTO excludes
+provenance, excerpts, generation and advisory/debug metadata. Visible qualifications
+and limitations remain. `DOCSYDE_HOST_ORIGIN` permits exactly one read-only local
+browser origin with no credentials; it is not user authentication. Repository and
+host context are not authorization credentials. Keep the service local.
+
+The dependency-free SDK retrieves explicitly and supports cancellation. Request
+Desk owns a minimal DOM help surface and displays all Markdown blocks consistently
+as escaped plain text. No highlighting, widget framework or Markdown parser is added.
+No-store retrieval happens on help open and context changes; close/reopen or refresh
+observes unpublish. Previously delivered browser content is not remotely recalled.
+
+Run `npm run documentation:publications:test` with local PostgreSQL. It cleans only
+its own fixture UUIDs, blocks external fetches, removes provider credentials, and
+checks lifecycle, isolation, immutable snapshots, projection and CORS. Delivery
+never creates or regenerates a suitable document for a demo proof.

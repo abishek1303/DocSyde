@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, index, jsonb, pgSchema, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import { check, index, jsonb, pgSchema, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
 
 export const docsydeSchema = pgSchema("docsyde");
 
@@ -41,3 +41,11 @@ export const documentationRuns = docsydeSchema.table("documentation_runs", {
   createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true, precision: 3 }).defaultNow().notNull(),
 }, table => [index("documentation_runs_repository_created_idx").on(table.repository, table.createdAt, table.id)]);
+
+export const documentationPublications = docsydeSchema.table("documentation_publications", {
+  id: uuid("id").primaryKey(),
+  repository: varchar("repository", { length: 512 }).notNull(),
+  route: varchar("route", { length: 300 }).notNull(),
+  draftId: uuid("draft_id").notNull().references(() => documentationDrafts.id, { onDelete: "restrict" }),
+  publishedAt: timestamp("published_at", { withTimezone: true, precision: 3 }).defaultNow().notNull(),
+}, table => [uniqueIndex("documentation_publications_repository_route_idx").on(table.repository, table.route)]);

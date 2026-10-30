@@ -457,3 +457,32 @@ separate from immutable saved documentation. A save retry reuses the exact signe
 preview without model calls. New attempts create new run IDs. A running record
 older than seven minutes is presented as interrupted without automatic resumption.
 No queue, worker or durable background-execution guarantee is introduced.
+
+## Explicit publication and contextual delivery
+
+Documentation now owns explicit publication of already persisted immutable drafts.
+A single `documentation_publications` association stores UUID, the existing shared
+canonical repository identity, exact pathname, draft FK and timestamp. Its unique
+repository/pathname key permits one active association; row existence is published.
+Saving stays separate. Same-document publication is idempotent, explicit replacement
+atomically changes the reference and publication identity/time, and unpublish deletes
+only the association. Observed publication UUIDs protect replace/unpublish against
+stale writes without a general concurrency layer. Canonical draft JSON/status and
+saved timestamps remain unchanged; no history or content copy is introduced.
+
+Feature operations enforce the existing repository allowlist through Sources' narrow
+repository-access entry, validate saved documents and derive a versioned host-only
+structured DTO. Database integration owns SQL; a read-only route exposes deterministic
+repository/pathname lookup with no-store responses. No models, generation, source
+retrieval, unpublished-draft search or semantic fallback are used. Exact matching
+excludes host query/hash and rejects trailing slashes except `/`, encodings, dot
+segments and patterns. Dynamic route targeting remains unimplemented.
+
+The dependency-free SDK adds explicit retrieval and cancellation, retaining existing
+HostContext metadata semantics. Request Desk in the separate test-project worktree
+owns an escaped-plain-text help surface, using `/requests/new` as the static proof.
+One explicit `.env` host origin enables read-only local CORS without credentials or
+a public authentication redesign. The original baseline/tag and host product behavior
+are preserved. SDK build output is copied into ignored host artifacts for this proof.
+Earlier descriptions of publishing/SDK delivery as deferred are superseded only by
+this narrow slice; broader embed UX, editing and semantic retrieval remain deferred.

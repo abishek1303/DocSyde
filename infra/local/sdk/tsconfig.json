@@ -1,1 +1,19 @@
-{"compilerOptions":{"target":"ES2022","module":"ES2022","lib":["ES2022","DOM"],"strict":true,"skipLibCheck":true,"rootDir":"../../../src/sdk","outDir":"../../../.artifacts/sdk"},"include":["../../../src/sdk/context-client.ts"]}
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "strict": true,
+    "skipLibCheck": true,
+    "rootDir": "../../../src/sdk",
+    "outDir": "../../../.artifacts/sdk",
+    "declaration": true
+  },
+  "include": [
+    "../../../src/sdk/context-client.ts",
+    "../../../src/sdk/documentation-client.ts"
+  ]
+}

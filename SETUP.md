@@ -310,3 +310,40 @@ publishing, and runtime/browser/SDK evidence remain unimplemented.
 providers to verify atomic execution, stages, failure/skips, no-change, insufficient
 evidence, interruption, access checks, history pagination and save retry. It makes
 no hosted-model calls and cleans up only its own fixtures.
+
+## Publish saved documentation into Request Desk
+
+Run `npm run db:migrate` for additive migration 0004. Set
+`DOCSYDE_HOST_ORIGIN=http://127.0.0.1:45873` in `.env` (one exact allowed local
+origin; no cookies or browser credentials). Open an existing saved document, review
+it, then Publish to `/requests/new`. Saving alone does not publish. An occupied
+target requires explicit Replace; Unpublish removes only its association.
+
+The Request Desk fixture lives in the separate `test-project` worktree. From this
+DocSyde checkout, run `npm run sdk:build`, then copy the generated `.js` and `.d.ts`
+files from `.artifacts/sdk/` into that fixture's `test-app/.artifacts/sdk/` directory.
+This is ignored local build output, not a new dependency or committed SDK copy.
+From the fixture checkout, run `npm --prefix test-app run build`,
+`npm --prefix test-app test`, then `npm --prefix test-app start`.
+The host defaults to repository `abishek1303/DocSyde` and delivery endpoint
+`http://127.0.0.1:3000/api/documentation/context`; optional public local overrides
+are `DOCSYDE_REPOSITORY_OWNER`, `DOCSYDE_REPOSITORY_NAME` and
+`DOCSYDE_DELIVERY_ENDPOINT` when starting its server.
+
+Open `http://127.0.0.1:45873/requests/new` and choose **Help for this page**.
+Nonmatching routes show an empty state. Blocks display as escaped plain text;
+qualifications remain visible. Refresh and reopening help retrieve persisted
+publication state without AI/GitHub/signing credentials. Unpublish, then reopen
+help or refresh to observe removal. This is a trusted-local demo boundary.
+
+Run `npm run documentation:publications:test`, `npm run sdk:test` and existing
+persistence/context/run checks. See the [publication guide](src/features/documentation/README.md#explicit-contextual-publication-local-demo)
+for matching, replacement, delivery fields and limitations. A live proof requires
+an already saved create-request document; never substitute fixture/unrelated content.
+
+With both servers running and the target empty, run
+`npm run documentation:publications:verify -- <existing-saved-document-id> [docsyde-origin]`.
+The verifier requires saved create-request content, uses the actual publishing UI,
+checks matching/nonmatching, refresh and navigation cancellation, then unpublishes.
+It refuses an occupied target and does not seed or regenerate documents. Screenshots
+are written under ignored `.artifacts/publication-proof/`.
