@@ -11,7 +11,7 @@ type DraftEntry = { id: string; savedAt: Date } & (
   { status: "unavailable" }
 );
 const cursorSchema = z.object({ savedAt: z.string().datetime(), id: z.uuid() }).strict();
-const listInput = z.object({ limit: z.number().int().min(1).max(50).default(20), before: cursorSchema.optional() }).strict();
+const listInput = z.object({ limit: z.number().int().min(1).max(50).default(20), before: cursorSchema.optional(), repository: z.string().url().optional() }).strict();
 
 function readDocument(row: { id: string; document: unknown }): DocumentationDocument {
   const document = validateDocumentationDocument(row.document);
@@ -28,8 +28,8 @@ export async function saveDocumentationDraft(raw: unknown): Promise<({ status: "
   return { status: "saved", document: readDocument(result.row), savedAt: result.row.savedAt };
 }
 
-export async function getDocumentationDraft(rawId: unknown): Promise<({ status: "found" } & SavedDraft) | { status: "missing" } | { status: "invalid"; id: string; savedAt: Date }> {
-  const row = await findDocumentationDraft(z.uuid().parse(rawId));
+export async function getDocumentationDraft(rawId: unknown, repository?: string): Promise<({ status: "found" } & SavedDraft) | { status: "missing" } | { status: "invalid"; id: string; savedAt: Date }> {
+  const row = await findDocumentationDraft(z.uuid().parse(rawId), repository === undefined ? undefined : z.string().url().parse(repository));
   if (!row) return { status: "missing" };
   try {
     return { status: "found", document: readDocument(row), savedAt: row.savedAt };
@@ -39,8 +39,8 @@ export async function getDocumentationDraft(rawId: unknown): Promise<({ status: 
 }
 
 export async function listDocumentationDrafts(raw: unknown = {}): Promise<{ entries: DraftEntry[]; nextCursor: Cursor | null }> {
-  const { limit, before } = listInput.parse(raw);
-  const rows = await selectDocumentationDrafts(limit + 1, before && { ...before, savedAt: new Date(before.savedAt) });
+  const { limit, before, repository } = listInput.parse(raw);
+  const rows = await selectDocumentationDrafts(limit + 1, before && { ...before, savedAt: new Date(before.savedAt) }, repository);
   const page = rows.slice(0, limit);
   const entries: DraftEntry[] = page.map(row => {
     const metadata = { id: row.id, savedAt: row.savedAt };

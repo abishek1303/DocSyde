@@ -419,3 +419,13 @@ changes discard stale form responses. Context cannot establish behavior or bypas
 citations. Reopening a draft reads only historical JSON. Run
 `npm run documentation:context:test` for isolated PostgreSQL/mocked-provider checks.
 These tests establish plumbing and boundaries, not universal factual correctness.
+
+## Product overview and navigation
+
+Slice 1 adds overview, recent GitHub changes, and repository-scoped saved-draft
+library routes. Sources validates configured repository selection and owns narrow
+browsing operations; GitHub normalizes repository metadata and recent commits.
+Documentation filters existing provenance in SQL before pagination and supports
+scoped detail reads. No Project binding or schema migration is added. The existing
+reader and technical source tools remain available. Run persistence, execution
+tracking, commit analysis setup and existing-document updates remain deferred.

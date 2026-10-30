@@ -1,0 +1,3 @@
+export function ArticleSkeleton() {
+  return <div role="status" aria-live="polite" className="mx-auto max-w-3xl space-y-8 py-6"><span className="sr-only">Loading documentation…</span><div aria-hidden="true" className="space-y-8 motion-safe:animate-pulse"><div className="h-5 w-24 rounded bg-muted" /><div className="h-10 w-3/4 rounded bg-muted" /><div className="h-5 w-1/2 rounded bg-muted" />{[0, 1, 2].map(section => <div key={section} className="space-y-4"><div className="h-7 w-1/3 rounded bg-muted" /><div className="h-4 rounded bg-muted" /><div className="h-4 rounded bg-muted" /><div className="h-4 w-4/5 rounded bg-muted" /></div>)}</div></div>;
+}

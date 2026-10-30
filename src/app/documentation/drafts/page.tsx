@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { HelpWorkspace } from "@/features/documentation/components/help-workspace";
 import { Suspense } from "react";
 import { listDocumentationDrafts } from "@/features/documentation/operations";
 
@@ -26,5 +25,5 @@ async function SavedDraftList({ searchParams }: { searchParams: Search }) {
 }
 
 export default function SavedDraftsPage({ searchParams }: { searchParams: Search }) {
-  return <Suspense fallback={<p role="status">Loading documentation…</p>}><HelpWorkspace><div className="space-y-7"><div className="space-y-3"><h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Your documentation</h1><p className="leading-7 text-muted-foreground">Browse saved guides and explore how your product works. Drafts are unreviewed.</p></div><Suspense fallback={<p role="status">Loading saved drafts…</p>}><SavedDraftList searchParams={searchParams} /></Suspense></div></HelpWorkspace></Suspense>;
+  return <Suspense fallback={<p role="status">Loading documentation…</p>}><div className="mx-auto max-w-3xl"><div className="space-y-7"><div className="space-y-3"><h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Your documentation</h1><p className="leading-7 text-muted-foreground">Browse saved guides and explore how your product works. Drafts are unreviewed.</p></div><Suspense fallback={<p role="status">Loading saved drafts…</p>}><SavedDraftList searchParams={searchParams} /></Suspense></div></div></Suspense>;
 }

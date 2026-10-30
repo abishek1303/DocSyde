@@ -17,6 +17,12 @@ PostgreSQL, and reopened without model calls. Publishing and contextual delivery
 
 ## First setup
 
+The app theme uses the Docsyde Figma foundations in `src/app/globals.css`, mapped
+to the existing shared UI tokens. Inter and IBM Plex Mono load through
+`next/font` in the root layout. The header light/dark toggle saves `docsyde-theme` in local storage and restores
+it before the page paints. With no saved choice, the app uses the light theme;
+Figma token changes must be reflected in CSS explicitly (there is no live sync).
+
 Requirements: Node.js 20.9+, npm, Git, and Docker Desktop for PostgreSQL.
 Browser checks also need Playwright's Chromium.
 
@@ -242,3 +248,36 @@ envelopes are not captured. Files contain private repository source/user text;
 keep them local and delete when no longer needed. Files use owner-only permissions.
 Diagnostic write failure leaves the original rejection unchanged and emits a fixed
 warning; there is no retry, product evidence ingestion or diagnostic UI.
+
+## Product navigation (Slice 1)
+
+`/` is the repository overview, `/docs` lists saved unreviewed drafts, and
+`/changes` shows the latest 20 GitHub commits. Source analysis remains at `/sources`
+with the existing context, semantic analysis, and draft-generation tools linked there.
+Use `?repository=owner/name&branch=branch-name` to select an allowed repository and
+GitHub branch. Omitting the branch resolves GitHub's default branch; this does not
+represent the local checkout. A branch picker and commit analysis are deferred.
+GitHub and database failures render independently. Saved-document filtering happens
+in SQL before cursor pagination, using existing provenance; no migration is needed.
+Run the new checks with `node --conditions=react-server --import tsx --test
+src/integrations/github/browse.test.ts` and, with local PostgreSQL running,
+`node --conditions=react-server --import tsx --test
+infra/local/documentation/repository-scope.test.ts`.
+
+Documentation entry: `/docs` opens the first available saved draft in the existing
+reader. Repositories without saved drafts show Getting started with links to changes
+and source tools. The full draft library remains at `/docs?view=library` and is linked
+from the reader. Repository-scoped pagination is unchanged.
+
+Saved-draft readers share a persistent layout: document switches keep the header,
+sidebar filter and mobile navigation mounted. Only the article area shows its loading
+skeleton. Navigation metadata loads independently through a scoped server action.
+
+The application header now lives in the root layout, so Overview, Changes,
+Documentation, source tools and the theme toggle remain visible across routes,
+including saved-document navigation. The header stays pinned while scrolling.
+
+Recent changes uses a commit table with GitHub-backed Previous/Next pagination.
+`/changes?page=2` selects a page. Pages always show up to 10 commits.
+Previous/Next controls sit in the table header and retain repository/branch selection. The overview retains its compact four-commit preview. On mobile, author
+and date appear beneath the commit title to keep the table readable without overflow.

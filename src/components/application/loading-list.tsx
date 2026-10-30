@@ -1,0 +1,1 @@
+export function LoadingList() { return <div role="status" className="space-y-4 py-5"><span className="sr-only">Loading items…</span>{[1,2,3].map(i => <div key={i} className="h-12 animate-pulse rounded-md bg-muted" />)}</div>; }

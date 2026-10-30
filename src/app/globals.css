@@ -5,10 +5,16 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --color-warning: var(--docsyde-status-warning);
+  --color-warning-background: var(--docsyde-status-warning-bg);
+  --color-success: var(--docsyde-status-success);
+  --color-success-background: var(--docsyde-status-success-bg);
+  --color-code: var(--docsyde-code-bg);
+  --color-code-foreground: var(--docsyde-code-text);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-ibm-plex-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -39,82 +45,106 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --radius-sm: var(--docsyde-radius-badge);
+  --radius-md: var(--docsyde-radius-control);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-xl: var(--docsyde-radius-card);
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  color-scheme: light;
+  /* Docsyde Figma foundations; shared UI roles below reference these tokens. */
+  --docsyde-bg-canvas: #f4f5f8;
+  --docsyde-bg-surface: #ffffff;
+  --docsyde-text-primary: #202431;
+  --docsyde-text-secondary: #565e70;
+  --docsyde-border-default: #dde1e9;
+  --docsyde-action-primary: #087f9c;
+  --docsyde-action-subtle: #e8f7fa;
+  --docsyde-status-success: #18714a;
+  --docsyde-status-success-bg: #ecf7f0;
+  --docsyde-status-warning: #8a560d;
+  --docsyde-status-warning-bg: #fff5e2;
+  --docsyde-status-error: #b33343;
+  --docsyde-error-bg: #fff0f1;
+  --docsyde-diff-added-bg: #eaf6ee;
+  --docsyde-diff-added-text: #216744;
+  --docsyde-diff-removed-bg: #fff0f1;
+  --docsyde-diff-removed-text: #a83040;
+  --docsyde-code-bg: #202635;
+  --docsyde-code-text: #e3e8f2;
+  --docsyde-focus-ring: #a7dde7;
+  --docsyde-space-4: 0.25rem;
+  --docsyde-space-8: 0.5rem;
+  --docsyde-space-12: 0.75rem;
+  --docsyde-space-16: 1rem;
+  --docsyde-space-24: 1.5rem;
+  --docsyde-space-32: 2rem;
+  --docsyde-space-48: 3rem;
+  --docsyde-space-64: 4rem;
+  --docsyde-radius-badge: 0.25rem;
+  --docsyde-radius-control: 0.375rem;
+  --docsyde-radius-card: 0.625rem;
+  --docsyde-border-width: 1px;
+  --spacing: var(--docsyde-space-4);
+  --background: var(--docsyde-bg-canvas);
+  --foreground: var(--docsyde-text-primary);
+  --card: var(--docsyde-bg-surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--docsyde-bg-surface);
+  --popover-foreground: var(--foreground);
+  --primary: var(--docsyde-action-primary);
+  --primary-foreground: var(--docsyde-bg-surface);
+  --secondary: var(--docsyde-action-subtle);
+  --secondary-foreground: var(--primary);
+  --muted: var(--docsyde-bg-canvas);
+  --muted-foreground: var(--docsyde-text-secondary);
+  --accent: var(--docsyde-action-subtle);
+  --accent-foreground: var(--primary);
+  --destructive: var(--docsyde-status-error);
+  --border: var(--docsyde-border-default);
+  --input: var(--border);
+  --ring: var(--docsyde-focus-ring);
+  --chart-1: var(--primary);
+  --chart-2: var(--docsyde-status-success);
+  --chart-3: var(--docsyde-status-warning);
+  --chart-4: var(--docsyde-status-error);
+  --chart-5: var(--docsyde-text-secondary);
+  --radius: var(--docsyde-radius-card);
+  --sidebar: var(--docsyde-bg-surface);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  color-scheme: dark;
+  --docsyde-bg-canvas: #181b25;
+  --docsyde-bg-surface: #202635;
+  --docsyde-text-primary: #e3e8f2;
+  --docsyde-text-secondary: #b8bfce;
+  --docsyde-border-default: #3b4559;
+  --docsyde-action-primary: #79d2e5;
+  --docsyde-action-subtle: #183b47;
+  --docsyde-status-success: #8ed6af;
+  --docsyde-status-success-bg: #19382a;
+  --docsyde-status-warning: #f1cb89;
+  --docsyde-status-warning-bg: #3b2e19;
+  --docsyde-status-error: #f29aa6;
+  --docsyde-error-bg: #42232d;
+  --docsyde-diff-added-bg: #19382a;
+  --docsyde-diff-added-text: #8ed6af;
+  --docsyde-diff-removed-bg: #42232d;
+  --docsyde-diff-removed-text: #f29aa6;
+  --docsyde-focus-ring: #79d2e5;
+  --primary-foreground: var(--docsyde-bg-canvas);
 }
 
 @layer base {
@@ -126,5 +156,11 @@
   }
   html {
     @apply font-sans;
+  }
+}
+/* Animate in-page links while respecting the user's motion preference. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
   }
 }

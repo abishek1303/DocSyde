@@ -1,0 +1,7 @@
+import { recentChanges, type selectedRepository } from "../repository-overview";
+export async function CommitList({ repository, limit = 20 }: { repository: ReturnType<typeof selectedRepository>; limit?: number }) {
+  const result = await recentChanges(repository, limit).catch(() => null);
+  if (!result) return <p role="alert" className="py-6 text-sm text-muted-foreground">Recent changes are unavailable. Check GitHub access and the selected branch, then reload. Documentation is still available.</p>;
+    return <div><p className="mb-2 break-all text-xs text-muted-foreground">GitHub branch · {result.branch}</p>{!result.commits.length && <p className="py-6 text-sm text-muted-foreground">No commits on this branch yet.</p>}<ul className="divide-y">{result.commits.map(commit => <li key={commit.sha} className="space-y-2 py-4"><a href={commit.url} target="_blank" rel="noreferrer" className="block break-words font-medium hover:text-primary focus-visible:outline-2 focus-visible:outline-ring">{commit.message}<span className="sr-only"> (view on GitHub, opens new tab)</span></a><p className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground"><span className="font-mono">{commit.sha.slice(0,7)}</span><span className="break-all">{commit.author}</span>{commit.date && <time dateTime={commit.date}>{new Date(commit.date).toLocaleDateString("en-US", { dateStyle: "medium", timeZone: "UTC" })}</time>}</p></li>)}</ul></div>;
+
+}

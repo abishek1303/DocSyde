@@ -34,12 +34,12 @@ export function DraftInspector({ document, savedAt, appearance = "card" }: { doc
       {document.sections.map(section => {
         const caveats = [...new Set(section.qualifications.flatMap(q => [...q.assumptions, ...q.uncertainties]))];
         const inferred = section.qualifications.some(q => q.support === "inferred" || q.confidence === "low");
-        return <section className="scroll-mt-8 space-y-5" id={`section-${section.id}`} key={section.id}>
+        return <section className="scroll-mt-48 space-y-5 sm:scroll-mt-32 lg:scroll-mt-24" id={`section-${section.id}`} key={section.id}>
           <h3 className="border-b pb-4 text-2xl font-semibold tracking-tight">{section.title}</h3>
           <div className="space-y-5 text-base leading-8 text-foreground/90 sm:text-lg">
             {section.content.map((block, index) => <div key={index} className="space-y-3 [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:text-sm [&_li]:pl-1 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-6 [&_p]:mb-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-4 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-6"><DraftMarkdown content={block.markdown} /></div>)}
           </div>
-          {(inferred || caveats.length > 0) && <aside className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"><p className="font-medium">What to keep in mind</p>{inferred && <p>Some details are inferred or have limited support. Check the sources before relying on them.</p>}{caveats.length > 0 && <ul className="list-disc space-y-1 pl-5">{caveats.map(text => <li key={text}>{text}</li>)}</ul>}</aside>}
+          {(inferred || caveats.length > 0) && <aside className="space-y-2 rounded-lg border border-warning/30 bg-warning-background p-4 text-sm leading-6 text-warning"><p className="font-medium">What to keep in mind</p>{inferred && <p>Some details are inferred or have limited support. Check the sources before relying on them.</p>}{caveats.length > 0 && <ul className="list-disc space-y-1 pl-5">{caveats.map(text => <li key={text}>{text}</li>)}</ul>}</aside>}
           <details className={disclosureStyle}>
             <summary className={summaryStyle}>Sources and confidence<ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" /></summary>
             <div className="mt-5 space-y-5 border-t pt-5 text-sm leading-6 text-muted-foreground">

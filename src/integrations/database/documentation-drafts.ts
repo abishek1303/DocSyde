@@ -19,15 +19,15 @@ export async function insertDocumentationDraft(id: string, document: unknown) {
   return { row: existing, equal: existing.equal };
 }
 
-export async function findDocumentationDraft(id: string) {
+export async function findDocumentationDraft(id: string, repository?: string) {
   const [row] = await getDatabase().select().from(documentationDrafts)
-    .where(eq(documentationDrafts.id, id)).limit(1);
+    .where(and(eq(documentationDrafts.id, id), repository ? sql`lower(${documentationDrafts.document}->'provenance'->>'repository') = ${repository.toLowerCase()}` : undefined)).limit(1);
   return row ?? null;
 }
 
-export async function selectDocumentationDrafts(limit: number, before?: { savedAt: Date; id: string }) {
-  return getDatabase().select().from(documentationDrafts).where(before ? or(
+export async function selectDocumentationDrafts(limit: number, before?: { savedAt: Date; id: string }, repository?: string) {
+  return getDatabase().select().from(documentationDrafts).where(and(repository ? sql`lower(${documentationDrafts.document}->'provenance'->>'repository') = ${repository.toLowerCase()}` : undefined, before ? or(
     lt(documentationDrafts.savedAt, before.savedAt),
     and(eq(documentationDrafts.savedAt, before.savedAt), lt(documentationDrafts.id, before.id)),
-  ) : undefined).orderBy(desc(documentationDrafts.savedAt), desc(documentationDrafts.id)).limit(limit);
+  ) : undefined)).orderBy(desc(documentationDrafts.savedAt), desc(documentationDrafts.id)).limit(limit);
 }
