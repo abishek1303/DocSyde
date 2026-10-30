@@ -29,3 +29,29 @@ export async function readRecentCommits(raw: unknown, branch?: string, limit = 2
     return { branch: ref, hasNext: /<[^>]+>;\s*rel="next"/.test(response.headers.link ?? ""), commits: data.map(commit => ({ sha: commit.sha, message: commit.commit.message.split("\n")[0], author: commit.commit.author?.name ?? "Unknown author", date: commit.commit.committer?.date ?? null, url: commit.html_url })) };
   });
 }
+
+export async function readCommitDetails(raw: unknown, sha: string) {
+  const coordinates = repositoryCoordinates.parse(raw);
+  z.string().regex(/^[a-f0-9]{40}$/i).parse(sha);
+  return withGithubErrors(async () => {
+    const client = await createGithubClient();
+    const { data } = await client.rest.repos.getCommit({ ...coordinates, ref: sha, per_page: 100 });
+    return {
+      sha: data.sha, message: data.commit.message, author: data.commit.author?.name ?? "Unknown author",
+      date: data.commit.committer?.date ?? null, url: data.html_url,
+      parents: data.parents.map(parent => parent.sha),
+      // This endpoint can paginate files. Never label its first page complete.
+      files: (data.files ?? []).map(file => ({ path: file.filename, status: file.status, additions: file.additions, deletions: file.deletions, patch: file.patch ?? null })),
+      filesMayBeLimited: (data.files?.length ?? 0) >= 100,
+    };
+  });
+}
+
+export async function readBranches(raw: unknown) {
+  const coordinates = repositoryCoordinates.parse(raw);
+  return withGithubErrors(async () => {
+    const client = await createGithubClient();
+    const { data } = await client.rest.repos.listBranches({ ...coordinates, per_page: 100 });
+    return { names: data.map(branch => branch.name), limited: data.length === 100 };
+  });
+}

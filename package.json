@@ -30,6 +30,7 @@
     "sources:verify": "node --conditions=react-server --import tsx infra/local/sources/verify.ts",
     "sources:context:verify": "node --conditions=react-server --import tsx infra/local/sources/verify-context.ts",
     "sources:product:verify": "node --conditions=react-server --import tsx infra/local/sources/verify-product-changes.ts",
+    "documentation:runs:test": "node --conditions=react-server --import tsx --test infra/local/documentation/run-workflow.test.ts",
     "documentation:test": "node --conditions=react-server --import tsx --test src/features/documentation/*.test.ts",
     "documentation:verify": "node --conditions=react-server --import tsx infra/local/documentation/verify-draft.ts",
     "documentation:context:test": "node --conditions=react-server --import tsx --test infra/local/documentation/repository-context.test.ts",

@@ -8,3 +8,9 @@ export { withSourceAccess } from "./local-source-access";
 
 export { captureGenerationContext } from "./repository-context";
 export type { GenerationContextSnapshot } from "./generation-context";
+
+export { assertAllowedRepository } from "./local-source-access";
+export { pinChangeInput, readSelectedChange } from "./selected-change";
+export type { SourceProgress, SourceStep } from "./analysis-progress";
+export { storedProductResult } from "./stored-product-result";
+export { generationContextSnapshot } from "./generation-context";

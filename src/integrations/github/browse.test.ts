@@ -32,3 +32,19 @@ test("recent commits resolve the default branch, honor selected branches and han
   assert.deepEqual((await readRecentCommits({ owner: "example", repo: "product" })).commits, []);
   await assert.rejects(() => readRecentCommits({ owner: "example", repo: "product" }, "bad..ref"));
 });
+
+test("commit details retain parents and normalize file evidence and branch names", async t => {
+  const { readCommitDetails, readBranches } = await import("./browse");
+  const old = process.env.GITHUB_TOKEN; process.env.GITHUB_TOKEN = "fixture";
+  t.after(() => { if (old === undefined) delete process.env.GITHUB_TOKEN; else process.env.GITHUB_TOKEN = old; });
+  t.mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.includes("/branches")) return Response.json([{ name: "main" }, { name: "release/v1" }]);
+    return Response.json({ sha: "b".repeat(40), html_url: "https://github.com/example/product/commit/b", commit: { message: "Merge feature", author: null, committer: null }, parents: [{ sha: "a".repeat(40) }, { sha: "c".repeat(40) }], files: [{ filename: "form.ts", status: "modified", additions: 1, deletions: 0, patch: "+required" }] });
+  });
+  const commit = await readCommitDetails({ owner: "example", repo: "product" }, "b".repeat(40));
+  assert.deepEqual(commit.parents, ["a".repeat(40), "c".repeat(40)]);
+  assert.equal(commit.files[0].path, "form.ts"); assert.equal(commit.filesMayBeLimited, false);
+  assert.deepEqual((await readBranches({ owner: "example", repo: "product" })).names, ["main", "release/v1"]);
+  await assert.rejects(() => readCommitDetails({ owner: "example", repo: "product" }, "not-a-sha"));
+});

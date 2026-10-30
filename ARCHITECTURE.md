@@ -427,5 +427,33 @@ library routes. Sources validates configured repository selection and owns narro
 browsing operations; GitHub normalizes repository metadata and recent commits.
 Documentation filters existing provenance in SQL before pagination and supports
 scoped detail reads. No Project binding or schema migration is added. The existing
-reader and technical source tools remain available. Run persistence, execution
-tracking, commit analysis setup and existing-document updates remain deferred.
+reader and technical source tools remain available. Run persistence and execution tracking are described below. Existing-document
+updates remain deferred.
+
+
+## Change-to-run workflow
+
+Changes now links to a pinned commit-details/setup screen. Sources owns commit
+parents, first-parent defaults, branch browsing, revision pinning and evidence
+selection. Documentation owns request-bound run execution, stage transitions,
+proposed drafts, review and explicit signed saving. The existing source access
+guard and all canonical/evidence validators remain intact. App routes compose the
+Sources table with a narrow Documentation run-status entry; Sources does not import
+Documentation, preserving acyclic feature dependencies.
+
+Migration 0003 adds `docsyde.documentation_runs`, a bounded JSON record alongside
+repository, lifecycle status and timestamps. An atomic pending-to-running claim
+prevents repeated POSTs from executing the same run twice. Progress callbacks at
+real operation boundaries persist stage transitions; a read-only status endpoint
+supports polling. GET/rendering never calls a model. The run page issues the
+execution POST only for a deliberately created pending run. Same-origin checks
+protect that HTTP mutation in the existing trusted-local scope. Each read and
+execution rechecks the repository allowlist; this is not public multi-user auth.
+
+Context is frozen once at execution and recorded. Analysis snapshots retain only
+the bounded evidence already supplied to the workflow; no credentials, provider
+envelopes, browser, runner or SDK evidence are added. Completed run previews remain
+separate from immutable saved documentation. A save retry reuses the exact signed
+preview without model calls. New attempts create new run IDs. A running record
+older than seven minutes is presented as interrupted without automatic resumption.
+No queue, worker or durable background-execution guarantee is introduced.

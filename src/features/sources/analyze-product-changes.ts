@@ -1,3 +1,4 @@
+import type { SourceProgress } from "./analysis-progress";
 import "server-only";
 import { compareCommits, repositoryPathInput } from "@/integrations/github/source-reader";
 import { generateStructured, ModelError } from "@/integrations/ai/generate-structured";
@@ -11,7 +12,7 @@ import { productChangeInstructions } from "./product-change-prompt";
 import { PRODUCT_CHANGE_OUTPUT_TOKENS } from "./product-change-limits";
 import { captureGenerationContext } from "./repository-context";
 import { type GenerationContextSnapshot } from "./generation-context";
-export async function analyzeProductChanges(raw: unknown, capturedSnapshot?: GenerationContextSnapshot): Promise<ProductResult> {
+export async function analyzeProductChanges(raw: unknown, capturedSnapshot?: GenerationContextSnapshot, onProgress?: SourceProgress): Promise<ProductResult> {
   const input = productChangeInput.parse(raw);
   const generationSnapshot = capturedSnapshot ?? await captureGenerationContext(input, null);
   const paths = [...new Set(input.paths.map(path => repositoryPathInput.parse(path)))];
@@ -19,13 +20,17 @@ export async function analyzeProductChanges(raw: unknown, capturedSnapshot?: Gen
   return withSourceAccess(async () => {
     const deadline = AbortSignal.timeout(180_000);
     const signal = AbortSignal.any([deadline, AbortSignal.timeout(60_000)]);
+    await onProgress?.({ step: "read-evidence", status: "running", summary: "Reading pinned commits, patches and selected source files." });
     const comparison = await compareCommits(input, { maxCommits: 100, signal });
     const selected = selectEvidence(comparison);
     const bundle: ProductBundle = { repository: comparison.repository.location, base: comparison.base.commitId, head: comparison.head.commitId,
       inventory: comparison.files.map(({ path, previousPath, kind }) => ({ path, previousPath, kind })),
       evidence: selected.files.map(file => ({ id: `patch-${file.id}`, path: file.path, side: "patch", commitId: null, text: file.patch, status: file.coverage, changed: true })),
       limited: selected.limited, notice: "Selected context only. Supplied patches may be incomplete. Runtime behavior, deployment and tests are unverified." };
-    if (!comparison.files.length) return { bundle, bytes: Buffer.byteLength(serializeProductEvidence(bundle, generationSnapshot)), status: "no-change", analysis: null };
+    if (!comparison.files.length) {
+      await onProgress?.({ step: "read-evidence", status: "completed", summary: "No net source changes." });
+      return { bundle, bytes: Buffer.byteLength(serializeProductEvidence(bundle, generationSnapshot)), status: "no-change", analysis: null };
+    }
     // Sequential endpoint batches preserve the existing two-read concurrency ceiling.
     for (const side of ["base", "head"] as const) {
       const requested: string[] = [];
@@ -43,15 +48,19 @@ export async function analyzeProductChanges(raw: unknown, capturedSnapshot?: Gen
       for (const file of context.files) bundle.evidence.push({ id: `${side}-${bundle.evidence.length}`, path: file.path, side, commitId: bundle[side], contentId: file.contentId,
         text: file.status === "available" ? file.text : null, status: file.status === "available" ? "available" : `${file.status}: ${file.reason}`, changed: comparison.files.some(f => f.path === file.path || f.previousPath === file.path) });
     }
+    await onProgress?.({ step: "read-evidence", status: "completed", summary: `${comparison.files.length} changed file${comparison.files.length === 1 ? "" : "s"}; ${bundle.evidence.filter(e => e.text !== null).length} evidence items supplied${bundle.limited ? " (limited coverage)" : ""}.` });
     const payload = serializeProductEvidence(bundle, generationSnapshot);
     const result: ProductResult = { bundle, bytes: Buffer.byteLength(payload, "utf8"), status: "insufficient-evidence", analysis: null };
     if (!bundle.evidence.some(e => e.changed && e.text)) return result;
+    await onProgress?.({ step: "understand-impact", status: "running", summary: "Interpreting product behavior and validating citations." });
     try {
       const generated = await generateStructured({ instructions: productChangeInstructions, input: payload, schema: productChangeOutput, maxOutputTokens: PRODUCT_CHANGE_OUTPUT_TOKENS, signal: deadline });
       await validateWithDiagnostics(generated.data, bundle, payload);
+      await onProgress?.({ step: "understand-impact", status: "completed", summary: `${generated.data.findings.length} validated finding${generated.data.findings.length === 1 ? "" : "s"} · ${generated.data.assessment}.` });
       return { ...result, status: generated.data.assessment === "insufficient-evidence" ? "insufficient-evidence" : "analyzed", analysis: generated.data, model: generated.model, elapsedMs: generated.elapsedMs };
     } catch (error) {
       const rejection = error instanceof ModelError ? { stage: "model-output" as const, code: error.code } : error instanceof ProductAnalysisValidationError ? error.rejection : undefined;
+      await onProgress?.({ step: "understand-impact", status: "failed", summary: "Semantic output or evidence validation failed." });
       return { ...result, status: "error", ...(rejection ? { rejection } : {}), error: rejection ? `Semantic analysis rejected (${rejection.stage}: ${rejection.code}). Draft generation must be skipped. Retry manually.` : "Semantic analysis validation failed. Retry manually." };
     }
   });

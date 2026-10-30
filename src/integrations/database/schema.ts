@@ -32,3 +32,12 @@ export const repositoryContexts = docsydeSchema.table("repository_contexts", {
   text: varchar("text", { length: 500 }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const documentationRuns = docsydeSchema.table("documentation_runs", {
+  id: uuid("id").primaryKey(),
+  repository: varchar("repository", { length: 512 }).notNull(),
+  status: varchar("status", { length: 32 }).notNull(),
+  payload: jsonb("payload").$type<unknown>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, precision: 3 }).defaultNow().notNull(),
+}, table => [index("documentation_runs_repository_created_idx").on(table.repository, table.createdAt, table.id)]);

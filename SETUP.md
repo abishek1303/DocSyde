@@ -252,11 +252,11 @@ warning; there is no retry, product evidence ingestion or diagnostic UI.
 ## Product navigation (Slice 1)
 
 `/` is the repository overview, `/docs` lists saved unreviewed drafts, and
-`/changes` shows the latest 20 GitHub commits. Source analysis remains at `/sources`
+`/changes` shows GitHub commits in pages of 10. Source analysis remains at `/sources`
 with the existing context, semantic analysis, and draft-generation tools linked there.
 Use `?repository=owner/name&branch=branch-name` to select an allowed repository and
 GitHub branch. Omitting the branch resolves GitHub's default branch; this does not
-represent the local checkout. A branch picker and commit analysis are deferred.
+represent the local checkout. A branch picker and per-commit analysis setup are available.
 GitHub and database failures render independently. Saved-document filtering happens
 in SQL before cursor pagination, using existing provenance; no migration is needed.
 Run the new checks with `node --conditions=react-server --import tsx --test
@@ -281,3 +281,32 @@ Recent changes uses a commit table with GitHub-backed Previous/Next pagination.
 `/changes?page=2` selects a page. Pages always show up to 10 commits.
 Previous/Next controls sit in the table header and retain repository/branch selection. The overview retains its compact four-commit preview. On mobile, author
 and date appear beneath the commit title to keep the table readable without overflow.
+
+
+## Analyze a change and review its documentation
+
+Run `npm run db:migrate` (or `npm run db:setup`) to apply additive migration 0003.
+Existing GitHub/Baseten/signing configuration is reused; no new environment values.
+On `/changes`, select **Analyze change**, inspect the first-parent comparison, add
+optional instructions, then **Start analysis & propose documentation**. Advanced
+options allow source paths, explicit association JSON and an ancestor base revision.
+Merge commits use the first parent; root commits have no default supported run.
+
+The dedicated `/runs/[id]` timeline polls actual persisted operation transitions.
+`/runs` lists repository-scoped attempts; recent runs appear on the overview and in
+the Changes table. Refresh/reopening never repeats completed model calls. Pending
+runs are deliberately executed by one guarded POST after the start action. Runs
+are request-bound: an interrupted/expired execution is explicit after seven minutes,
+and **Start a new attempt** creates a separate run. Keep the local Next.js process
+running; this is not a background worker or publicly authenticated service.
+
+**Review draft** opens `/runs/[id]/review`; **View findings & evidence** opens a
+secondary view of the actual Git/source analysis. Saving remains explicit and uses
+the existing signed handoff. A failed save can be retried without regeneration.
+Proposals create new drafts; automatic targeting/updating of existing saved docs,
+publishing, and runtime/browser/SDK evidence remain unimplemented.
+
+`npm run documentation:runs:test` uses isolated PostgreSQL records and mocked
+providers to verify atomic execution, stages, failure/skips, no-change, insufficient
+evidence, interruption, access checks, history pagination and save retry. It makes
+no hosted-model calls and cleans up only its own fixtures.
