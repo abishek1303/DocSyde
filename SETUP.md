@@ -184,3 +184,17 @@ disabled and provider credentials absent. `npm run documentation:persistence:ver
 leaves one clearly labeled verification draft for inspecting the actual routes;
 rerun with `-- <id>` after a restart to reopen it without creating another row.
 See the [Documentation guide](src/features/documentation/README.md#persistence-and-signed-saving).
+
+## Documentation reader styling
+
+The draft reader uses the installed shadcn Card styles and Tailwind utilities.
+Tailwind compiles through `postcss.config.mjs` for both Next.js bundlers, including
+the webpack fallback. Source/confidence details and canonical JSON are expandable;
+assumptions and uncertainties remain visible in the document. Existing saved drafts
+use this reader immediately, with no regeneration or database migration.
+
+The saved-document help center uses shadcn’s neutral dark theme, a document sidebar
+with a filter over the latest loaded titles, and section navigation. Mobile navigation
+is collapsible. The generation prompt favors task-oriented help; analysis may retain
+up to four focused findings with supported UI labels. Existing documents remain unchanged;
+use a fresh generation to evaluate the updated writing instructions.

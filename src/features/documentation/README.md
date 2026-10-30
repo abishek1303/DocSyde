@@ -128,3 +128,15 @@ and compare Projects before/after. External HTTP is blocked and provider credent
 are removed. `npm run documentation:persistence:verify` leaves one labeled fixture;
 `npm run documentation:persistence:verify -- <id>` reopens it after restart. Neither
 command spends model credit. The live generation verifier above still does.
+
+The shared reader presents the draft as a document with section navigation, saved
+status and readable typography using existing shadcn/Tailwind styles. Sources and
+confidence, evidence limitations and developer JSON are expandable. Actual
+assumptions/uncertainties remain visible next to affected sections. This is display
+only: saved canonical content, identities, provenance and safe Markdown are unchanged.
+
+The saved-document help center uses shadcn’s neutral dark theme, a document sidebar
+with a filter over the latest loaded titles, and section navigation. Mobile navigation
+is collapsible. The generation prompt favors task-oriented help; analysis may retain
+up to four focused findings with supported UI labels. Existing documents remain unchanged;
+use a fresh generation to evaluate the updated writing instructions.
