@@ -9,6 +9,61 @@ cross-feature entry. The existing allowlist and single-process guard apply to
 each provider stage. Keep this local-only; public exposure requires authentication
 and user/resource authorization. Provider credentials stay server-side.
 
+## Independent documentation-impact planning
+
+`planDocumentationImpact({ impact }, { signal? }?)` accepts direct validated
+`synthesizeProductImpact()` output and returns `{ plan, model, elapsedMs }` using
+one existing Baseten structured-text call. It is server-only and independent of
+draft generation. It performs no source reads, capture, vision, saves or publication.
+
+Sources owns strict ProductImpact parsing and retained reference-graph validation:
+unique catalogs, source citation/evidence correspondence, pinned identities,
+capture/reference correspondence and deterministic claim consistency. This cannot
+re-prove excerpts or visual facts from absent source bodies/screenshots. Zero-claim
+impacts reject before retrieval/inference. This is trusted server input, not a new
+client JSON entry point or authorization mechanism.
+
+Existing repository-filtered list/load operations retrieve at most ten canonical
+saved documents. Another page, unavailable/corrupt/disappearing rows or repository
+mismatch rejects before inference. General/unassociated documents remain candidates;
+route associations are hints only. Presentation is sorted by UUID, never recency or
+authority. Completeness describes the observed listing, not a transactional lock
+against concurrent new saves. No search/index or version-family inference is added.
+
+The strict generated plan has at most eight decisions and six uncertainties.
+Decisions contain action (`revise`, `add`, `no-change`, `unresolved`), nullable
+document/section UUIDs, reason/update intent (500 characters each), and one to six
+operation-local `claim-1`… references. Revise and no-change require a supplied
+document; any section must belong to it. Add with an existing document and null
+section means a new section; both IDs null means a new document. Blocks lack stable
+identity and cannot be targeted. Revise/add require source-supported claims and an
+update intent. Insufficient evidence/material contradictions permit only unresolved.
+
+The prompt requires a supported coverage gap before add, positive accuracy evidence
+before no-change, explicitly documented internal behavior before internal-only
+revision, and unresolved decisions for ambiguous targets. Empty retrieval alone
+does not justify add. These semantic judgments are not proved by local validation;
+the local checks enforce structure, references and conservative eligibility only.
+Plans contain update intent, never replacement prose. Exact saved UUIDs refer to
+immutable transformation inputs for future work, not mutable documents or authority.
+
+The complete serialized capability request (instructions, input and output schema)
+is capped at 32 KiB UTF-8 before the model call, without truncation. It contains only
+projected claims/qualifications and candidate IDs/titles/routes/section markdown;
+historical provenance, source reference IDs, artifact/capture identities, DOM and
+provider envelopes are excluded. Product/document content is untrusted data.
+Cancellation is checked between existing reads and forwarded to generation; the
+existing database APIs do not support aborting an already-running query.
+
+Server-owned plan qualifications preserve upstream assessment, contradictions,
+uncertainties (including the runtime/revision warning), source coverage and limits.
+The claim catalog maps local IDs to original claim indices/claims and evidence refs.
+Downstream callers retain the original ProductImpact to resolve those refs through
+its original provenance; no second impact identity or duplicated provenance catalog
+is introduced. Run `npm run documentation:test` for mocked planning and existing
+draft/preparation regressions. Planning has not been live-model verified or wired
+into the documentation workflow.
+
 ## Canonical v1 representation
 
 `document.ts` owns the typed Zod representation: Document has id, schemaVersion,
@@ -57,7 +112,7 @@ Optional arguments: base head followed by explicit context paths. It prints the
 proposed draft and bounded provenance, not full source bodies. Requires existing
 GitHub/Baseten credentials and uses API credit. Invalid output is withheld.
 
-Deferred: editing, document history, stale-doc targeting, automatic updates,
+Deferred: editing, document history, workflow wiring of impact targeting, automatic updates,
 Markdown export, embeddings and investigation. Explicit publication and SDK delivery
 are implemented narrowly below.
 

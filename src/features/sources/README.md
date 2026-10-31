@@ -1,5 +1,107 @@
 # Sources
 
+## Independent product-impact synthesis
+
+`synthesizeProductImpact({ source, runtime? }, { signal? }?)` returns
+`{ impact, model, elapsedMs }` using exactly one existing Baseten structured-text
+call for accepted input. It is downstream of source analysis and optional runtime
+inspection, and is not wired into draft generation. It performs no repository
+reads, capture, Meta invocation or persistence. Error/no-change results reject
+without inference. Source result/bundle correspondence and existing citations are
+revalidated using the same checks as inspection decisions.
+
+The strict `ProductImpact` contains an assessment (`product-change`, `internal-only`,
+`insufficient-evidence`), a summary (500 characters), up to six claims, four
+unresolved contradictions and six overall uncertainties (300 characters each).
+Claims contain product-level description (500), kind, confidence/reason (300),
+nullable before/after (400), up to four uncertainties and one to six reference IDs.
+Kinds separate behavior/workflow/UI changes, visual observations and internal
+changes. Contradictions contain a bounded description, unresolved status and refs.
+
+Sources' strict `RuntimeVisualEvidence` projection accepts at most three unique
+capture IDs, requested/final pathnames, timestamp, SHA-256, vision model/timing and
+validated `VisualEvidence`. Optional artifact keys stay in server-owned provenance;
+they never enter the Baseten request. Binary/DOM/provider payloads and filesystem
+configuration are rejected. No dependency on the local executor type is introduced.
+
+Server-assigned `source-1`… IDs resolve to validated findings/citations. Visual IDs
+identify capture, `elements`/`observations` collection and index; limitations are
+qualifications, never factual support. Unknown/duplicate references are rejected.
+The returned provenance catalog retains source evidence identity, original findings
+and citations, capture/screenshot identity and vision metadata, without copying
+visual payloads into claims or the catalog. It introduces no new capture identity.
+
+Visual-only support permits only a current-state `visual-observation`, with null
+before/after. Other kinds require compatible source findings. Temporal values must
+exactly match the corresponding fields of the same supporting finding. Visual
+evidence cannot prove interactions, deployment, hidden behavior or prior state.
+Contradictions require both source and visual references and force insufficient
+evidence. Product-change requires a source-supported user-facing change claim;
+internal-only requires complete supplied coverage and an existing static internal-only
+assessment. Missing runtime means unobserved, never no UI impact.
+
+The complete serialized capability request, including instructions and output
+schema, is bounded to 64 KiB UTF-8 without truncation. Cancellation is forwarded.
+All source/runtime content is untrusted data. Runtime/source revision identity is
+explicitly unverified in the prompt whenever runtime is supplied. When accepted
+claims or contradictions reference visual evidence, the server appends this fixed
+warning to overall uncertainties, reserving a slot within the six-entry limit.
+These deterministic checks constrain provenance and claim shape, not semantic truth.
+Run `npm run sources:test`; synthesis tests use mocked text transport, never live models.
+
+## Independent runtime-inspection decision
+
+`decideRuntimeInspection(source: ProductResult, { signal? }?)` consumes an existing
+static analysis result and returns `{ decision, model?, elapsedMs? }`. It is a
+separate server-only Sources operation and is not called by current analysis,
+documentation or runtime workflows. It performs no extra repository reads.
+
+The strict Zod decision contains `status` (`not-needed`, `inspect`, `unresolved`),
+a nonblank reason (500 characters), independent `staticEvidence`
+(`sufficient`, `insufficient`, `uncertain`), up to three targets and four uncertainties
+(300 characters each). Each target contains a nullable pathname, a description
+(300 characters), one to four visible-evidence requests (300 characters each), and
+one to four citations using the existing product-analysis citation contract.
+Unknown fields, selectors and action/configuration fields are rejected.
+
+The operation validates the incoming result/bundle, pinned evidence, unique IDs,
+inventory/coverage consistency and existing analysis citations before reuse.
+Cancelled calls reject before deterministic processing. Upstream error results
+reject without a model call. Only a consistent no-change result returns deterministic
+`not-needed`; all other decisions use at most one existing Baseten text call.
+The final serialized bundle/line tuples, findings and route candidates together
+must fit 64 KiB UTF-8 before inference; nothing is silently truncated.
+
+`not-needed` has zero targets and cannot be returned for limited coverage.
+`inspect` has one to three targets, each with an evidenced concrete pathname.
+`unresolved` includes explicit uncertainty and nullable-route targets (or none if
+no target can be established). Static sufficiency does not force `not-needed`:
+source may establish a label while a rendered-state inspection would still help.
+Neither status nor source citations prove deployment, interaction or test success.
+
+Route candidates are deliberately conservative: simple single-line literal
+`<a href="/path">` / `<Link href="/path">` links (href first), `app.get` / `router.get`
+declarations, and standalone literal `path`/`pathname`/`route` configuration fields
+in JS/TS/JSX/TSX/JSON evidence. Complete available head files and complete single-hunk
+added-file patches are supported. Existing-file modification hunks can start inside
+comments/templates, so they cannot establish routes without supplied head context.
+Base/deleted code, comments, template strings, composed values, file-derived routes,
+dynamic templates, query strings, URLs and encoded/dot-segment paths are excluded.
+Unsupported conventions remain unresolved; callers may supply existing pinned
+head context rather than have this operation investigate or invent it.
+
+A nonnull target path must exactly match a candidate and copy its full supporting
+one-line citation. All target citations pass the same identity/range/excerpt helper
+as semantic analysis, without its finding-specific change/reachability rules.
+Failures reject without route repair or another call. Recognition establishes source
+correspondence only; it does not prove a candidate is a reachable UI page. Model
+judgment remains bounded by supplied evidence and should be reviewed downstream.
+
+`npm run sources:test` includes mocked decision scenarios, strict validation,
+payload overflow, route/citation checks and cancellation. No browser, Meta vision,
+model live call, persistence, selectors/actions or documentation decisions are part
+of this slice. The existing product-analysis schema and provider behavior are unchanged.
+
 Implemented: local GitHub revision comparison connected to the existing structured
 AI capability. `summarizeChanges` owns allowlist authorization, single-process
 concurrency, evidence selection, model instructions, and citation validation.

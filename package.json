@@ -23,7 +23,7 @@
     "git:verify": "node --conditions=react-server --import tsx infra/local/git/verify.ts",
     "runner:test": "node --conditions=react-server --import tsx --test src/runner/runtime/runtime.test.ts",
     "runner:verify": "node --conditions=react-server --import tsx infra/local/runner/verify.ts",
-    "runner:capture:test": "node --conditions=react-server --import tsx --test infra/local/runner/capture-runtime.test.ts",
+    "runner:capture:test": "node --conditions=react-server --import tsx --test infra/local/runner/*.test.ts",
     "runner:capture:verify": "node --conditions=react-server --import tsx infra/local/runner/verify-capture.ts",
     "capture:test": "node --conditions=react-server --import tsx --test src/integrations/browser/capture.test.ts",
     "storage:test": "node --conditions=react-server --import tsx --test src/integrations/storage/*.test.ts",

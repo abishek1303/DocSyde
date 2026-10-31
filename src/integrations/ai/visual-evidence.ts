@@ -17,4 +17,8 @@ export const visualEvidenceSchema = z.object({
   limitations: z.array(z.string().min(1).max(500)).max(10),
 }).strict();
 
+// Reuse the same shape in prompt text and provider constraints. Cross-field
+// refinements (edge ordering and uncertainty) remain authoritative locally.
+export const visualEvidenceJsonSchema = z.toJSONSchema(visualEvidenceSchema);
+
 export type VisualEvidence = z.infer<typeof visualEvidenceSchema>;

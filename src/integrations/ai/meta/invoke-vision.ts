@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { visualEvidenceJsonSchema } from "@/integrations/ai/visual-evidence";
 
 export class MetaError extends Error {
   constructor(public readonly code: string, public readonly retryAfterSeconds?: number) {
@@ -27,7 +28,10 @@ export async function invokeMetaVision(options: {
     const response = await fetch("https://api.meta.ai/v1/chat/completions", {
       method: "POST", redirect: "error", signal,
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model, stream: false, max_completion_tokens: 4096, messages: [
+      body: JSON.stringify({ model, stream: false, max_completion_tokens: 4096,
+        response_format: { type: "json_schema", json_schema: {
+          name: "VisualEvidence", strict: true, schema: visualEvidenceJsonSchema,
+        } }, messages: [
         { role: "developer", content: options.instructions },
         { role: "user", content: [
           { type: "text", text: JSON.stringify({ analysisContext: options.context }) },

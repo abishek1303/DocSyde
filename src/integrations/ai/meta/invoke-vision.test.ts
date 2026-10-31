@@ -1,5 +1,6 @@
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
+import { visualEvidenceJsonSchema } from "@/integrations/ai/visual-evidence";
 
 type Options = Parameters<typeof import("./invoke-vision").invokeMetaVision>[0];
 const options: Options = { png: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0]), context: "Inspect visible controls", instructions: "Visible evidence only" };
@@ -49,6 +50,22 @@ test("Meta request uses bearer auth, bounded deadline, no streaming and exactly 
     assert.equal(init.method, "POST"); assert.equal(init.redirect, "error");
     const body = JSON.parse(String(init.body));
     assert.equal(body.stream, false); assert.equal(body.max_completion_tokens, 4096);
+    assert.deepEqual(body.response_format, { type: "json_schema", json_schema: {
+      name: "VisualEvidence", strict: true, schema: visualEvidenceJsonSchema,
+    } });
+    const schema = body.response_format.json_schema.schema;
+    assert.equal(schema.additionalProperties, false);
+    assert.equal(schema.properties.elements.maxItems, 20);
+    assert.equal(schema.properties.observations.maxItems, 10);
+    assert.equal(schema.properties.limitations.maxItems, 10);
+    const element = schema.properties.elements.items;
+    assert.equal(element.additionalProperties, false);
+    assert.deepEqual(element.required, ["description", "visibleText", "bounds", "certainty"]);
+    const box = element.properties.bounds.anyOf[0];
+    assert.equal(box.additionalProperties, false);
+    for (const edge of ["xMin", "yMin", "xMax", "yMax"]) {
+      assert.deepEqual(box.properties[edge], { type: "number", minimum: 0, maximum: 1 });
+    }
     assert.equal(body.messages[1].content[1].image_url.url, `data:image/png;base64,${Buffer.from(options.png).toString("base64")}`);
     return Response.json(valid);
   });

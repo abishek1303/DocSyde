@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { summaryInput } from "./change-summary";
 export const productChangeInput = summaryInput.extend({ paths: z.array(z.string().min(1).max(1024)).max(10) });
-const citation = z.object({ evidenceId: z.string().min(1).max(30).describe("Copy the enclosing evidenceId exactly."), startLine: z.number().int().min(1).describe("Copy the first number of the selected lines tuple, never a diff hunk coordinate."), endLine: z.number().int().min(1).describe("For a single tuple use the same number as startLine."), excerpt: z.string().min(1).max(600).describe("Copy exact text from the selected tuple, preserving diff prefixes, whitespace and punctuation; do not paraphrase.") }).strict();
+export const productCitation = z.object({ evidenceId: z.string().min(1).max(30).describe("Copy the enclosing evidenceId exactly."), startLine: z.number().int().min(1).describe("Copy the first number of the selected lines tuple, never a diff hunk coordinate."), endLine: z.number().int().min(1).describe("For a single tuple use the same number as startLine."), excerpt: z.string().min(1).max(600).describe("Copy exact text from the selected tuple, preserving diff prefixes, whitespace and punctuation; do not paraphrase.") }).strict();
 export const productChangeOutput = z.object({
   assessment: z.enum(["product-change", "internal-only", "insufficient-evidence"]),
   findings: z.array(z.object({
@@ -9,7 +9,7 @@ export const productChangeOutput = z.object({
     description: z.string().min(1).max(500), before: z.string().max(400).nullable(), after: z.string().max(400).nullable(),
     audience: z.string().max(200).optional(), surface: z.string().max(200).optional(),
     support: z.enum(["directly-supported", "inferred"]), confidence: z.enum(["low", "medium", "high"]),
-    confidenceReason: z.string().min(1).max(300), citations: z.array(citation).min(1).max(4),
+    confidenceReason: z.string().min(1).max(300), citations: z.array(productCitation).min(1).max(4),
     // Required only for capability claims; local checks verify references, not reachability itself.
     reachabilityEvidenceIds: z.array(z.string().max(30)).max(4),
     assumptions: z.array(z.string().max(300)).max(4), uncertainties: z.array(z.string().max(300)).max(4),

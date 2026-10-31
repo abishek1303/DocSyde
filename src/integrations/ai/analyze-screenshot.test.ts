@@ -65,6 +65,44 @@ test("empty evidence is valid", async t => {
   assert.deepEqual((await analyzeScreenshot({ artifactKey: "opaque", context: "Describe visible controls" }, memoryStorage())).data, empty);
 });
 
+test("remote schema constraints never replace local validation or repair out-of-range live-output failures", async t => {
+  configure(t);
+  // Reproduce the observed failure class: every edge of four boxes exceeds 1.
+  // The original raw response was not retained; no coordinate scale is assumed.
+  const outOfRange = { ...empty, elements: Array.from({ length: 4 }, (_, index) => ({
+    ...element, bounds: { xMin: 2 + index, yMin: 3 + index, xMax: 4 + index, yMax: 5 + index },
+  })) };
+  const reversed = { ...empty, elements: [{ ...element,
+    bounds: { xMin: 0.8, yMin: 0.2, xMax: 0.1, yMax: 0.9 },
+  }] };
+  const uncertainWithBox = { ...empty, elements: [{ ...element, certainty: "uncertain" }] };
+  for (const output of [outOfRange, reversed, uncertainWithBox]) {
+    const original = JSON.stringify(output);
+    const fetch = t.mock.method(globalThis, "fetch", async (_url: unknown, init: RequestInit) => {
+      const request = JSON.parse(String(init.body));
+      assert.equal(request.response_format.type, "json_schema");
+      assert.equal(request.response_format.json_schema.strict, true);
+      return Response.json(envelope(output));
+    });
+    await assert.rejects(analyzeScreenshot({ artifactKey: "opaque", context: "Inspect" }, memoryStorage()), { code: "schema-mismatch" });
+    assert.equal(JSON.stringify(output), original);
+    assert.equal(fetch.mock.callCount(), 1);
+    fetch.mock.restore();
+  }
+});
+
+test("normalized edge and midpoint coordinates pass with remote constraints enabled", async t => {
+  configure(t);
+  const output = { ...empty, elements: [{ ...element,
+    bounds: { xMin: 0, yMin: 0, xMax: 0.5, yMax: 1 },
+  }] };
+  t.mock.method(globalThis, "fetch", async (_url: unknown, init: RequestInit) => {
+    assert.equal(JSON.parse(String(init.body)).response_format.json_schema.strict, true);
+    return Response.json(envelope(output));
+  });
+  assert.deepEqual((await analyzeScreenshot({ artifactKey: "opaque", context: "Inspect" }, memoryStorage())).data, output);
+});
+
 test("invalid context fails before storage access or provider invocation", async t => {
   const storage = memoryStorage();
   const read = t.mock.method(storage, "read", storage.read);

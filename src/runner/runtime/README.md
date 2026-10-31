@@ -62,3 +62,45 @@ capture options). The fixture serves plain `ready` text, so the browser example'
 `CaptureEvidence` after cleanup. Direct runner/browser verifiers remain unchanged.
 Tests use temporary manifests/storage, real Chromium and local fixture processes;
 they do not load developer `.env` or contact external services.
+
+## Execute a validated inspection locally
+
+`infra/local/runner/execute-runtime-inspection.ts` exposes the internal helper
+`executeRuntimeInspection({ decision, runtime, capture? }, storage)`. Pass
+`result.decision` directly from Sources' `decideRuntimeInspection()` and a trusted
+runtime configuration. `InspectionDecision` is structural: reparsing validates
+shape and consistency, not source provenance. This is not an arbitrary JSON input
+boundary, an authenticated service or an application workflow.
+
+The helper rejects malformed, `not-needed` and `unresolved` decisions before side
+effects. Optional capture settings allow only `viewport` and `outputDirectory`;
+unknown fields, path/origin overrides, actions, selectors and readiness options
+are rejected. It uses the existing pathname primitive without altering paths.
+The runtime session remains authoritative for origin; browser same-origin rules
+remain in the existing capture implementation.
+
+Each target executes sequentially: existing `captureWithRuntime()` completes
+readiness, capture, storage, manifest writing and session cleanup, then existing
+`analyzeScreenshot()` receives its artifact key and the same storage instance.
+Meta context contains only the target description and visible-evidence requests,
+joined with newlines and checked against the existing 4,000-character limit.
+Citations, decision reasons, paths/provenance and storage details are not added
+to that context. Execution makes no Baseten call.
+
+At most three targets execute, with one full session lifecycle per target. Launch
+may restart the application between targets; transient cross-target state cannot
+be assumed. Attach remains non-owning through the existing helper. Capture failure
+prevents vision; either failure stops later targets and propagates unchanged,
+including falsy rejection values. There is no partial-success return or rollback;
+earlier artifacts/manifests may remain after a later failure.
+
+The returned `{ targets }` contains target index/path/description/evidence requests
+and citations; existing capture ID/timestamp, requested/final URL, viewport and
+screenshot key/hash/MIME; plus validated vision data, model and elapsed time.
+Binary data, DOM/runtime payloads and provider envelopes are excluded. Capture ID
+references the existing manifest under the caller's output configuration; no new
+identifier or manifest retrieval API is introduced.
+
+`npm run runner:capture:test` includes focused execution tests with scoped boundary
+mocks, alongside the real launch/attach capture checks. These tests verify execution
+contracts, not live Meta access, semantic correctness or runtime-to-commit identity.

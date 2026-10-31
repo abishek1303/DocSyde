@@ -1,8 +1,7 @@
 import "server-only";
-import { z } from "zod";
 import { invokeMetaVision, MetaError } from "@/integrations/ai/meta/invoke-vision";
 import { ModelError, parseStructuredOutput } from "@/integrations/ai/structured-output";
-import { visualEvidenceSchema, visionContextSchema } from "@/integrations/ai/visual-evidence";
+import { visualEvidenceSchema, visualEvidenceJsonSchema, visionContextSchema } from "@/integrations/ai/visual-evidence";
 
 const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
 const instructions = `Report only visible UI evidence relevant to the supplied analysis context.
@@ -13,6 +12,9 @@ or perform product-change reasoning. Do not claim that visible controls work.
 Use concise descriptions and visible text only when legible. Describe uncertainty in limitations.
 Boxes use xMin, yMin, xMax, yMax in [0,1], with origin at the image's top-left,
 xMin < xMax and yMin < yMax. Only provide confidently identifiable bounds;
+left edge = 0.0, midpoint = 0.5, right edge = 1.0 (similarly top to bottom).
+Pixel coordinates, percentages, values above 1, and inferred coordinate conversions
+are invalid. Report normalized coordinates directly or use null; never guess a scale.
 use null when localization is uncertain. An uncertain element must have bounds null.
 Empty evidence arrays are valid. Return only JSON matching this schema:`;
 
@@ -26,7 +28,7 @@ export async function generateStructuredVision(options: { png: Uint8Array; conte
   if (options.signal?.aborted) throw new ModelError("cancelled");
   const started = Date.now();
   const result = await invokeMetaVision({ ...options,
-    instructions: `${instructions}\n${JSON.stringify(z.toJSONSchema(visualEvidenceSchema))}`,
+    instructions: `${instructions}\n${JSON.stringify(visualEvidenceJsonSchema)}`,
   }).catch((error: unknown) => {
     throw error instanceof MetaError ? new ModelError(error.code, error.retryAfterSeconds) : new ModelError("upstream");
   });

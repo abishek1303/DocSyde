@@ -14,3 +14,6 @@ export { pinChangeInput, readSelectedChange } from "./selected-change";
 export type { SourceProgress, SourceStep } from "./analysis-progress";
 export { storedProductResult } from "./stored-product-result";
 export { generationContextSnapshot } from "./generation-context";
+export { productImpactSchema } from "./product-impact";
+export type { ProductImpact } from "./product-impact";
+export { validateProductImpact } from "./validate-product-impact";
