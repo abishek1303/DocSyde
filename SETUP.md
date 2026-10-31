@@ -508,3 +508,44 @@ combined product demo were run. Model tests establish local parsing, validation
 and transport behavior with mocks, not account/model availability or factual
 quality. Runtime/browser suites must be rerun where local fixture servers can
 listen before claiming a live capture pass. No visual UI changes were made.
+
+## Proposal review proof
+
+Run `npm run db:migrate` to apply migration **0006**, which adds the narrow retained
+proposal/review table. Existing V1/V2 documents/publications are unchanged; no backfill.
+Local PostgreSQL and the existing repository allowlist are required. Review/apply
+requires no signing key or model credentials and makes zero inference calls.
+
+Retain authority directly at the transformation producer (this initial command still
+performs the usual transformation/support model work; do not run it merely to test review):
+
+```sh
+npm run documentation:transform:verify -- <trusted-impact.json> <validated-plan.json> --retain
+npm run documentation:review -- show <proposal-uuid>
+npm run documentation:review -- apply <selection.json>
+npm run documentation:review -- receipts <proposal-uuid>
+```
+
+The producer reports proposal UUID/hash. Apply takes only selection/publication intent,
+never a proposal/canonical blob. Use the [review contract](src/features/documentation/README.md#retained-proposal-review-immutable-save-and-optional-publication)
+for selection JSON. To replace an authorized target, add
+`{"targetId":"<descriptor UUID>","intent":"replace","observedPublicationId":"<observed UUID>"}`
+to publications. To publish an authorized empty target use
+`{"targetId":"<descriptor UUID>","intent":"publish"}`. Empty publications means save-only.
+Do not share printed review/proposal source content publicly; these are local inspection
+commands. The private transformation artifact remains unsigned and cannot be imported
+as review authority.
+
+First selection is frozen; identical retry resumes/replays, changed selection conflicts.
+Expiry blocks first acceptance after 24 hours; accepted operations can resume. Save
+and publication commit independently with receipts: a publication conflict can coexist
+with a saved document. Inspect receipts after failure rather than changing observations
+or assuming rollback. The old snapshot is never overwritten. No-change/unresolved
+acknowledgment creates review metadata only, no document/publication writes.
+
+`npm run documentation:review:verify` is the deterministic PostgreSQL proof with fixtures,
+no inference, isolated rows and cleanup; it exercises subset rejection, V1/V2 saves,
+replacement/contextual retrieval, save-only, publication conflicts, replay and rollback.
+`npm run documentation:review:test` also runs admission/subset/dependency-boundary tests.
+Polished review UI, HTTP mutation handlers, run orchestration, editing/rebase and changing
+an accepted final selection remain deferred.

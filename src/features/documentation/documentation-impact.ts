@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { productImpactSchema } from "@/features/sources/product-analysis";
+import { productImpactSchema } from "@/features/sources/product-evidence";
 
 const text = z.string().min(1).max(500).refine(value => value.trim().length > 0);
 export const documentationImpactOutputSchema = z.object({

@@ -25,3 +25,5 @@ export async function closeDatabase() {
   await databaseGlobal.docsydePool?.end();
   databaseGlobal.docsydePool = undefined;
 }
+
+export type DatabaseExecutor = ReturnType<typeof getDatabase> | Parameters<Parameters<ReturnType<typeof getDatabase>["transaction"]>[0]>[0];

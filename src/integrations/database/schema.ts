@@ -49,3 +49,31 @@ export const documentationPublications = docsydeSchema.table("documentation_publ
   draftId: uuid("draft_id").notNull().references(() => documentationDrafts.id, { onDelete: "restrict" }),
   publishedAt: timestamp("published_at", { withTimezone: true, precision: 3 }).defaultNow().notNull(),
 }, table => [uniqueIndex("documentation_publications_repository_route_idx").on(table.repository, table.route)]);
+
+
+export const documentationReviews = docsydeSchema.table("documentation_proposal_reviews", {
+  id: uuid("id").primaryKey(),
+  repository: varchar("repository", { length: 512 }).notNull(),
+  proposalHash: varchar("proposal_hash", { length: 64 }).notNull(),
+  proposal: jsonb("proposal").$type<unknown>().notNull(),
+  targets: jsonb("targets").$type<unknown>().notNull(),
+  registeredAt: timestamp("registered_at", { withTimezone: true, precision: 3 }).defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true, precision: 3 }).notNull(),
+  review: jsonb("review").$type<unknown>(),
+}, table => [
+  index("documentation_reviews_repository_idx").on(table.repository, table.registeredAt),
+  check("documentation_reviews_envelope", sql`(
+    ${table.proposalHash} ~ '^[a-f0-9]{64}$'
+    AND ${table.repository} = lower(${table.repository})
+    AND ${table.repository} ~ '^https://github.com/[^/]+/[^/]+$'
+    AND ${table.expiresAt} > ${table.registeredAt}
+    AND ${table.proposal}->>'proposalId' = ${table.id}::text
+    AND jsonb_typeof(${table.proposal}) = 'object'
+    AND octet_length(${table.proposal}::text) <= 2097152
+    AND jsonb_typeof(${table.targets}) = 'array'
+    AND jsonb_array_length(${table.targets}) <= 64
+    AND (${table.review} IS NULL OR (jsonb_typeof(${table.review}) = 'object'
+      AND ${table.review}->>'operationId' IS NOT NULL
+      AND octet_length(${table.review}::text) <= 262144))
+  ) IS TRUE`),
+]);

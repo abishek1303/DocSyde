@@ -80,7 +80,7 @@ See [SETUP](SETUP.md#runtime-visual-evidence) for the explicit opt-in verifier.
 | Deterministic local evidence capture | One launch/attach workflow, bounded masked checkpoints, DOM/SDK state and explicit coverage | Local CLI orchestration only; no automatic run-UI dispatch or runtime-to-commit provenance. Repeatability settings do not guarantee identical pixels/state. |
 | Meta multimodal visual verification | Selected hash-verified stored PNGs produce locally validated visible evidence, then feed source/visual synthesis | Real browser/mocked-provider integration tested; no new live closed-loop proof or before/after image comparison. Visible controls do not establish that actions work. |
 | Provider-neutral boundaries | Text and vision capability APIs isolate provider HTTP details | Each is wired to one provider internally; no automatic fallback or runtime provider selection. |
-| Combined evidence before documentation updates | Local visual CLI composes synthesis/planning; transformation separately generates grounded typed changes and canonical v2 candidates | Request-bound draft flow remains source-only. Review/save orchestration and automatic mutation remain absent. |
+| Combined evidence before documentation updates | Local visual CLI composes synthesis/planning; transformation separately generates grounded typed changes and canonical v2 candidates | Request-bound draft flow remains source-only. Deterministic retained review/save is available through the local CLI; polished UI and automatic run dispatch remain deferred. |
 
 ## Models, providers and replaceability
 
@@ -263,3 +263,18 @@ All 20 mocked vision/Meta tests and 10 unchanged Baseten text tests passed after
 this change. This single live success establishes account/model access and a valid
 result for this screenshot, not universal output reliability, factual accuracy,
 localization quality or integration into the product workflow.
+
+## Review, approval, save and publication replacement: zero inference
+
+The retained review path makes **zero model calls** and imports no generation/vision
+capability. A narrow Sources evidence entry supplies only schemas and deterministic
+validation. Trusted transformation output must first be retained; unsigned artifacts
+are not authority. Admission rechecks impact/plan/catalog/support/candidate correspondence
+without redoing semantic inference. Explicit human choices freeze one accepted selection.
+Approved subsets rematerialize deterministically, immutable saves and optional observed-ID
+publication replacement commit with durable receipts. Incomplete/unsupported content
+cannot be approved into readiness. No review-time support check, repair, regeneration,
+provider fallback or paid verification occurs. Transformation's existing generation plus
+bounded support-check call profile is unchanged; `--retain` persists its direct result
+only when explicitly requested. Saving does not imply publishing, and publication
+conflict may follow a successful save. See the Documentation review guide and SETUP.

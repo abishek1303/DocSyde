@@ -491,7 +491,8 @@ Saved list/detail routes use persistence and the existing renderer independently
 AI, semantic analysis, GitHub/source retrieval and signing credentials. Lazy database
 initialization remains intact. Targeted planning/transformation and narrow publication/
 SDK delivery are implemented independently as described here. Editing UI, version-family
-history and transformation review/save orchestration remain deferred.
+history and request-bound transformation/review orchestration remain deferred; retained
+model-free review/save is described below.
 
 Repository context: the draft screen offers an optional saved product note (500
 characters) and optional run note (300). Sources owns the setting; narrow Drizzle
@@ -575,3 +576,34 @@ a public authentication redesign. The original baseline/tag and host product beh
 are preserved. SDK build output is copied into ignored host artifacts for this proof.
 Earlier descriptions of publishing/SDK delivery as deferred are superseded only by
 this narrow slice; broader embed UX, editing and semantic retrieval remain deferred.
+
+## Deterministic retained proposal review
+
+Documentation now owns trusted proposal retention, explicit per-decision review,
+approved-subset rematerialization, immutable save and optional contextual publication
+replacement. This supersedes references above to transformation review/save being
+entirely deferred; polished UI and request-bound orchestration remain deferred.
+Transformation itself still has no persistence/publication side effects.
+
+Migration 0006 adds only `documentation_proposal_reviews`: immutable authority JSON
+and normalized hash, canonical repository, 24-hour initial expiry, server-derived
+publication descriptors and bounded frozen selection/receipts. Independent proposals
+do not fit the strict running-only run-result schema. No signing, version families,
+authentication tables, workflow engine or event store is introduced. Trusted direct
+producer output is admitted through deterministic graph/candidate/support checks;
+unsigned artifact/client proposal upload is not an authority boundary.
+
+Review's model-free Sources evidence entry exports schemas/validation without loading
+inference capabilities. First acceptance freezes a normalized selection and operation
+UUID. Baseline groups are rematerialized from approved patches only, keeping original
+evidence contexts and using stable operation/subset candidate identities. Canonical
+V1/V2 semantics and existing grounding restrictions remain unchanged.
+
+Database integration owns review row locks, transaction-aware immutable insert/equality,
+exact baseline reads, publication insert/observed-ID+baseline CAS and receipts. Features
+receive narrow transaction operations, never ORM executors. Save+receipt is atomic per
+independent document; publication+receipt is a later independent transaction. Publication
+conflicts retain successful saves and old immutable snapshots. Replay consults receipts;
+changed selections conflict, no rebase/model retry occurs. Cancellation stops new units.
+Repository allowlisting remains trusted-local authorization, not multi-user identity.
+The local CLI is the integration surface; SDK/contextual delivery remains unchanged.

@@ -76,10 +76,11 @@ Ambiguity, conflicts, failed grounding and genuine canonical limits remain block
 
 Migration `0005_nice_meggan.sql` only widens the existing JSONB envelope CHECK to
 versions 1/2. It creates no table/history system, backfills nothing, and rewrites no
-saved documents. Later explicit save can use existing immutable persistence; existing
+saved documents. Explicit retained review now uses existing immutable persistence; existing
 publication/host DTO behavior remains unchanged. `saveCompatible` means canonical
 validation succeeded, not saved/approved/published. Proposal approval is always
-`not-requested`. No run-result or UI orchestration is added.
+`not-requested`; accepted review lives in a separate retained record described below.
+No run-result or UI orchestration is added.
 
 Run `npm run documentation:transform:test` for the mocked planner-to-candidate proof,
 and `npm run documentation:transform:persistence:test` after `npm run db:migrate` for
@@ -356,3 +357,71 @@ request runtime inspection, call vision, or merge screenshot/DOM evidence. Savin
 and publication are explicit; publication replacement changes the saved-document
 reference rather than editing its content. The intended combined-evidence flow and
 planned implementation steps are recorded in [MODEL_USAGE.md](../../../MODEL_USAGE.md).
+
+## Retained proposal review, immutable save and optional publication
+
+`retainDocumentationProposal` is a trusted server producer operation, called directly
+with `transformDocumentation` output. It checks the full correspondence graph,
+freezes canonical targets/hashes and retains authority in
+`docsyde.documentation_proposal_reviews` (migration 0006). An unsigned JSON artifact,
+a schema-valid client blob or a hash alone is not approval authority. There is no
+proposal-upload endpoint. The trusted-local repository allowlist is checked on
+retention, retrieval and each application transaction; multi-user authorization is
+still deferred.
+
+`getDocumentationReview` returns the original proposal, opaque authorized publication
+targets, expiry and durable review receipts. `applyDocumentationReview` accepts only:
+
+```json
+{
+  "proposalId": "<retained UUID>",
+  "expectedProposalHash": "<retained SHA-256>",
+  "decisions": [{ "decisionId": "decision-1", "choice": "approve" }],
+  "publications": [],
+  "note": "Optional reviewer note"
+}
+```
+
+Actionable decisions accept approve/reject; no-change and unresolved accept
+acknowledge/reject and never save/publish content. Omitted decisions stay not-reviewed.
+Approval cannot override intrinsic generation/support/placement blockers. Choices
+and publication intents normalize by identity. The first valid selection is frozen
+with a new review-operation UUID; identical requests replay/resume, different
+selections conflict. Initial acceptance expires after `REVIEW_INITIAL_LIFETIME_MS`
+(default/max 24 hours; trusted retention may configure a shorter lifetime). Re-retention
+does not extend it. Accepted operations can resume after expiry with the same selection.
+
+Only approved patches are rematerialized, grouped by exact baseline (or independent
+new-document decision). Source context IDs use the original proposal/all frozen
+targets; candidate IDs use proposal + review operation + subset. Retries reproduce
+exact UUIDs/hashes. V1 promotes to V2; historical content/provenance remains unchanged.
+Preview candidates are never saved wholesale. Aggregate sibling blockage does not
+prevent an intrinsically ready subset from materializing. Genuine subset conflicts,
+unknown placement, canonical bounds and invalid provenance remain blocked.
+
+Each save independently locks the review row, verifies exact baseline UUID/hash/content
+and repository, validates the V2 candidate, then commits immutable insert/equality
+and its receipt together. Same UUID/equal content is idempotent; differing content
+conflicts. A newer independent snapshot does not stale an immutable baseline: there
+is no version-family/latest pointer. Missing or altered baseline content does block.
+
+Publication is optional and a separate commit. Retention authorizes existing
+publications referencing baselines and empty static routes from validated context.
+The caller selects opaque target IDs: replace includes the retained
+`observedPublicationId`; publish requires retained absence. No raw routes/repositories
+or document bodies are accepted. Replacement checks observed UUID AND baseline FK;
+new publication checks absence AND the approved candidate's actual association.
+Publication mutation and receipt commit together. Save success plus publication
+conflict leaves the new snapshot saved and the old publication unchanged. Completed
+receipts prevent lost-response retries from applying replacement again. Terminal
+conflicts remain recorded; retries do not adopt new observations. Database failures
+leave uncommitted units unfinished; identical retries consult receipts and resume.
+Cancellation stops new units, retaining committed receipts. Independent units may
+succeed despite another unit's failure. Acknowledgment/rejection writes review metadata
+only; "zero writes" for no-change/unresolved means zero document/publication writes.
+
+Review/save loads no inference capability and makes **zero model calls**, with or
+without provider credentials. No approval UI, HTTP mutation surface, automatic run
+orchestration, editing/rebasing, changed final selection, or general audit/history
+system is included. Legacy signed new-draft saving remains separate and unchanged.
+See [SETUP.md](../../../SETUP.md#proposal-review-proof) for CLI commands.

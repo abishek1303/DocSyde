@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { documentSchema, documentV2Schema, draftProposal, snapshotIdentitySchema, fact, associationChoice } from "./document";
 import { documentationImpactPlanSchema } from "./documentation-impact";
-import { productImpactSchema } from "@/features/sources/product-analysis";
+import { productImpactSchema } from "@/features/sources/product-evidence";
 
 export const TRANSFORMATION_REQUEST_BYTES = 32 * 1024;
 export const TRANSFORMATION_AGGREGATE_BYTES = 128 * 1024;

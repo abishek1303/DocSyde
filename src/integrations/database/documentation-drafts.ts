@@ -1,13 +1,12 @@
 import "server-only";
 import { and, desc, eq, lt, or, sql } from "drizzle-orm";
-import { getDatabase } from "./client";
+import { getDatabase, type DatabaseExecutor } from "./client";
 import { documentationDrafts } from "./schema";
 
-export async function insertDocumentationDraft(id: string, document: unknown) {
-  const database = getDatabase();
+export async function insertDocumentationDraft(id: string, document: unknown, database: DatabaseExecutor = getDatabase()) {
   const [inserted] = await database.insert(documentationDrafts).values({ id, document })
     .onConflictDoNothing({ target: documentationDrafts.id }).returning();
-  if (inserted) return { row: inserted, equal: true };
+  if (inserted) return { row: inserted, equal: true, inserted: true };
   // JSONB equality deliberately ignores object key order. Never UPDATE a draft.
   const [existing] = await database.select({
     id: documentationDrafts.id,
@@ -16,7 +15,7 @@ export async function insertDocumentationDraft(id: string, document: unknown) {
     equal: sql<boolean>`${documentationDrafts.document} = ${JSON.stringify(document)}::jsonb`,
   }).from(documentationDrafts).where(eq(documentationDrafts.id, id)).limit(1);
   if (!existing) throw new Error("Draft insert returned no record.");
-  return { row: existing, equal: existing.equal };
+  return { row: existing, equal: existing.equal, inserted: false };
 }
 
 export async function findDocumentationDraft(id: string, repository?: string) {
