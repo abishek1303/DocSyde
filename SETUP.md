@@ -598,3 +598,39 @@ finished, reached retained awaiting-review through five mocked model calls, and
 passed desktop/mobile rendering with zero browser errors. No live inference ran.
 Sandbox restrictions require local PostgreSQL/port/Chromium permission for these
 integration checks; they passed with that access. Temporary servers were stopped.
+
+## Planner section candidate selection
+
+No migration, dependency or configuration is required. Planning first uses a derived
+PostgreSQL section-search projection, then loads/validates at most ten selected
+immutable documents. Existing operator associations supplied to runs provide exact
+metadata signals; inferred canonical associations retain their finding provenance.
+No classifications are automatically written to documents.
+
+Selection returns typed selected document IDs, section IDs/hashes, deterministic
+score explanations, coverage and fallback usage. Exact association matches score 40;
+matching words score 2 in document titles, 3 in section titles and 1 in section text.
+Text-only eligibility needs two distinct title words or three body words. Query
+signals are capped at 24 distinct lowercase ASCII words and 20 exact associations.
+Every eligible competitor within bounds remains available; overflow is incomplete.
+If nothing useful matches, the previous broad-loading path and limits still apply.
+A search subset is never reported as corpus-complete or proof of a documentation gap.
+SDK retrieval/publication behavior and model-call counts are unchanged.
+
+Focused checks (providers mocked; PostgreSQL required for the second command):
+
+```sh
+node --conditions=react-server --import tsx --test src/features/documentation/candidate-selection.test.ts
+node --conditions=react-server --import tsx --test infra/local/documentation/candidate-selection.test.ts
+```
+
+The proof includes a repository exceeding the former ten-document loading bound,
+correct section targeting with complete target outlines, exact metadata/text parity,
+historical snapshot ambiguity, safe fallback, v1/v2 inferred provenance and overflow
+without inference. Existing planner tests explicitly exercise broad fallback.
+
+Selector-slice verification: all **532 repository tests** passed with mocked
+providers, PostgreSQL and existing Chromium fixtures. Focused checks also prove
+selected snapshot-hash mismatch blocks transformation before generation. Lint,
+route type generation, TypeScript and webpack production build passed. No live
+model calls, migrations or browser UI changes were introduced.

@@ -19,9 +19,9 @@ test("ProductImpact → real planner → batched transformations → support →
   const databaseModule = load.cache[databasePath]!, previous = databaseModule.exports;
   const writes = t.mock.fn(() => { throw new Error("No saves in transformation"); });
   const rows = docs.map(document => ({ id: document.id, document, savedAt: new Date() }));
-  databaseModule.exports = { ...queries, selectDocumentationDrafts: async () => rows,
+  databaseModule.exports = { ...queries, searchDocumentationSections: async () => [], selectDocumentationDrafts: async () => rows,
     findDocumentationDraft: async (id: string) => rows.find(row => row.id === id) ?? null, insertDocumentationDraft: writes };
-  const paths = ["operations", "documentation-impact-input", "validate-documentation-impact-plan", "plan-documentation-impact", "transform-documentation"].map(name => load.resolve(`./src/features/documentation/${name}.ts`));
+  const paths = ["operations", "documentation-impact-input", "select-documentation-candidates", "validate-documentation-impact-plan", "plan-documentation-impact", "transform-documentation"].map(name => load.resolve(`./src/features/documentation/${name}.ts`));
   const cached = paths.map(path => load.cache[path]); paths.forEach(path => { delete load.cache[path]; });
   const old = process.env.BASETEN_API_KEY; process.env.BASETEN_API_KEY = "fixture";
   t.after(() => { databaseModule.exports = previous; paths.forEach((path, i) => { if (cached[i]) load.cache[path] = cached[i]; else delete load.cache[path]; }); if (old === undefined) delete process.env.BASETEN_API_KEY; else process.env.BASETEN_API_KEY = old; });
@@ -42,8 +42,8 @@ test("ProductImpact → real planner → batched transformations → support →
     }
     return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(output) } }] });
   });
-  const { planDocumentationImpact }: typeof import("@/features/documentation/plan-documentation-impact") = load(paths[3]);
-  const { transformDocumentation }: typeof import("@/features/documentation/transform-documentation") = load(paths[4]);
+  const { planDocumentationImpact }: typeof import("@/features/documentation/plan-documentation-impact") = load(paths.find(path => path.endsWith("/plan-documentation-impact.ts"))!);
+  const { transformDocumentation }: typeof import("@/features/documentation/transform-documentation") = load(paths.find(path => path.endsWith("/transform-documentation.ts"))!);
   const { plan } = await planDocumentationImpact({ impact });
   const proposal = await transformDocumentation({ impact, plan });
   assert.equal(planning, 1); assert.equal(generation, 2); assert.equal(support, 1);

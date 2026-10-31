@@ -104,7 +104,7 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
   });
   if (!record!.impact!.claims.length) { await finish("incomplete", "impact-has-no-usable-claims"); return; }
   await stage("documentation-planning", async () => {
-    const result = await planDocumentationImpact({ impact: record.impact! }, { signal });
+    const result = await planDocumentationImpact({ impact: record.impact!, context: record.input.associations }, { signal });
     return { plan: result.plan, models: [...record.models, ...model("documentation-planning", result)] };
   });
   const plan = record!.plan!;

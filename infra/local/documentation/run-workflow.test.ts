@@ -190,6 +190,19 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
     }
     mode = "actionable";
   });
+  await t.test("candidate overflow is semantic incomplete and skips planner inference", async () => {
+    const documents = Array.from({ length: 11 }, () => {
+      const d = draftFixture(); d.provenance.repository = repository; d.title = "Request requirements"; d.sections[0].title = "Title validation"; return d;
+    });
+    await getDatabase().insert(documentationDrafts).values(documents.map(d => ({ id: d.id, document: d })));
+    try {
+      const before = counts.planning;
+      const id = await createDocumentationRun({ ...repo, base, head, paths: [], associations: [{ id: "route-query", kind: "route", value: "/fixture", origin: "operator" }] }); ids.push(id);
+      await executeDocumentationRun(id); const result = { record: await wait(id) };
+      assert.equal(result.record.disposition, "incomplete"); assert.equal(result.record.reason, "documentation-candidates-incomplete");
+      assert.equal(counts.planning, before); assert.equal(result.record.transformation, undefined);
+    } finally { await getDatabase().delete(documentationDrafts).where(inArray(documentationDrafts.id, documents.map(d => d.id))); }
+  });
   await t.test("retention rollback never leaves authority or awaiting-review linkage", async () => {
     const id = await create(), initial = await read(id), token = randomUUID(), now = new Date().toISOString();
     await getDatabase().update(documentationRuns).set({ status: "running", payload: { ...initial, status: "running", startedAt: now, execution: { token, heartbeatAt: now, cancelRequestedAt: null } } }).where(eq(documentationRuns.id, id));

@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { productImpactSchema } from "@/features/sources/product-evidence";
 
+import { candidateSelectionSchema } from "./candidate-selection";
+
 const text = z.string().min(1).max(500).refine(value => value.trim().length > 0);
 export const documentationImpactOutputSchema = z.object({
   decisions: z.array(z.object({
@@ -13,6 +15,7 @@ export const documentationImpactOutputSchema = z.object({
 }).strict();
 
 export const documentationImpactPlanSchema = documentationImpactOutputSchema.extend({
+  candidateSelection: candidateSelectionSchema.optional(),
   source: productImpactSchema.shape.provenance.shape.source.pick({ repository: true, base: true, head: true }),
   claimCatalog: z.array(z.object({ id: z.string().regex(/^claim-[1-6]$/), claimIndex: z.number().int().min(0).max(5),
     claim: productImpactSchema.shape.claims.element }).strict()).max(6),

@@ -50,7 +50,8 @@ function setup(t: TestContext, documents: DocumentationDocument[], output: unkno
   const rows: Row[] = documents.map(document => ({ id: document.id, document, savedAt: new Date("2026-10-30T00:00:00Z") }));
   const databaseModule = load.cache[databasePath]; assert.ok(databaseModule);
   const original = databaseModule.exports;
-  const paths = [operationPath, inputPath, plannerPath];
+  const selectorPath = load.resolve("./src/features/documentation/select-documentation-candidates.ts");
+  const paths = [operationPath, inputPath, selectorPath, plannerPath];
   const cached = paths.map(path => [path, load.cache[path]] as const);
   const list = t.mock.fn(async (limit: number, before?: unknown, selectedRepository?: string) => {
     assert.equal(limit, 11); assert.equal(before, undefined); assert.equal(selectedRepository?.toLowerCase(), repository.toLowerCase()); return rows;
@@ -60,7 +61,7 @@ function setup(t: TestContext, documents: DocumentationDocument[], output: unkno
   });
   // Scoped module replacement follows existing local orchestration tests; the
   // actual persistence feature operations still validate/query canonical rows.
-  databaseModule.exports = { ...queries, selectDocumentationDrafts: list, findDocumentationDraft: get,
+  databaseModule.exports = { ...queries, searchDocumentationSections: async () => [], selectDocumentationDrafts: list, findDocumentationDraft: get,
     insertDocumentationDraft: () => { throw new Error("Planning must not save"); } };
   for (const path of paths) delete load.cache[path];
   const oldKey = process.env.BASETEN_API_KEY; process.env.BASETEN_API_KEY = "fixture";

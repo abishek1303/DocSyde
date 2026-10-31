@@ -21,6 +21,7 @@ export function validateImpactDecisions(impact: ProductImpact, decisions: Docume
 /** Correspondence is not authentication. Accept direct trusted server output. */
 export function validateDocumentationImpactPlan(impact: ProductImpact, raw: unknown) {
   const plan = documentationImpactPlanSchema.parse(raw);
+  if (plan.candidateSelection && (plan.candidateSelection.coverage === "incomplete" || plan.decisions.some(d => d.documentId !== null && !plan.candidateSelection!.selectedDocumentIds.includes(d.documentId)))) throw new Error("Plan target is outside selected candidates.");
   const { repository, base, head, limited, notice, uncertainties } = impact.provenance.source;
   if (!isDeepStrictEqual(plan.source, { repository, base, head })
     || !isDeepStrictEqual(plan.claimCatalog, documentationImpactClaims(impact))

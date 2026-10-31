@@ -145,8 +145,8 @@ also recorded in the user-supplied [hackathon guide](hackathon.md).
   This adds no documentation decisions, model fallback or runtime/Meta invocation.
 - Documentation's independent [impact planner](src/features/documentation/plan-documentation-impact.ts)
   reparses Sources ProductImpact and validates its retained reference graph before
-  retrieving at most ten canonical repository-scoped saved documents through existing
-  queries. Incomplete listings, corrupt/missing/mismatched candidates and a complete
+  selecting at most ten canonical repository-scoped saved documents using deterministic
+  exact metadata/bounded text matching, with unchanged complete broad fallback on no hits. Incomplete listings, corrupt/missing/mismatched candidates and a complete
   capability request over 32 KiB reject before inference. Baseten receives projected
   claims and document/section text/IDs, not upstream provenance or screenshot identity.
   Model claim/target references resolve locally; source-supported eligibility is
@@ -226,3 +226,15 @@ provider fallback or paid verification occurs. Transformation's existing generat
 bounded support-check call profile is unchanged; `--retain` persists its direct result
 only when explicitly requested. Saving does not imply publishing, and publication
 conflict may follow a successful save. See the Documentation review guide and SETUP.
+
+## Deterministic candidate narrowing: zero additional inference
+
+The planner now receives a bounded candidate set selected by exact association and
+word-overlap rules, plus typed score reasons, section IDs/hashes and explicit coverage.
+It makes the same one planning call and only reasons about supplied targets; there is
+no ranking/classification model or hidden semantic score. Search-selected coverage
+cannot establish missing documentation. Ambiguous candidates are retained together;
+overflow stops before inference and yields an incomplete run. Existing source-support
+and no-change/unresolved rules remain unchanged. Broad fallback preserves prior
+loading/integrity behavior. No canonical metadata enrichment or SDK retrieval change
+is included. See SETUP for exact scoring/bounds and the PostgreSQL/mocked-provider proof.

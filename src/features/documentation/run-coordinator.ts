@@ -5,6 +5,7 @@ import { getDocumentationRun } from "./run-operations";
 import { runRecordV2 } from "./run-record";
 import { finishRun, ownedRun, reconcileDocumentationRuns, RunOwnershipLost, writeRunCheckpoint } from "./run-checkpoints";
 import { RUN_CONTROL_MS, RUN_DEADLINE_MS, RUN_HEARTBEAT_FAILURE_MS, RUN_HEARTBEAT_MS, RUN_RECONCILE_MS } from "./run-workflow-state";
+import { CandidateSelectionIncompleteError } from "./select-documentation-candidates";
 import { executeRunWorkflow, RunStageError } from "./execute-run-workflow";
 
 type ActiveRun = {
@@ -91,8 +92,9 @@ export async function startDocumentationRun(rawId: unknown) {
       try {
         await writeRunCheckpoint(active.id, active.token, r => {
           const cancelled = Boolean(r.execution?.cancelRequestedAt);
-          const reason = cancelled ? "user-cancelled" : active.controller.signal.aborted ? String(active.controller.signal.reason) : `stage-failed:${error instanceof RunStageError ? error.stage : r.activeStage ?? "execution"}`;
-          return finishRun(error instanceof RunStageError ? { ...r, activeStage: error.stage } : r, cancelled ? "cancelled" : "failed", reason);
+          const selectionIncomplete = error instanceof RunStageError && error.cause instanceof CandidateSelectionIncompleteError;
+          const reason = cancelled ? "user-cancelled" : selectionIncomplete ? "documentation-candidates-incomplete" : active.controller.signal.aborted ? String(active.controller.signal.reason) : `stage-failed:${error instanceof RunStageError ? error.stage : r.activeStage ?? "execution"}`;
+          return finishRun(error instanceof RunStageError ? { ...r, activeStage: error.stage } : r, cancelled ? "cancelled" : selectionIncomplete ? "incomplete" : "failed", reason);
         }, true);
       } catch { /* Lost ownership/DB failure: preserved checkpoints are reconciled after heartbeat expiry. */ }
     }).finally(async () => {

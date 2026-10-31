@@ -646,3 +646,43 @@ conflicts retain successful saves and old immutable snapshots. Replay consults r
 changed selections conflict, no rebase/model retry occurs. Cancellation stops new units.
 Repository allowlisting remains trusted-local authorization, not multi-user identity.
 The local CLI is the integration surface; SDK/contextual delivery remains unchanged.
+
+## Deterministic planner candidate selection
+
+Documentation now defines a typed, read-only section-context projection: immutable
+snapshot UUID/hash + section UUID, existing purpose enum, titles/text, and existing
+route/feature/workflow/UI-surface/audience associations. Explicit associations retain
+operator identity; inferred associations resolve to their supporting finding and
+v1 analysis or v2 evidence-context identity. No new labels or inferred classifications
+are generated or persisted. Publication/current state remains in its existing separate
+boundary; recency, publication and UUID ordering confer no targeting authority.
+
+A derived PostgreSQL JSONB search projection matches exact case-sensitive association
+kind/value pairs and bounded lowercase ASCII word overlaps. Only up to 41 hit identities
+leave SQL. At most ten documents/40 matching sections are admitted; all eligible hits
+within those bounds are retained, including ties. Validated snapshots are loaded
+through existing operations, and local matching recomputes scores/explanations. Full
+section outlines/text of selected documents still enter the bounded planner call.
+
+Scoring is fixed: association 40, each matching document-title word 2, section-title
+word 3, body word 1. Text-only eligibility needs two distinct title words (across
+both titles) or three body words. Query words are distinct, stop-word filtered,
+3–40 ASCII characters, capped at 24; query associations are capped at 20. No stemming,
+embeddings, semantic ranking or ranking model is used. Nonmatching/unsupported text
+can fall back to broad loading rather than guessing semantic similarity.
+
+The validated selection result records selected document UUIDs, matched section
+UUIDs/snapshot hashes, scored reasons, coverage and broad-fallback usage. Zero useful
+hits use the unchanged complete broad-loading path and its integrity/completeness
+checks. Search-selected coverage never means corpus-complete. Too many plausible
+matches return typed incomplete selection without silently cutting competitors; runs
+finish semantically incomplete before planner inference. Storage/validation failures
+do not masquerade as an empty search. The planner receives coverage/relevance hints
+but still owns semantic targeting and must leave unjustified ambiguity unresolved.
+
+Selection metadata is not evidence and cannot justify revise/add/no-change or prove
+missing documentation. Existing grounding, exact targets, 32 KiB request bounds and
+human review remain intact. Server-owned selection is optional on retained plans for
+legacy compatibility; selected target hashes are rechecked by transformation/retention.
+No migration, materialized index, taxonomy service, navigation restructure, new model
+call or SDK retrieval change is introduced. Physical indexing can follow measured need.

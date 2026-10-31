@@ -51,6 +51,8 @@ export async function transformDocumentation({ impact: rawImpact, plan: rawPlan,
       const loaded = await getDocumentationDraft(id, impact.provenance.source.repository);
       if (loaded.status !== "found") continue;
       const document = validateDocumentationDocument(loaded.document);
+      const selectedHash = plan.candidateSelection?.matches.find(m => m.documentId === id)?.documentSha256;
+      if (selectedHash && documentationHash(document) !== selectedHash) continue;
       if (document.id !== id || !sameImpactRepository(document.provenance.repository, impact.provenance.source.repository)) continue;
       baselines.set(id, document); proposal.targets.push({ identity: { documentId: id, sha256: documentationHash(document) }, document });
     } catch { /* Missing/corrupt/read failures become explicit target failures. */ }

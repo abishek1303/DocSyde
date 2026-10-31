@@ -24,6 +24,8 @@ export function validateDocumentationProposal(raw: unknown) {
   assert(new Set(p.authorizations.map(a => a.decisionId)).size === p.authorizations.length);
   for (const target of p.targets) {
     const doc = validateDocumentationDocument(target.document);
+    const selectedHash = p.plan.candidateSelection?.matches.find(m => m.documentId === doc.id)?.documentSha256;
+    assert(!selectedHash || selectedHash === target.identity.sha256);
     assert(doc.id === target.identity.documentId && documentationHash(doc) === target.identity.sha256);
     assert(doc.provenance.repository.toLowerCase() === impact.provenance.source.repository.toLowerCase());
     assert(p.plan.decisions.some(d => d.documentId === doc.id));

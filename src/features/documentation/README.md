@@ -439,3 +439,20 @@ compact progress, and POST cancel persists/propagates cancellation. A retained
 proposal is authority in `documentation_proposal_reviews`, never run JSONB. Legacy
 draft runs render separately. See root SETUP and ARCHITECTURE for heartbeat,
 interruption, runtime configuration and the process-death limitations.
+
+## Typed section context and planner candidates
+
+`section-context.ts` projects validated immutable snapshots and their existing
+explicit/inferred associations, preserving finding/evidence-context provenance.
+`candidate-selection.ts` owns the validated query/result contracts and fixed scoring;
+`select-documentation-candidates.ts` composes bounded SQL hit lookup, canonical loads,
+local explanation validation and unchanged broad fallback. Candidate metadata is
+retrieval context, never factual support. No new AI classifications are generated.
+
+`planDocumentationImpact({ impact, context? }, { signal? })` accepts optional explicit
+operator associations and returns `selection` alongside the existing result. Plans
+retain an optional server-owned `candidateSelection`, preserving old saved plans.
+Coverage is complete broad fallback, search-selected, or incomplete overflow. The
+planner receives every selected document's sections and may leave competing targets
+unresolved; deterministic scores/order cannot authorize a target. Transformation
+rechecks selected snapshot hashes. SDK lookup remains unchanged and deferred.
