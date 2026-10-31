@@ -278,3 +278,12 @@ envelopes are not captured. Files contain private repository source/user text;
 keep them local and delete when no longer needed. Files use owner-only permissions.
 Diagnostic write failure leaves the original rejection unchanged and emits a fixed
 warning; there is no retry, product evidence ingestion or diagnostic UI.
+
+## Run composition boundary
+
+Documentation reuses the narrow `product-analysis` entry for one source analysis,
+one optional inspection decision, runtime visual analysis and one ProductImpact.
+Source analysis now accepts a caller AbortSignal as its fourth argument, combined
+with existing deadlines. Optional server-owned runtime-inspection context describes
+unavailable/uncovered coverage; it is projected to synthesis, retained in provenance
+and forwarded to documentation planning. It creates no evidence or mutation authority.

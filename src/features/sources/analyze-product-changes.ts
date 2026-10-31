@@ -12,13 +12,14 @@ import { productChangeInstructions } from "./product-change-prompt";
 import { PRODUCT_CHANGE_OUTPUT_TOKENS } from "./product-change-limits";
 import { captureGenerationContext } from "./repository-context";
 import { type GenerationContextSnapshot } from "./generation-context";
-export async function analyzeProductChanges(raw: unknown, capturedSnapshot?: GenerationContextSnapshot, onProgress?: SourceProgress): Promise<ProductResult> {
+export async function analyzeProductChanges(raw: unknown, capturedSnapshot?: GenerationContextSnapshot, onProgress?: SourceProgress, options: { signal?: AbortSignal } = {}): Promise<ProductResult> {
+  options.signal?.throwIfAborted();
   const input = productChangeInput.parse(raw);
   const generationSnapshot = capturedSnapshot ?? await captureGenerationContext(input, null);
   const paths = [...new Set(input.paths.map(path => repositoryPathInput.parse(path)))];
   assertAllowedRepository(input.owner, input.repo);
   return withSourceAccess(async () => {
-    const deadline = AbortSignal.timeout(180_000);
+    const deadline = AbortSignal.any([AbortSignal.timeout(180_000), ...(options.signal ? [options.signal] : [])]);
     const signal = AbortSignal.any([deadline, AbortSignal.timeout(60_000)]);
     await onProgress?.({ step: "read-evidence", status: "running", summary: "Reading pinned commits, patches and selected source files." });
     const comparison = await compareCommits(input, { maxCommits: 100, signal });
@@ -55,6 +56,7 @@ export async function analyzeProductChanges(raw: unknown, capturedSnapshot?: Gen
     await onProgress?.({ step: "understand-impact", status: "running", summary: "Interpreting product behavior and validating citations." });
     try {
       const generated = await generateStructured({ instructions: productChangeInstructions, input: payload, schema: productChangeOutput, maxOutputTokens: PRODUCT_CHANGE_OUTPUT_TOKENS, signal: deadline });
+      deadline.throwIfAborted();
       await validateWithDiagnostics(generated.data, bundle, payload);
       await onProgress?.({ step: "understand-impact", status: "completed", summary: `${generated.data.findings.length} validated finding${generated.data.findings.length === 1 ? "" : "s"} · ${generated.data.assessment}.` });
       return { ...result, status: generated.data.assessment === "insufficient-evidence" ? "insufficient-evidence" : "analyzed", analysis: generated.data, model: generated.model, elapsedMs: generated.elapsedMs };

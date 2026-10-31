@@ -35,7 +35,7 @@ export async function transformDocumentation({ impact: rawImpact, plan: rawPlan,
   if (new Set(supplied.map(choice => choice.id)).size !== supplied.length || supplied.some(choice => choice.origin !== "operator" || choice.findingRef
     || (choice.kind === "route" && (!choice.value.startsWith("/") || choice.value.startsWith("//") || /[?#\x00-\x20]/.test(choice.value))))) throw new Error("Invalid operator transformation context.");
   const proposalId = randomUUID(), createdAt = new Date().toISOString();
-  const limitations = [...new Set([impact.provenance.source.notice, ...impact.provenance.source.uncertainties, ...impact.uncertainties, ...plan.uncertainties,
+  const limitations = [...new Set([...(impact.provenance.runtimeInspection?.limitations ?? []), impact.provenance.source.notice, ...impact.provenance.source.uncertainties, ...impact.uncertainties, ...plan.uncertainties,
     ...impact.claims.flatMap(claim => claim.uncertainties)])];
   const results: DecisionResult[] = plan.decisions.map((decision, index) => ({ decisionId: `decision-${index + 1}`, decision,
     generation: decision.action === "revise" || decision.action === "add" ? "pending" : "not-required",

@@ -412,34 +412,70 @@ Previous/Next controls sit in the table header and retain repository/branch sele
 and date appear beneath the commit title to keep the table readable without overflow.
 
 
-## Analyze a change and review its documentation
+## Analyze a change and retain a proposal
 
-Run `npm run db:migrate` (or `npm run db:setup`) to apply additive migration 0003.
-Existing GitHub/Baseten/signing configuration is reused; no new environment values.
-On `/changes`, select **Analyze change**, inspect the first-parent comparison, add
-optional instructions, then **Start analysis & propose documentation**. Advanced
-options allow source paths, explicit association JSON and an ancestor base revision.
-Merge commits use the first parent; root commits have no default supported run.
+Apply existing migrations through **0006** using `npm run db:migrate`. This run slice
+requires no new migration. Start one local Next.js Node process (`npm run dev`, or
+`npm run build -- --webpack` then `npm start`). PostgreSQL must be available.
+GitHub/Baseten configuration and repository allowlisting remain unchanged; a draft
+signing key is not required for schema-v2 runs.
 
-The dedicated `/runs/[id]` timeline polls actual persisted operation transitions.
-`/runs` lists repository-scoped attempts; recent runs appear on the overview and in
-the Changes table. Refresh/reopening never repeats completed model calls. Pending
-runs are deliberately executed by one guarded POST after the start action. Runs
-are request-bound: an interrupted/expired execution is explicit after seven minutes,
-and **Start a new attempt** creates a separate run. Keep the local Next.js process
-running; this is not a background worker or publicly authenticated service.
+Start from `/changes`, select the pinned comparison and create a run. The execute POST
+returns **202** after admission; its process-local task continues after client disconnect.
+Status polling exposes real persisted stages. Another active run gets **409 busy**;
+there is no queue. Cancel uses a same-origin POST and propagates persisted cancellation.
+Do not run multiple Next.js processes against this demo execution boundary.
 
-**Review draft** opens `/runs/[id]/review`; **View findings & evidence** opens a
-secondary view of the actual Git/source analysis. Saving remains explicit and uses
-the existing signed handoff. A failed save can be retried without regeneration.
-Proposals create new drafts; automatic targeting/updating of existing saved docs
-and runtime/browser/SDK evidence inputs remain unimplemented. Publication is a
-separate explicit step described below.
+New runs perform source → optional runtime → impact → plan → conditional transformation
+→ retained proposal. They never generate a legacy direct v1 draft or automatically
+approve/save/publish. Historical runs and standalone `/documentation/draft` remain
+readable/available. New retained proposals cannot enter the legacy signed-save form.
+The current review page is read-only; use the [review CLI](#proposal-review-proof)
+with the retained UUID/hash for explicit human review. Initial expiry remains 24 hours.
 
-`npm run documentation:runs:test` uses isolated PostgreSQL records and mocked
-providers to verify atomic execution, stages, failure/skips, no-change, insufficient
-evidence, interruption, access checks, history pagination and save retry. It makes
-no hosted-model calls and cleans up only its own fixtures.
+Optional runtime configuration: set server-only `DOCSYDE_RUN_RUNTIME_CONFIG` to an
+operator-managed JSON file. Use the existing visual-workflow example shape and add:
+
+```json
+{
+  "repository": "https://github.com/owner/repo",
+  "id": "request-form",
+  "version": "1",
+  "supportedPathnames": ["/requests/new"]
+}
+```
+
+These fields extend the complete existing runtime/workflow/description/image-budget
+configuration; this fragment alone is not executable. Configure `META_API_KEY`, local
+Chromium and `DOCSYDE_STORAGE_DIRECTORY` for inspection. Launch/attach remains loopback
+only, startup is bounded to 60 seconds, and one trusted workflow must cover all requested
+targets. Secrets/actions/selectors never come from HTTP or inspected repository text.
+Run JSONB stores only a safe configuration descriptor/hash and artifact references.
+
+Missing/disabled workflow or unavailable capability/storage records **unavailable**
+with decision **not evaluated**. Semantic **not-needed** is separate. Requested targets
+outside trusted coverage record **requested-but-uncovered**. Those paths may continue
+source-only with explicit downstream limitations; insufficient grounding finishes
+incomplete. Attempted runtime failure stops synthesis. No partial visual evidence is
+silently accepted. Empty comparison is successful `no-source-differences` with zero
+calls, distinct from planner-derived `documentation-unchanged`.
+
+Execution heartbeats every 10 seconds and checks cancellation every 2 seconds.
+Renewal failure for 30 seconds aborts expensive work. Initialization, pre-start and
+15-second maintenance reconciliation persist interruption after a 60-second stale
+heartbeat when there is no matching local owner. Ordinary subsequent status reads
+are read-only. A fresh running row after restart temporarily blocks new admission.
+An independent 40-minute application deadline bounds work, not HTTP lifetime.
+**Process death can interrupt runs; abrupt death cannot guarantee runtime cleanup.**
+There is no automatic resume. Explicit new attempts before retention can repeat paid
+calls. Completed retained runs reopen without inference, and retention/linkage commit
+atomically. A retention failure never claims awaiting review.
+
+Run `npm run documentation:runs:test` for the deterministic PostgreSQL/mocked-provider
+proof, including real Chromium. It uses isolated fixture rows/artifacts and cleans up
+its own state. [MODEL_USAGE.md](MODEL_USAGE.md) lists conditional calls (typical 5–10,
+worst bounded 17); review/save remain model-free. Polished UI, streaming and MCP remain
+future slices.
 
 ## Publish saved documentation into Request Desk
 
@@ -549,3 +585,16 @@ replacement/contextual retrieval, save-only, publication conflicts, replay and r
 `npm run documentation:review:test` also runs admission/subset/dependency-boundary tests.
 Polished review UI, HTTP mutation handlers, run orchestration, editing/rebase and changing
 an accepted final selection remain deferred.
+
+## Schema-v2 slice verification
+
+The full repository test invocation (all `src` and `infra/local` `.test.ts` files,
+Node react-server condition, tsx, concurrency four) passed **519 tests**, including
+PostgreSQL, real Chromium and mocked providers. The focused run proof additionally
+guards approval/save/publication operations to throw if invoked. Lint,
+`next typegen`, `tsc --noEmit`, webpack production build and diff checks passed.
+A production `next start` browser proof returned 202 before source inference
+finished, reached retained awaiting-review through five mocked model calls, and
+passed desktop/mobile rendering with zero browser errors. No live inference ran.
+Sandbox restrictions require local PostgreSQL/port/Chromium permission for these
+integration checks; they passed with that access. Temporary servers were stopped.

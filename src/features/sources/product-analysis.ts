@@ -17,3 +17,11 @@ export { generationContextSnapshot } from "./generation-context";
 export { productImpactSchema } from "./product-impact";
 export type { ProductImpact } from "./product-impact";
 export { validateProductImpact } from "./validate-product-impact";
+
+export { decideRuntimeInspection } from "./decide-runtime-inspection";
+export { inspectionDecisionSchema } from "./inspection-decision";
+export { synthesizeProductImpact } from "./synthesize-product-impact";
+export { analyzeRuntimeVisuals } from "./analyze-runtime-visuals";
+export { validateProductResult } from "./validate-product-result";
+export { runtimeInspectionContextSchema } from "./runtime-inspection-context";
+export type { RuntimeInspectionContext } from "./runtime-inspection-context";

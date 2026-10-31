@@ -3,7 +3,7 @@ import { z } from "zod";
 import { repositoryCoordinates, repositoryLocation } from "@/integrations/github/repository-identity";
 import { assertAllowedRepository } from "@/features/sources/repository-access";
 import { publicationsForDrafts, findPublication } from "@/integrations/database/documentation-publications";
-import { findDocumentationReview, insertDocumentationReview, type RetainedReviewRow } from "@/integrations/database/documentation-reviews";
+import { findDocumentationReview, insertDocumentationReview, insertDocumentationReviewForRun, type RetentionRunLink, type RetainedReviewRow } from "@/integrations/database/documentation-reviews";
 import type { DocumentationChangeProposal } from "./documentation-change-proposal";
 import { validateDocumentationProposal } from "./validate-documentation-proposal";
 import { documentationHash, documentationId } from "./document-identity";
@@ -30,11 +30,11 @@ export function readRetainedReview(row: RetainedReviewRow) {
 
 /** Trusted producer entry ONLY: call directly with transformDocumentation output.
  * Not an HTTP action, unsigned artifact importer, or client authentication boundary. */
-export async function retainDocumentationProposal(output: DocumentationChangeProposal, { lifetimeMs = REVIEW_INITIAL_LIFETIME_MS }: { lifetimeMs?: number } = {}) {
+export async function retainDocumentationProposal(output: DocumentationChangeProposal, { lifetimeMs = REVIEW_INITIAL_LIFETIME_MS, runLink }: { lifetimeMs?: number; runLink?: RetentionRunLink } = {}) {
   const proposal = validateDocumentationProposal(output), repository = reviewRepository(proposal.impact.provenance.source.repository);
   if (!Number.isSafeInteger(lifetimeMs) || lifetimeMs < 1 || lifetimeMs > REVIEW_INITIAL_LIFETIME_MS) throw new Error("Invalid review lifetime.");
   const proposalHash = documentationHash(proposal), existing = await findDocumentationReview(proposal.proposalId);
-  if (existing) {
+  if (existing && !runLink) {
     if (existing.proposalHash !== proposalHash || existing.repository !== repository) throw new Error("Proposal identity conflict.");
     return { proposalId: existing.id, ...readRetainedReview(existing) };
   }
@@ -59,7 +59,8 @@ export async function retainDocumentationProposal(output: DocumentationChangePro
     }
   }
   const registeredAt = new Date(), expiresAt = new Date(registeredAt.getTime() + lifetimeMs);
-  const row = await insertDocumentationReview({ id: proposal.proposalId, repository, proposalHash, proposal, targets, registeredAt, expiresAt });
+  const value = { id: proposal.proposalId, repository, proposalHash, proposal, targets, registeredAt, expiresAt };
+  const row = runLink ? await insertDocumentationReviewForRun(value, runLink) : await insertDocumentationReview(value);
   if (!row || row.proposalHash !== proposalHash || row.repository !== repository) throw new Error("Proposal identity conflict.");
   return { proposalId: row.id, ...readRetainedReview(row) };
 }

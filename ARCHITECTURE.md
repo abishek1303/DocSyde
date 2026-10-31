@@ -140,12 +140,13 @@ orchestration should reconcile static/runtime evidence and relevant existing doc
 before proposing documentation impact and updates. Models do not own process
 launch, capture policy, publication or resource authorization.
 
-This is not the current request-bound documentation-run behavior. Baseten serves
-source summaries, bounded semantic analysis and new-draft generation. Independent
+Historical source-to-draft behavior is retained for standalone tools and legacy rows.
+Schema-v2 orchestration is described below. Baseten serves source summaries, bounded
+semantic analysis, planning and transformation. Independent
 inspection decisions, source/visual synthesis and saved-document impact planning
 also exist. The local runtime visual-evidence CLI now composes a scripted workflow,
-post-run checkpoint selection, Meta vision, synthesis and planning; none is wired
-automatically into the product run UI.
+post-run checkpoint selection, Meta vision, synthesis and planning. Schema-v2 runs
+now compose these capabilities automatically when configured.
 The provider-neutral APIs isolate HTTP details but each currently selects one
 provider internally, without automatic fallback. See [MODEL_USAGE.md](MODEL_USAGE.md)
 for code references, model defaults, limits, gaps and planned connection steps.
@@ -396,7 +397,7 @@ workflow with bounded checkpoint capture, post-run text selection, selected Meta
 vision analysis, existing Sources product-impact synthesis and existing Documentation
 impact planning. It consumes an already validated source result and trusted local
 workflow configuration; it does not generate browser actions or mutate documentation.
-The request-bound change-to-draft workflow remains source-only.
+The standalone change-to-draft workflow remains source-only; schema-v2 runs use the workflow below.
 
 `runner/runtime/capture-workflow.ts` owns one launch/attach and cleanup lifecycle;
 `integrations/browser/capture-trace.ts` owns Playwright sampling, masked screenshots
@@ -436,8 +437,8 @@ This supersedes earlier descriptions of source-to-model wiring as entirely plann
 Documentation generation/mutation, persistence of analyses, runtime orchestration,
 and contextual delivery were outside that Sources slice. Draft generation,
 persisted run snapshots and narrow contextual publication/delivery are implemented
-as described below; runtime orchestration and existing-document updates remain
-deferred. No architecture boundary has moved.
+as described below. Schema-v2 orchestration now connects runtime evidence and
+targeted existing-document proposals. No architecture boundary has moved.
 
 ## Canonical documentation drafts
 
@@ -464,8 +465,8 @@ reconsider targeting, old content/provenance or upstream mutation eligibility.
 The proposal boundary distinguishes generation, support, review readiness, canonical
 save compatibility and approval. Normal section revisions/additions and document
 replacement produce validated v2 candidates; ambiguity, conflicts, incomplete checks
-or genuine bounds block materialization. This is connected only through a local
-verification CLI and mocked integration proof, not request-bound run execution.
+or genuine bounds block materialization. Local verification and schema-v2 runs
+compose this same operation; mocked integration proofs exercise its boundaries.
 Transformation performs no signing, approval, save, publication or publication replacement.
 Existing persistence/publication tests cover v1/v2 compatibility through explicit
 operations; they do not imply that transformation invokes those operations.
@@ -491,8 +492,8 @@ Saved list/detail routes use persistence and the existing renderer independently
 AI, semantic analysis, GitHub/source retrieval and signing credentials. Lazy database
 initialization remains intact. Targeted planning/transformation and narrow publication/
 SDK delivery are implemented independently as described here. Editing UI, version-family
-history and request-bound transformation/review orchestration remain deferred; retained
-model-free review/save is described below.
+history and polished review UI remain deferred; schema-v2 run orchestration and
+retained model-free review/save are described below.
 
 Repository context: the draft screen offers an optional saved product note (500
 characters) and optional run note (300). Sources owns the setting; narrow Drizzle
@@ -521,32 +522,70 @@ reader and technical source tools remain available. Run persistence and executio
 updates remain deferred.
 
 
-## Change-to-run workflow
+## Schema-v2 analysis runs
 
-Changes now links to a pinned commit-details/setup screen. Sources owns commit
-parents, first-parent defaults, branch browsing, revision pinning and evidence
-selection. Documentation owns request-bound run execution, stage transitions,
-proposed drafts, review and explicit signed saving. The existing source access
-guard and all canonical/evidence validators remain intact. App routes compose the
-Sources table with a narrow Documentation run-status entry; Sources does not import
-Documentation, preserving acyclic feature dependencies.
+New runs use Documentation-owned composition: pinned source analysis → runtime
+availability/decision → optional single-workflow capture/selection/vision → one
+ProductImpact → one documentation-impact plan → conditional transformation → trusted
+proposal retention. New execution never calls `createDraftFromChanges`, generates a
+legacy v1 draft, approves, saves or publishes. Standalone draft tools and historical
+unversioned run records remain supported; legacy pending runs require a new attempt.
 
-Migration 0003 adds `docsyde.documentation_runs`, a bounded JSON record alongside
-repository, lifecycle status and timestamps. An atomic pending-to-running claim
-prevents repeated POSTs from executing the same run twice. Progress callbacks at
-real operation boundaries persist stage transitions; a read-only status endpoint
-supports polling. GET/rendering never calls a model. The run page issues the
-execution POST only for a deliberately created pending run. Same-origin checks
-protect that HTTP mutation in the existing trusted-local scope. Each read and
-execution rechecks the repository allowlist; this is not public multi-user auth.
+`run-record.ts` distinguishes lifecycle, active stage, stage outcomes and final
+`awaiting-review`, `no-change`, `incomplete`, `failed`, `cancelled` or `interrupted`
+dispositions. Empty comparisons finish `no-source-differences` without inference;
+planner-derived documentation accuracy finishes `documentation-unchanged`. Unresolved
+plans skip transformation. Mixed plans preserve every decision and may retain a
+partially review-ready proposal. Unsupported/uncertain results are incomplete;
+technical failures are failed. Intermediate checkpoints survive later failures.
 
-Context is frozen once at execution and recorded. Analysis snapshots retain only
-the bounded evidence already supplied to the workflow; no credentials, provider
-envelopes, browser, runner or SDK evidence are added. Completed run previews remain
-separate from immutable saved documentation. A save retry reuses the exact signed
-preview without model calls. New attempts create new run IDs. A running record
-older than seven minutes is presented as interrupted without automatic resumption.
-No queue, worker or durable background-execution guarantee is introduced.
+`run-coordinator.ts` owns one active task on `globalThis` in a single long-lived
+local Node application process. POST execute reserves the slot, serializes short
+PostgreSQL admission with a transaction advisory lock, claims an ownership token,
+starts the application-owned promise and returns 202. A different run gets 409;
+there is no queue. Neither Next.js `after()`, route duration nor client connection
+owns execution. Request disconnect does not cancel work. Runner remains the only
+owner of launch/attach/browser cleanup; the slot releases after workflow cleanup
+and pending control operations settle. No new runner host/process is introduced.
+
+Heartbeat is 10 seconds, control polling 2 seconds, stale threshold 60 seconds,
+renewal-failure abort 30 seconds, maintenance reconciliation 15 seconds. An independent
+40-minute application deadline aborts work; it does not extend HTTP lifetime.
+Initialization is lazy on first run API access, followed by explicit reconciliation
+and maintenance; ordinary subsequent GETs are read-only. Reconciliation also runs
+before admission. It persists interruption only for stale running executions without
+a matching local owner, using guarded row updates. Fresh orphaned execution blocks
+admission until stale. Every checkpoint verifies the execution token; cancellation
+and heartbeat merge under short row locks without replacing newer stage outputs.
+
+This is self-hosted hackathon execution, not durable job infrastructure. Process
+termination can interrupt runs and abrupt termination cannot guarantee child/browser
+cleanup. A restart never resumes inference. Pre-retention failures require an explicit
+new run (and may repeat paid calls); retained completed runs reopen without models.
+Multiple application processes/serverless hosting are outside this boundary.
+
+Trusted operator configuration binds one workflow to a canonical repository, ID,
+version and supported pathnames. It reuses Runner's workflow configuration schema;
+HTTP cannot provide executable configuration. Only descriptor/hash enters the run.
+Availability checks can skip semantic inspection decision when execution is unavailable.
+Runtime distinguishes not-needed, unavailable, requested-but-uncovered,
+attempted-and-failed and completed. Useful but unavailable/uncovered inspection may
+continue source-only with bounded server-owned coverage context in impact provenance,
+planning qualifications and transformation/retained limitations. It is never evidence
+or authority. Attempted incomplete runtime evidence stops synthesis. No per-target
+legacy executor or autonomous browser actions are used.
+
+Existing run JSONB stores bounded source evidence/hash, impact/plan, stage/model
+metadata, runtime artifact references and compact transformation/retention summaries.
+It contains no screenshots, executable secrets, complete retained proposal or duplicate
+canonical candidates. No migration is required. `documentation_proposal_reviews`
+remains proposal authority. Admission and review-row insertion/idempotent verification
+plus final run linkage commit transactionally; failed retention cannot claim awaiting
+review. Review/save/publication remain separate explicit human operations.
+
+The next presentation slice can attach a transient screencast observer where
+`capture-trace.ts` creates its page, with teardown in the same lifecycle. Live frames
+must not affect evidence, hashes, checkpoints, selection or model budgets.
 
 ## Explicit publication and contextual delivery
 
@@ -582,7 +621,7 @@ this narrow slice; broader embed UX, editing and semantic retrieval remain defer
 Documentation now owns trusted proposal retention, explicit per-decision review,
 approved-subset rematerialization, immutable save and optional contextual publication
 replacement. This supersedes references above to transformation review/save being
-entirely deferred; polished UI and request-bound orchestration remain deferred.
+entirely deferred; polished UI remains deferred; schema-v2 orchestration now retains proposals as described above.
 Transformation itself still has no persistence/publication side effects.
 
 Migration 0006 adds only `documentation_proposal_reviews`: immutable authority JSON

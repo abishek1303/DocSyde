@@ -1,7 +1,7 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getDatabase } from "./client";
-import { documentationReviews, documentationDrafts } from "./schema";
+import { documentationReviews, documentationDrafts, documentationRuns } from "./schema";
 import { insertDocumentationDraft } from "./documentation-drafts";
 import { findPublication, insertPublicationIfAbsent, replacePublication } from "./documentation-publications";
 
@@ -45,3 +45,28 @@ export type ReviewTransaction = {
   replacePublication(repository: string, route: string, documentId: string, observedId: string, baselineId: string): ReturnType<typeof replacePublication>;
   receipt(review: unknown): Promise<void>;
 };
+
+export type RetentionRunLink = {
+  id: string; token: string;
+  complete(payload: unknown, row: RetainedReviewRow): unknown;
+};
+/** Authority insertion and the run reference share one commit. No document/publication writes. */
+export async function insertDocumentationReviewForRun(value: typeof documentationReviews.$inferInsert, link: RetentionRunLink) {
+  return getDatabase().transaction(async tx => {
+    await tx.execute(sql`SET LOCAL statement_timeout = '5000ms'`);
+    const [run] = await tx.select().from(documentationRuns).where(eq(documentationRuns.id, link.id)).for("update");
+    if (!run || run.repository !== value.repository || run.status !== "running") throw new Error("Retention run unavailable.");
+    const [inserted] = await tx.insert(documentationReviews).values(value).onConflictDoNothing().returning();
+    const row = inserted ?? (await tx.select().from(documentationReviews).where(eq(documentationReviews.id, value.id)))[0];
+    if (!row || row.repository !== value.repository || row.proposalHash !== value.proposalHash) throw new Error("Proposal identity conflict.");
+    const payload = link.complete(run.payload, row);
+    // SQL guard supplements feature validation and serializes against cancellation.
+    const updated = await tx.update(documentationRuns).set({ status: "finished", payload, updatedAt: new Date() }).where(and(
+      eq(documentationRuns.id, link.id), eq(documentationRuns.status, "running"),
+      sql`${documentationRuns.payload}->'execution'->>'token' = ${link.token}`,
+      sql`${documentationRuns.payload}->'execution'->>'cancelRequestedAt' IS NULL`,
+    )).returning({ id: documentationRuns.id });
+    if (!updated.length) throw new Error("Retention ownership lost or cancelled.");
+    return row;
+  });
+}

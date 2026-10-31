@@ -425,3 +425,17 @@ without provider credentials. No approval UI, HTTP mutation surface, automatic r
 orchestration, editing/rebasing, changed final selection, or general audit/history
 system is included. Legacy signed new-draft saving remains separate and unchanged.
 See [SETUP.md](../../../SETUP.md#proposal-review-proof) for CLI commands.
+
+## Schema-v2 run orchestration
+
+`run-operations` creates pinned runs and reads legacy/v2 records. `run-coordinator`
+owns one local process task; `execute-run-workflow` composes existing capabilities
+through trusted proposal retention. `run-checkpoints` owns guarded stage/control
+transitions; database modules own SQL and atomic retention/run linkage. No new
+migration or approval/save/publication invocation is introduced.
+
+POST execute returns 202, different-run concurrency returns 409, GET status polls
+compact progress, and POST cancel persists/propagates cancellation. A retained
+proposal is authority in `documentation_proposal_reviews`, never run JSONB. Legacy
+draft runs render separately. See root SETUP and ARCHITECTURE for heartbeat,
+interruption, runtime configuration and the process-death limitations.

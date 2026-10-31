@@ -40,7 +40,7 @@ export function documentationImpactClaims(impact: ProductImpact) {
 
 export function projectDocumentationImpact(impact: ProductImpact, catalog: ReturnType<typeof documentationImpactClaims>) {
   const sources = new Set(impact.provenance.sourceReferences.map(entry => entry.id));
-  return { assessment: impact.assessment, summary: impact.summary,
+  return { ...(impact.provenance.runtimeInspection ? { runtimeInspection: impact.provenance.runtimeInspection } : {}), assessment: impact.assessment, summary: impact.summary,
     claims: catalog.map(({ id, claim: { references, ...claim } }) => ({ id, ...claim,
       sourceSupported: references.some(reference => sources.has(reference)) })),
     uncertainties: impact.uncertainties,

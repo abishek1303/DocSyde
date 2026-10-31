@@ -112,3 +112,13 @@ identifier or manifest retrieval API is introduced.
 `npm run runner:capture:test` includes focused execution tests with scoped boundary
 mocks, alongside the real launch/attach capture checks. These tests verify execution
 contracts, not live Meta access, semantic correctness or runtime-to-commit identity.
+
+## Application run composition
+
+Schema-v2 Documentation runs call `captureWorkflowWithRuntime` once when a trusted
+workflow covers the inspection decision. `workflow-config.ts` shares the executable
+configuration schema with the local visual verifier. Runner still owns no Sources,
+Documentation or persistence semantics and is not a separate orchestration host.
+The existing Next.js Node process owns the application task; process death can
+interrupt it. The future presentation observer attaches at page creation in
+`capture-trace.ts`; frames must remain separate from canonical evidence/inference.

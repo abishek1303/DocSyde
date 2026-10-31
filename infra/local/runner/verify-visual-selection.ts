@@ -1,28 +1,14 @@
 import "dotenv/config";
 import { readFile } from "node:fs/promises";
-import { z } from "zod";
 import { captureWorkflowWithRuntime } from "@/runner/runtime/capture-workflow";
-import { runtimeWorkflowSchema } from "@/integrations/browser/runtime-trace";
+import { workflowRuntimeConfigSchema } from "@/runner/runtime/workflow-config";
 import { getArtifactStorage } from "@/integrations/storage/storage";
 import { analyzeRuntimeVisuals } from "@/features/sources/analyze-runtime-visuals";
-import { selectedScreenshotLimit } from "@/features/sources/visual-selection";
 import { validateProductResult } from "@/features/sources/validate-product-result";
 import { synthesizeProductImpact } from "@/features/sources/synthesize-product-impact";
 import { planDocumentationImpact } from "@/features/documentation/plan-documentation-impact";
 
-const runtimeOptions = z.object({
-  baseUrl: z.url(), readinessPath: z.string().optional(), startupTimeoutMs: z.number().int().positive().optional(),
-}).strict();
-const configSchema = z.object({
-  runtime: z.discriminatedUnion("mode", [
-    z.object({ mode: z.literal("attach"), options: runtimeOptions }).strict(),
-    z.object({ mode: z.literal("launch"), options: runtimeOptions.extend({
-      cwd: z.string().min(1), command: z.string().min(1), args: z.array(z.string()), env: z.record(z.string(), z.string()).optional(),
-    }) }).strict(),
-  ]),
-  workflow: runtimeWorkflowSchema.omit({ baseUrl: true }), description: z.string().min(1).max(2000),
-  maxSelectedScreenshots: selectedScreenshotLimit.default(3),
-}).strict();
+const configSchema = workflowRuntimeConfigSchema;
 
 async function main() {
   const [configPath, sourcePath, ...extra] = process.argv.slice(2);

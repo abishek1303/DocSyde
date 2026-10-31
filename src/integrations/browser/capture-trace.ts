@@ -1,4 +1,6 @@
 import "server-only";
+import { access } from "node:fs/promises";
+import { constants } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import { chromium, type Page } from "playwright";
 import { parseHostContext } from "@/sdk/context-client";
@@ -8,6 +10,11 @@ import { redactRuntimeText, runtimePath, runtimeCredentialPatterns } from "./run
 import { runtimeWorkflowSchema, runtimeTraceSchema, type RuntimeTrace, type RuntimeSnapshot, type RuntimeWorkflowInput } from "./runtime-trace";
 
 function hash(bytes: string | Uint8Array) { return createHash("sha256").update(bytes).digest("hex"); }
+
+export async function runtimeCaptureAvailable() {
+  try { await access(chromium.executablePath(), constants.X_OK); return true; }
+  catch { return false; }
+}
 
 /** One caller-scripted session. No model or product interpretation lives here. */
 export async function captureRuntimeTrace(raw: RuntimeWorkflowInput, storage: ArtifactStorage, signal?: AbortSignal): Promise<RuntimeTrace> {
@@ -36,6 +43,8 @@ export async function captureRuntimeTrace(raw: RuntimeWorkflowInput, storage: Ar
       if (route.request().isNavigationRequest() && new URL(route.request().url()).origin !== base.origin) await route.abort();
       else await route.continue();
     });
+    // Future presentation-only screencast observer attaches here and detaches in finally.
+    // Frames must never feed checkpoints, hashes, selection or inference budgets.
     page = await context.newPage();
     page.setDefaultTimeout(30_000); page.setDefaultNavigationTimeout(30_000);
     page.on("pageerror", () => { trace.coverage.pageErrors = Math.min(1000, trace.coverage.pageErrors + 1); });

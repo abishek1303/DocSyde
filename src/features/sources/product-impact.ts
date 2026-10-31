@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { runtimeInspectionContextSchema } from "./runtime-inspection-context";
 import { productChangeOutput } from "./product-change-analysis";
 import { runtimeVisualEvidenceSchema } from "./runtime-visual-evidence";
 
@@ -22,6 +23,7 @@ export const productImpactOutputSchema = z.object({
 
 export const productImpactSchema = productImpactOutputSchema.extend({
   provenance: z.object({
+    runtimeInspection: runtimeInspectionContextSchema.optional(),
     source: z.object({ repository: z.string().max(2048), base: z.string().length(40), head: z.string().length(40),
       limited: z.boolean(), notice: z.string().max(2000), uncertainties: z.array(z.string().max(300)).max(4) }).strict(),
     sourceReferences: z.array(z.object({ id: reference, findingIndex: z.number().int().nonnegative(),

@@ -1,86 +1,50 @@
 # Model usage and evidence flow
 
-Audit date: October 30, 2026. This describes the current working tree, including
-pre-existing uncommitted Meta vision and combined runner/capture proofs. It does
-not imply those proofs are committed or connected to the product workflow.
-[ARCHITECTURE.md](ARCHITECTURE.md) remains the architectural source of truth.
+Updated October 31, 2026. [ARCHITECTURE.md](ARCHITECTURE.md) defines ownership.
 
-## Intended flow and current status
+## Schema-v2 run flow and conditional accounting
 
-The intended flow is:
+New analysis runs compose existing capabilities, without orchestration-specific inference:
+source analysis → existing runtime decision when available → optional one scripted
+workflow/checkpoint selection/vision → ProductImpact → documentation-impact plan →
+conditional transformation/support → retained proposal awaiting human review.
+Legacy source-to-v1 generation remains a standalone tool and historical run contract;
+it is never a fallback for new runs.
 
-1. Muse Spark Open through Baseten interprets Git/source/documentation context
-   and proposes whether runtime inspection is needed, with a reason and evidence
-   requirements.
-2. Feature-owned orchestration validates that request and invokes local runner +
-   Playwright capture with explicit, bounded routes and scripted actions.
-3. A Meta Model API multimodal model describes visible screenshot evidence.
-   DOM/runtime evidence remains separately identified.
-4. Application logic combines static findings, runtime/visual evidence and existing
-   documentation before determining documentation impact and proposing updates.
-5. Review, saving and publication stay explicit under the existing workflow.
+| Capability | Calls per run |
+| --- | ---: |
+| Source analysis | 0–1 |
+| Existing runtime-inspection decision | 0–1 |
+| Post-capture screenshot selection | 0–1 |
+| Selected Meta vision | 0–3 |
+| ProductImpact synthesis | 0–1 |
+| Documentation-impact planning | 0–1 |
+| Transformation generation | 0–8 |
+| Transformation support check | 0–1 |
+| Retention, review, save, publication | 0 |
 
-The request-bound documentation-run loop remains source-only. Its current path is:
+Typical actionable source-only runs cost five calls when runtime is unavailable,
+six when inspected semantically as unnecessary. A successful runtime path costs
+7–10 with one transformation batch. Worst bounded path is 17 calls (14 text, three
+vision). Empty comparison costs zero. No-change/unresolved-only plans use no
+transformation/support/retention. Failures stop later calls; no automatic retries,
+repair, fallback or hidden regeneration occurs. Metadata records returned model IDs,
+elapsed time, batch/support attempts and failures where capability contracts expose
+them; no token/cost estimates are invented.
 
-`GitHub comparison + selected pinned files + advisory notes → Baseten semantic
-analysis → validated findings → Baseten draft generation → validation → explicit
-save → explicit publication → exact repository/pathname SDK delivery`.
+Availability filtering is deterministic. Unavailable before decision means decision
+not evaluated, never not-needed. Requested-but-uncovered and unavailable inspection
+continue source-only with explicit bounded server-owned context passed to synthesis,
+retained in impact provenance, projected into planning, and carried into proposal
+limitations. That context cannot support claims. Incomplete attempted visual evidence
+blocks synthesis, preserving the completed visual-slice semantics. All existing
+source support, contradiction, revision-correspondence and request-size rules remain.
 
-Separately, local verification can compose
-`runtime readiness → Playwright capture → artifact storage → runtime cleanup`.
-An independent vision CLI can read a stored PNG and call Meta. Neither path is
-invoked by change analysis or documentation generation.
-Sources also exposes an independent `decideRuntimeInspection(ProductResult)` step
-through Baseten. It consumes already supplied static evidence and returns a bounded
-inspection decision; it does not execute that decision or alter the current workflow.
-An internal local-verification `executeRuntimeInspection()` helper can now consume
-that direct validated decision and coordinate capture plus Meta vision. It is not
-invoked automatically by Sources or documentation workflows.
-An independent Sources `synthesizeProductImpact({ source, runtime? })` capability
-now combines validated static findings with optional compact visual evidence in one
-Baseten text call. It is contract-tested with mocked transport, not live-verified
-or connected to draft generation. It invokes neither capture nor Meta.
-Documentation now exposes independent `planDocumentationImpact({ impact })`:
-one Baseten text call targets exact saved document/section UUIDs for revise/add/
-no-change/unresolved planning. It is mocked-contract-tested, not live-model verified
-or connected to draft generation, saving or publication.
-
-The local runtime visual-evidence CLI now connects the independently implemented
-capabilities: caller-scripted Playwright workflow → bounded masked local checkpoints
-→ sanitized/grouped summary → one Baseten visual-selection call → at most three
-hash-verified Meta image analyses → existing RuntimeVisualEvidence → product-impact
-synthesis → documentation-impact planning. It consumes source analysis rather than
-regenerating it. This path is tested with real local Chromium and mocked providers;
-no new paid/live model calls were made for this slice. It is not automatic run-UI
-dispatch or a live provider/factual-quality proof.
-
-Selection uses `select-visual-checkpoints.ts` and existing `generateStructured`.
-The image budget is configurable integer 0–3, default 3; zero disables selection
-and vision. Eligible candidates plus nonzero budget cause exactly one text call.
-The complete capability request is capped at 32 KiB with declared deterministic
-compaction; output is capped at 2,048 tokens. Unknown/duplicate checkpoint/source
-references, inconsistent decisions and over-budget responses reject without image
-calls or repair. A valid skip sends no images. Runtime/source/workflow content and
-screenshots remain untrusted data, never instructions. Redaction is separate from
-prompt-injection resistance; neither certifies model factual truth.
-
-Only selected images enter `analyzeScreenshot`, which verifies their recorded
-SHA-256 before the existing Meta path. State/source-selection provenance is assembled
-server-side and establishes relevance only. Partial/failing analysis is explicitly
-incomplete and blocks CLI synthesis/planning. A successful normal CLI run makes one
-selection text call, 0–3 image calls, one synthesis text call and one planning text
-call. Source analysis, if generated earlier, has its own existing cost. There are
-no automatic retries, follow-up selection loops, streaming inference or new models.
-See [SETUP](SETUP.md#runtime-visual-evidence) for the explicit opt-in verifier.
-
-| Intended responsibility | Current implementation | Gap |
-| --- | --- | --- |
-| Repository-scale semantic understanding over Git/source/docs | GitHub patches and operator-selected base/head files, advisory product/run notes, validated citations | Bounded selected evidence, not autonomous repository-wide investigation. Repository docs can be selected as files; saved DocSyde documents are not retrieved as analysis input. |
-| Model decides whether runtime inspection is needed | Separate Sources operation returns validated not-needed/inspect/unresolved; internal local executor accepts inspect targets | Decision/execution composition is contract-tested with mocks; no automatic feature dispatch or closed-loop live proof. |
-| Deterministic local evidence capture | One launch/attach workflow, bounded masked checkpoints, DOM/SDK state and explicit coverage | Local CLI orchestration only; no automatic run-UI dispatch or runtime-to-commit provenance. Repeatability settings do not guarantee identical pixels/state. |
-| Meta multimodal visual verification | Selected hash-verified stored PNGs produce locally validated visible evidence, then feed source/visual synthesis | Real browser/mocked-provider integration tested; no new live closed-loop proof or before/after image comparison. Visible controls do not establish that actions work. |
-| Provider-neutral boundaries | Text and vision capability APIs isolate provider HTTP details | Each is wired to one provider internally; no automatic fallback or runtime provider selection. |
-| Combined evidence before documentation updates | Local visual CLI composes synthesis/planning; transformation separately generates grounded typed changes and canonical v2 candidates | Request-bound draft flow remains source-only. Deterministic retained review/save is available through the local CLI; polished UI and automatic run dispatch remain deferred. |
+One workflow owns one runner/browser lifecycle. Runtime cleanup precedes selection;
+there are no model calls during capture and no older per-target capture/vision loop.
+The existing local visual CLI remains an independent verifier, using the same trusted
+workflow schema. Model transports are mocked in the PostgreSQL/real-Chromium full-run
+proof; no paid calls are needed for verification.
 
 ## Models, providers and replaceability
 
@@ -107,7 +71,7 @@ evidence contexts, preserving existing qualification and revision limitations.
 Transformations never save, approve, sign or publish. The local proof uses mocked
 transport and real feature/canonical validators; no paid provider calls were made
 for this slice. See the Documentation README and SETUP for commands and explicit
-live-verifier costs. Request-bound draft generation remains source-only/v1.
+live-verifier costs. Standalone draft generation remains source-only/v1.
 
 | Model/provider | Capability boundary and current use | Fallback / replacement |
 | --- | --- | --- |
@@ -196,30 +160,14 @@ also recorded in the user-supplied [hackathon guide](hackathon.md).
   present responsibilities; no new service, queue or generic framework is needed
   merely to describe this target.
 
-## Remaining product-workflow steps (deferred)
+## Remaining presentation/integration work
 
-The local visual CLI implements selected capture/vision/synthesis/planning composition.
-The steps below concern future product-run dispatch and review integration.
-
-1. Connect the independently implemented inspection decision to the feature-owned
-   workflow, preserving reasoned skips and explicit uncertainty. Its mocked contracts
-   do not establish live semantic decision quality. Future execution must validate
-   allowed targets and actions; model output must not become shell commands or
-   arbitrary browser code.
-2. Connect the locally composed decision executor to the feature-owned workflow. Record the
-   intended revision, actual runtime identity, route/state, capture artifact/hash
-   and coverage; do not infer that a local app matches a commit.
-3. Invoke the existing vision boundary for selected captures. Preserve screenshot
-   observations separately from DOM evidence and source inferences, including
-   failures, limitations and conflicting observations.
-4. Connect independent product-impact synthesis and documentation-impact planning
-   to the workflow, preserving source/visual provenance, bounded retrieval and
-   uncertainty rules. Existing source-only draft contracts remain unchanged.
-   Targeted replacement generation now exists independently; connect its candidates
-   to human review and explicit saving separately before updates.
-5. Extend actual run stages and tests for inspection/skip, capture or model failure,
-   contradictory evidence and review/save behavior. Prove the closed loop live
-   before describing it as implemented in the demo.
+Polished run/review UI, live presentation-only Playwright streaming, MCP tooling and
+final demo polish remain deferred. The schema-v2 run now connects decision, capture,
+selection, vision, synthesis, planning, transformation and retained proposal state.
+Human approval/save/publication remain separate model-free operations. Local verifier
+and historical proof descriptions below do not imply those capabilities are still
+absent from new-run orchestration.
 
 ## Intentionally not used
 

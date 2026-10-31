@@ -24,7 +24,7 @@ export function validateDocumentationImpactPlan(impact: ProductImpact, raw: unkn
   const { repository, base, head, limited, notice, uncertainties } = impact.provenance.source;
   if (!isDeepStrictEqual(plan.source, { repository, base, head })
     || !isDeepStrictEqual(plan.claimCatalog, documentationImpactClaims(impact))
-    || !isDeepStrictEqual(plan.qualifications, { assessment: impact.assessment, uncertainties: impact.uncertainties,
+    || !isDeepStrictEqual(plan.qualifications, { ...(impact.provenance.runtimeInspection ? { runtimeInspection: impact.provenance.runtimeInspection } : {}), assessment: impact.assessment, uncertainties: impact.uncertainties,
       contradictions: impact.contradictions, source: { limited, notice, uncertainties } })) throw new Error("Documentation plan does not match its impact.");
   return plan;
 }

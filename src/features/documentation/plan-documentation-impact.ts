@@ -45,7 +45,7 @@ export async function planDocumentationImpact(
   const plan = documentationImpactPlanSchema.parse({ ...generated.data,
     source: { repository: impact.provenance.source.repository, base: impact.provenance.source.base, head: impact.provenance.source.head },
     claimCatalog: catalog,
-    qualifications: { assessment: impact.assessment, uncertainties: impact.uncertainties, contradictions: impact.contradictions,
+    qualifications: { ...(impact.provenance.runtimeInspection ? { runtimeInspection: impact.provenance.runtimeInspection } : {}), assessment: impact.assessment, uncertainties: impact.uncertainties, contradictions: impact.contradictions,
       source: { limited: impact.provenance.source.limited, notice: impact.provenance.source.notice, uncertainties: impact.provenance.source.uncertainties } },
   });
   return { plan, model: generated.model, elapsedMs: generated.elapsedMs };

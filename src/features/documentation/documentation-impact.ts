@@ -17,6 +17,7 @@ export const documentationImpactPlanSchema = documentationImpactOutputSchema.ext
   claimCatalog: z.array(z.object({ id: z.string().regex(/^claim-[1-6]$/), claimIndex: z.number().int().min(0).max(5),
     claim: productImpactSchema.shape.claims.element }).strict()).max(6),
   qualifications: z.object({
+    runtimeInspection: productImpactSchema.shape.provenance.shape.runtimeInspection,
     assessment: productImpactSchema.shape.assessment,
     uncertainties: productImpactSchema.shape.uncertainties,
     contradictions: productImpactSchema.shape.contradictions,
