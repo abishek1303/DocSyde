@@ -8,9 +8,16 @@ Generate migrations with `npm run db:generate` and apply them with `npm run db:m
 
 Migration `0001_persist-documentation-drafts.sql` adds one complete canonical draft
 per JSONB row with its existing UUID and millisecond-precision first save time.
-Envelope constraints check matching IDs, v1 schema and draft status. The timestamp
+Envelope constraints check matching IDs, supported schema and draft status. The timestamp
 precision makes cursor comparisons lossless through JavaScript Dates. A save-time/ID
 index supports stable listing. Prior migrations and Projects rows are unchanged.
+
+Migration `0005_nice_meggan.sql` widens only the existing envelope constraint from
+schemaVersion 1 to versions 1/2. V2 can retain multiple source comparisons while
+recording immutable revision provenance. No table, history system, backfill or saved
+row rewrite is introduced. Existing immutable insert/JSONB-equality behavior is
+unchanged. Run `npm run db:migrate`, then
+`npm run documentation:transform:persistence:test` for isolated v1/v2 compatibility.
 
 `documentation-drafts.ts` owns immutable insert/find/list queries. Insert conflicts
 are compared using PostgreSQL JSONB equality; no UPDATE is issued. JSONB stays typed

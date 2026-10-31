@@ -1,7 +1,92 @@
 # Working setup notes
 
-Living document: update this as we build. Last updated October 29, 2026.
+Living document: update this as we build. Last updated October 31, 2026.
 For architectural decisions, use [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## Targeted documentation transformation
+
+```sh
+npm run db:migrate
+npm run documentation:transform:test
+npm run documentation:transform:persistence:test
+# Explicit paid opt-in, with trusted full ProductImpact / optional plan JSON:
+npm run documentation:transform:verify -- <impact.json> [plan.json]
+```
+
+Migration `0005_nice_meggan.sql` lets the existing immutable JSONB table accept
+canonical v1 and v2. It changes no saved rows and adds no tables. V1 remains valid;
+v2 preserves historical and current evidence comparisons across revisions. Existing
+`db:setup` applies the migration for fresh/local setups. No new environment variables
+or dependencies are required. The CLI uses existing `DATABASE_URL`/`BASETEN_API_KEY`;
+omitting the plan adds one existing planning call. It never repeats source analysis.
+
+Normal transformation cost is one generation call plus one new-wording support check.
+Deterministic minimum batching handles large required context: 32 KiB per request,
+128 KiB aggregate generation input, at most eight generation calls plus one check.
+No-change/unresolved make no transformation/support calls. There are no repair loops.
+Outputs retain every decision and distinguish incomplete generation/support, review
+readiness, canonical save compatibility and approval. Ordinary revisions produce
+self-contained v2 candidates; ambiguous placement/conflicts/limits remain explicit.
+
+The verifier writes a private review artifact under ignored
+`.artifacts/documentation-transformations/`, printing only identity/status/call counts.
+These artifacts contain private documentation/evidence; keep them local. Failure or
+partial proposals exit nonzero. The support check is fallible and covers only new
+wording; retained historical content is not reverified. Transformation does not
+approve, sign, save, publish, change run records or replace contextual publications.
+See the [Documentation guide](src/features/documentation/README.md#targeted-transformations-and-canonical-v2)
+for contracts, provenance, conservative internal-only rules and remaining scope.
+
+## Runtime visual evidence
+
+The local slice now supports one scripted workflow → stored checkpoints → sanitized
+summary → one text selection → up to three vision analyses → existing product-impact
+synthesis → existing documentation-impact planning. It does not change the run UI,
+generate replacement documentation, save drafts or publish anything.
+
+```sh
+npx playwright install chromium
+npm run runtime:visual:test
+# Explicit opt-in: spends provider credit; run once with reviewed local inputs.
+npm run runtime:visual:verify -- <trusted-workflow.json> <complete-source-result.json>
+```
+
+Use `infra/local/runner/visual-workflow.example.json` as the configuration shape;
+replace its route/steps with your real product workflow. The second file must be
+the complete server-produced `ProductResult`, including evidence text and validated
+citations, from `analyzeProductChanges`. The existing source verifier deliberately
+prints reduced evidence metadata, so its console output is not this handoff.
+These are trusted local files, not authenticated client evidence. Never commit
+credentials, user-entered values or private source/configuration files.
+
+Set `DOCSYDE_STORAGE_DIRECTORY`, `BASETEN_API_KEY`, and `META_API_KEY` using the
+existing [storage configuration](src/integrations/storage/storage.ts) and
+[AI](src/integrations/ai/README.md) conventions. Existing `DATABASE_URL` and migrated
+local PostgreSQL are needed only for the final planner's saved-document read.
+No migration is added. The CLI writes trace/result/impact/plan JSON as ordinary
+artifacts and prints opaque references plus status, never executable configuration.
+Incomplete analysis exits nonzero and blocks synthesis/planning; zero budget records
+local capture then stops without inference. Provider/planning failures also exit
+nonzero. Existing immutable document candidates are never modified.
+
+`maxSelectedScreenshots` accepts 0–3, default 3. A normal accepted run makes one
+selection text call, 0–3 vision calls, one impact-synthesis text call and one
+documentation-planning text call. Supplied source analysis is not regenerated.
+Skip still permits source-only synthesis/planning; disabled/incomplete does not.
+Local limits default to 12 checkpoints, 32 states, 32 MiB buffered image bytes and
+120 seconds. See [browser capture](src/integrations/browser/README.md) for masking,
+crop options, coverage, configurable ceilings and controlled-data limitations.
+Selection/vision treat inspected instructions as data; no prompt-injection model
+or continuous inference is introduced.
+
+Slice verification: real Chromium workflow/masking tests and mocked-provider
+selection/vision/synthesis/planning tests pass, together with Browser, Runner,
+Storage, Sources, AI/Vision, Documentation, GitHub, local Git and SDK suites.
+Existing PostgreSQL-backed run/context/persistence/publication suites also pass.
+Lint, route type generation, TypeScript and `npm run build -- --webpack` pass.
+Default Turbopack build hits the environment's local worker-port `EPERM` restriction.
+No new paid model calls were made; provider factual quality remains unverified for
+this combined path. Historical audit results below describe earlier checks.
 
 ## What runs where
 

@@ -50,7 +50,8 @@ export function DraftInspector({ document, savedAt, appearance = "card" }: { doc
                 const finding = document.provenance.findings.find(f => f.id === fact.findingRef)!;
                 return <div key={id} className="space-y-3 border-l-2 pl-4"><p>{finding.description}</p>{finding.citations.map((citation, citationIndex) => {
                   const evidence = document.provenance.evidence.find(e => e.id === citation.evidenceId)!;
-                  return <div key={citationIndex} className="space-y-2"><p className="break-all font-mono text-xs">{evidence.path} · {evidence.side} · lines {citation.startLine}–{citation.endLine}</p><pre className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs whitespace-pre-wrap">{citation.excerpt}</pre></div>;
+                  const source = document.schemaVersion === 2 ? document.provenance.contexts.find(context => context.id === document.provenance.evidence.find(entry => entry.id === evidence.id)?.contextId) : document.provenance;
+                  return <div key={citationIndex} className="space-y-2"><p className="break-all font-mono text-xs">{evidence.path} · {evidence.side} · lines {citation.startLine}–{citation.endLine}</p>{document.schemaVersion === 2 && source && <p className="break-all font-mono text-xs">Evidence comparison: {source.base.slice(0, 8)} → {source.head.slice(0, 8)}</p>}<pre className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs whitespace-pre-wrap">{citation.excerpt}</pre></div>;
                 })}</div>;
               })}</div>)}
             </div>
@@ -62,7 +63,7 @@ export function DraftInspector({ document, savedAt, appearance = "card" }: { doc
     <footer className="space-y-3 border-t pt-6">
       <details className={disclosureStyle}>
         <summary className={summaryStyle}>About this draft and its limitations<ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" /></summary>
-        <div className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">{document.provenance.limitations.map((text, index) => <p key={index}>{text}</p>)}<p>Source citations establish traceability, not proof that every generated statement is correct.</p><p className="break-all">Source: {document.provenance.repository}</p><p>Generated with {document.generation.model}</p></div>
+        <div className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground">{document.provenance.limitations.map((text, index) => <p key={index}>{text}</p>)}<p>Source citations establish traceability, not proof that every generated statement is correct.</p><p className="break-all">Source: {document.provenance.repository}</p><p>{document.schemaVersion === 2 ? "Revision generated with" : "Generated with"} {document.generation.model}</p></div>
       </details>
       <details className={disclosureStyle}>
         <summary className={summaryStyle}><span className="flex items-center gap-2"><FileText className="size-4 text-muted-foreground" aria-hidden="true" /> Developer details · canonical JSON</span><ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" /></summary>

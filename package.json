@@ -21,11 +21,11 @@
     "ai:billing:test": "node --conditions=react-server --import tsx --test src/integrations/ai/baseten/billing.test.ts",
     "git:test": "node --conditions=react-server --import tsx --test src/integrations/local-git/source-reader.test.ts",
     "git:verify": "node --conditions=react-server --import tsx infra/local/git/verify.ts",
-    "runner:test": "node --conditions=react-server --import tsx --test src/runner/runtime/runtime.test.ts",
+    "runner:test": "node --conditions=react-server --import tsx --test src/runner/runtime/*.test.ts",
     "runner:verify": "node --conditions=react-server --import tsx infra/local/runner/verify.ts",
     "runner:capture:test": "node --conditions=react-server --import tsx --test infra/local/runner/*.test.ts",
     "runner:capture:verify": "node --conditions=react-server --import tsx infra/local/runner/verify-capture.ts",
-    "capture:test": "node --conditions=react-server --import tsx --test src/integrations/browser/capture.test.ts",
+    "capture:test": "node --conditions=react-server --import tsx --test src/integrations/browser/*.test.ts",
     "storage:test": "node --conditions=react-server --import tsx --test src/integrations/storage/*.test.ts",
     "capture:verify": "node --conditions=react-server --import tsx infra/local/capture/verify.ts",
     "sdk:test": "node --import tsx --test src/sdk/*.test.ts",
@@ -42,7 +42,12 @@
     "documentation:persistence:test": "node --conditions=react-server --import tsx --test infra/local/documentation/persistence.test.ts",
     "documentation:persistence:verify": "node --conditions=react-server --import tsx infra/local/documentation/verify-persistence.ts",
     "documentation:publications:test": "node --conditions=react-server --import tsx --test infra/local/documentation/publications.test.ts",
-    "documentation:publications:verify": "node --conditions=react-server --import tsx infra/local/documentation/verify-publication.ts"
+    "documentation:publications:verify": "node --conditions=react-server --import tsx infra/local/documentation/verify-publication.ts",
+    "runtime:visual:verify": "node --conditions=react-server --import tsx infra/local/runner/verify-visual-selection.ts",
+    "runtime:visual:test": "node --conditions=react-server --import tsx --test src/integrations/browser/capture-trace.test.ts src/runner/runtime/capture-workflow.test.ts src/features/sources/runtime-visual-analysis.test.ts infra/local/runner/visual-workflow.test.ts",
+    "documentation:transform:test": "node --conditions=react-server --import tsx --test src/features/documentation/document-v2*.test.ts src/features/documentation/transformation*.test.ts infra/local/documentation/transformation-workflow.test.ts",
+    "documentation:transform:persistence:test": "node --conditions=react-server --import tsx --test infra/local/documentation/transformation-persistence.test.ts",
+    "documentation:transform:verify": "node --conditions=react-server --import tsx infra/local/documentation/verify-transformation.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

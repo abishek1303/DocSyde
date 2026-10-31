@@ -1,5 +1,95 @@
 # Documentation drafts
 
+## Targeted transformations and canonical v2
+
+`transformDocumentation({ impact, plan, context? }, { signal? }?)` accepts direct
+validated server outputs from product-impact synthesis and documentation-impact
+planning. Shape/correspondence checks do not authenticate client JSON or re-prove
+absent source bodies. The feature loads each exact repository-scoped immutable
+target once, validates ownership, freezes normalized SHA-256 identities and returns
+a strict `DocumentationChangeProposal`. It never saves, signs, approves or publishes.
+
+Every planner decision survives in original order, with a server-owned decision ID,
+original reasoning/references, authorization catalog, generation/support status,
+limitations, review readiness and materialization readiness. No-change/unresolved
+make no generation or support calls. Section revisions replace only that section;
+section additions preserve old content and need an explicit known placement anchor.
+Ambiguous placement retains grounded content but blocks materialization. Whole-document
+revisions account for every original section using retain/write entries; initial
+scope does not delete sections. New documents use existing typed title/sections/
+Markdown blocks, with no slug concept or invented association values.
+
+Default cost: one shared structured generation call plus one support check. Exact
+subset partitioning of at most eight actionable decisions finds the minimum feasible
+number of deterministic batches, with original-order tie breaking. Each generation
+request is capped at 32 KiB including schema/instructions and transport headroom;
+all generation requests together at 128 KiB. Required target content is never
+truncated. Output is capped at 8,192 tokens, 800 characters per authored block and
+12 conservative block-capacity units per batch (section operation: two; complete
+document: eight). This conservatively budgets possible output, not just input size.
+Worst case is eight individually unbatchable generation calls plus one check.
+Individually infeasible/aggregate-over-budget work becomes explicitly incomplete.
+
+Sharing a request grants no shared authority. Each entry selects only its own
+authorized claims/facts/associations, exact target and snapshot hash. A bounded JSON
+envelope is parsed first, then each entry is strictly validated independently.
+Missing/duplicate IDs, fabricated targets/references/provenance or unsupported markup
+reject that entry. Unknown entries are explicit protocol issues. Invalid whole JSON
+or provider failure fails its batch; no salvage, retries or repair loops occur.
+
+At most one 32 KiB batched support call evaluates newly authored/materially modified
+factual titles, blocks and factual placement rationale. Exact retained sections and
+unchanged titles are excluded. The checker sees authorized current claims/facts and,
+for placement only, a structural outline. It cannot reassess targeting, necessity,
+historical provenance, retained text or upstream source/visual eligibility. It only
+returns supported/unsupported/uncertain; it never repairs content or creates evidence.
+Over-budget checking omits no required wording: affected content remains incomplete.
+Provider/cancellation failures and missing/duplicate verdicts also block readiness.
+The check is fallible and never implies human approval or factual certainty.
+
+All documentation/source/runtime/visual-derived text and generated wording are
+untrusted data, never task/schema/budget instructions. Visual-only observations
+cannot authorize mutation. Insufficient/conflicting impacts remain non-actionable.
+Internal-only additions are blocked; revisions require the planner reason to name
+an exact existing target title/text anchor (at least eight characters). Source and
+impact confidence are conservatively combined, with assumptions/uncertainty retained.
+New associations select validated operator context; historical finding-origin
+associations survive through exact retained context, not relabeled new support.
+
+Canonical v1 remains valid and existing draft generation still emits v1. Canonical
+v2 uses the same document/section/block/fact concepts and renderer. Its provenance
+contains up to eight evidence contexts (comparison, assessment, coverage, limits),
+48 facts, 16 findings and 64 evidence entries. Findings/evidence own context IDs;
+facts inherit origin through their findings. Citations cannot cross incompatible
+contexts; pinned file commits must match the owning comparison, while patches retain
+their original base/head context. The existing four-section/two-block limits and
+128 KiB UTF-8 document limit remain. V2 allows up to 52 context associations.
+
+V2 revision metadata separately records the current evidence context, based-on UUID
+and normalized hash, plan hash and applied decision IDs. Ordinary changes deterministically
+produce a fresh immutable candidate: v1 is promoted in memory, historical sections
+and provenance retained, new IDs namespaced, and only unreachable catalog entries
+pruned. Existing v2 catalogs extend without nested snapshots or history traversal.
+Retained content is explicitly not reverified. Multiple compatible decisions for one
+baseline produce one candidate; incomplete siblings block that baseline's candidate.
+Ambiguity, conflicts, failed grounding and genuine canonical limits remain blockers.
+
+Migration `0005_nice_meggan.sql` only widens the existing JSONB envelope CHECK to
+versions 1/2. It creates no table/history system, backfills nothing, and rewrites no
+saved documents. Later explicit save can use existing immutable persistence; existing
+publication/host DTO behavior remains unchanged. `saveCompatible` means canonical
+validation succeeded, not saved/approved/published. Proposal approval is always
+`not-requested`. No run-result or UI orchestration is added.
+
+Run `npm run documentation:transform:test` for the mocked planner-to-candidate proof,
+and `npm run documentation:transform:persistence:test` after `npm run db:migrate` for
+isolated v1/v2 save/load/publication compatibility. The opt-in paid verifier is
+`npm run documentation:transform:verify -- <impact.json> [plan.json]`; omitting the
+plan adds the existing planning call. Inputs are trusted local full objects, not
+untrusted authenticated evidence. It writes an owner-only inspection artifact under
+ignored `.artifacts/documentation-transformations/` and exits nonzero for incomplete
+proposals. No source analysis is regenerated and no document is saved/published.
+
 Implemented: `/documentation/draft` composes Sources semantic analysis and one
 structured draft-generation call in a trusted server invocation. It does not accept
 a client-supplied analysis as validated. Generated previews can be explicitly saved
@@ -112,7 +202,7 @@ Optional arguments: base head followed by explicit context paths. It prints the
 proposed draft and bounded provenance, not full source bodies. Requires existing
 GitHub/Baseten credentials and uses API credit. Invalid output is withheld.
 
-Deferred: editing, document history, workflow wiring of impact targeting, automatic updates,
+Deferred: editing UI, document history, workflow wiring of impact targeting, automatic updates,
 Markdown export, embeddings and investigation. Explicit publication and SDK delivery
 are implemented narrowly below.
 

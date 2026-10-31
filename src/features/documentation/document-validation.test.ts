@@ -5,7 +5,7 @@ import { draftFixture } from "../../../infra/local/documentation/draft-fixture";
 import { validateDocumentationDocument, assertDocumentBytes } from "./document-validation";
 import { signDraftPreview, verifyDraftPreview } from "./draft-handoff";
 import { DOCUMENTATION_DOCUMENT_MAX_BYTES } from "./draft-limits";
-import type { DocumentationDocument } from "./document";
+import type { DocumentationDocumentV1 } from "./document";
 
 test("canonical graph validates without changing identities or consulting source bodies", t => {
   t.mock.method(globalThis, "fetch", () => { throw new Error("Unexpected external call"); });
@@ -17,7 +17,7 @@ test("canonical graph validates without changing identities or consulting source
 });
 
 test("rejects broken canonical graphs, duplicate identities and inconsistent retained qualifications", () => {
-  const mutations: ((document: DocumentationDocument) => void)[] = [
+  const mutations: ((document: DocumentationDocumentV1) => void)[] = [
     d => { d.sections = []; },
     d => { d.sections.push(structuredClone(d.sections[0])); },
     d => { d.sections[0].id = d.id; },

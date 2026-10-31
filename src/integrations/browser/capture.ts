@@ -1,19 +1,13 @@
 import "server-only";
-import { chromium } from "playwright";
+import { chromium, type Page } from "playwright";
 import { z } from "zod";
 import { randomUUID, createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { parseHostContext, type HostContext } from "@/sdk/context-client";
 import type { ArtifactStorage } from "@/integrations/storage/artifact-storage";
-const step = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("click"), selector: z.string().min(1) }).strict(),
-  z.object({ type: z.literal("fill"), selector: z.string().min(1), value: z.string() }).strict(),
-  z.object({ type: z.literal("select"), selector: z.string().min(1), value: z.string() }).strict(),
-  z.object({ type: z.literal("check"), selector: z.string().min(1), checked: z.boolean() }).strict(),
-  z.object({ type: z.literal("waitFor"), selector: z.string().min(1) }).strict(),
-]);
-const captureInput = z.object({ baseUrl: z.string().url(), path: z.string().default("/"), steps: z.array(step).max(100).default([]),
+import { captureStepSchema } from "./capture-step";
+const captureInput = z.object({ baseUrl: z.string().url(), path: z.string().default("/"), steps: z.array(captureStepSchema).max(100).default([]),
   readySelector: z.string().optional(), regions: z.array(z.object({ name: z.string(), selector: z.string() })).max(50).default([]),
   viewport: z.object({ width: z.number().int().min(1).max(3840), height: z.number().int().min(1).max(2160) }).default({ width: 1440, height: 900 }),
   outputDirectory: z.string().default(".artifacts/captures"),
@@ -27,13 +21,21 @@ export type CaptureEvidence = {
   regions: { name: string; text: string; truncated: boolean; bounds: { x: number; y: number; width: number; height: number } | null }[];
   hostContext: HostContext | null; warnings: string[]; diagnostics: string[]; diagnosticsTruncated: boolean;
 };
-function origin(value: string) {
+export function captureOrigin(value: string) {
   const url = new URL(value);
   if (!["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) || !["http:", "https:"].includes(url.protocol) || url.username || url.password) throw new Error("Capture requires a loopback HTTP origin");
   return url;
 }
+export async function executeCaptureStep(page: Page, action: z.infer<typeof captureStepSchema>) {
+  const locator = page.locator(action.selector);
+  if (action.type === "click") await locator.click();
+  else if (action.type === "fill") await locator.fill(action.value);
+  else if (action.type === "select") await locator.selectOption(action.value);
+  else if (action.type === "check") await locator.setChecked(action.checked);
+  else await locator.waitFor({ state: "visible" });
+}
 export async function captureRuntimeContext(raw: CaptureInput, storage: ArtifactStorage): Promise<CaptureEvidence> {
-  const options = captureInput.parse(raw), base = origin(options.baseUrl), target = new URL(options.path, base);
+  const options = captureInput.parse(raw), base = captureOrigin(options.baseUrl), target = new URL(options.path, base);
   if (target.origin !== base.origin) throw new Error("Capture path must remain on the configured origin");
   const captureId = randomUUID(), directory = resolve(options.outputDirectory, captureId);
   let png: Buffer;
@@ -54,12 +56,7 @@ export async function captureRuntimeContext(raw: CaptureInput, storage: Artifact
     if (!response?.ok()) throw new Error("Capture navigation failed");
     if (options.readySelector) await page.locator(options.readySelector).waitFor({ state: "visible" });
     for (const action of options.steps) {
-      const locator = page.locator(action.selector);
-      if (action.type === "click") await locator.click();
-      else if (action.type === "fill") await locator.fill(action.value);
-      else if (action.type === "select") await locator.selectOption(action.value);
-      else if (action.type === "check") await locator.setChecked(action.checked);
-      else await locator.waitFor({ state: "visible" });
+      await executeCaptureStep(page, action);
     }
     if (new URL(page.url()).origin !== base.origin) throw new Error("Capture left the configured origin");
     const warnings: string[] = []; let hostContext: HostContext | null = null;

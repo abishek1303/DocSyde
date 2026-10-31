@@ -1,5 +1,53 @@
 # Scripted runtime evidence capture
 
+## Completed workflow checkpoints
+
+`captureRuntimeTrace(workflow, storage, signal?)` in `capture-trace.ts` runs one
+caller-scripted workflow in one Chromium context, reusing final capture's action
+executor and origin checks. The final-capture API below remains compatible.
+It samples initial readiness, completed actions, explicit `checkpoint` steps and
+final state: bounded visible text/headings/regions, overlay/control state, SDK
+context, initial navigation status and sanitized error/dialog counts. Native
+dialogs are dismissed without retaining their contents. Adjacent equal states
+coalesce; fills never trigger screenshots. Transient states need explicit action
+or readiness boundaries; there is no mutation/frame/network tracing.
+The local trace also retains bounded action/boundary metadata (at most 100 scripted
+steps plus initial/final events), without selectors or values. Action completion
+means Playwright resolved, never proof that a product control worked. Models receive
+the collapsed state projection, not this event list.
+
+Defaults: 12 checkpoints, 32 states, 32 MiB of unique buffered PNGs, 120-second
+workflow timeout. Validated `limits` ceilings are 24 checkpoints, 64 states, 64 MiB,
+180 seconds; these are implementation limits. Coverage records omitted states/
+checkpoints and truncated observations. Each image also has the existing 10 MiB
+vision ceiling. Repeated PNG hashes share storage. Browser cleanup precedes image
+storage through `ArtifactStorage`. The caller owns optional manifest storage.
+Storage failures may leave orphan artifacts; no rollback/delete API is added.
+
+Editable input/textarea/select/contenteditable values are excluded from text and
+masked black in pixels. Safe labels/guidance and populated/checked/selected/expanded
+booleans remain. Iframes, shadow hosts, canvas and video are masked as uninspected
+content. `sensitiveSelectors` are required at every boundary: missing/invalid masks
+or incomplete inspection make that checkpoint ineligible, with text/image withheld.
+Screenshot failures and image-budget exhaustion have explicit limitations.
+
+Fill/select values automatically join the private redaction list; `secrets` adds
+known non-input secrets. Credential patterns are redacted and matching leaf text
+is masked. Cookies, headers, request bodies, browser storage, console output and
+arbitrary application state are never collected. Use controlled local data and
+configured masks for sensitive non-input content, including images or text split
+across elements. This does not certify arbitrary apps as secret-free or prevent an
+app changing pixels between observations. Prompt-injection resistance is separate.
+
+Optional `screenshotRegion` clips a visible region wholly inside the viewport,
+retaining geometry without exposing its selector. No scrolling/replay obtains a
+crop. Vision bounds refer to the analyzed image; surrounding/offscreen content is
+unobserved. Invalid crops are ineligible screenshots. The returned validated trace
+contains image keys/hashes, not values, selectors or executable configuration.
+Run `npm run capture:test` or `npm run runtime:visual:test`.
+
+## Final capture compatibility API
+
 `captureRuntimeContext({ baseUrl, path?, steps?, readySelector?, regions?, viewport?, outputDirectory? }, storage)`
 returns `CaptureEvidence`. Pass an `ArtifactStorage` explicitly; capture depends only
 on that interface. Playwright is internal; no browser/page objects escape.

@@ -39,7 +39,7 @@ export function validateDocumentationDocument(raw: unknown): DocumentationDocume
   const evidence = byId(document.provenance.evidence);
   // Existing assembly bounds: four findings × three fact fields/four citations,
   // plus twenty operator associations and two context labels per finding.
-  requireIntegrity(context.size <= 28 && facts.size <= 12 && findings.size <= 4 && evidence.size <= 16);
+  if (document.schemaVersion === 1) requireIntegrity(context.size <= 28 && facts.size <= 12 && findings.size <= 4 && evidence.size <= 16);
   const usedFacts = new Set<string>();
   const usedFindings = new Set<string>();
   const usedContext = new Set(document.associations);
@@ -73,8 +73,13 @@ export function validateDocumentationDocument(raw: unknown): DocumentationDocume
     }
   }
   requireIntegrity(sameReferences([...facts.keys()], usedFacts));
-  requireIntegrity(sameReferences([...findings.keys()], usedFindings));
   requireIntegrity(sameReferences([...context.keys()], usedContext));
+  // A retained finding-origin association can keep its historical support even
+  // after its last prose block is replaced. It cannot authorize new prose.
+  if (document.schemaVersion === 2) for (const choice of context.values()) {
+    if (choice.findingRef) { requireIntegrity(findings.has(choice.findingRef)); usedFindings.add(choice.findingRef); }
+  }
+  requireIntegrity(sameReferences([...findings.keys()], usedFindings));
   for (const choice of context.values()) {
     requireIntegrity(choice.origin === "operator" ? !choice.findingRef : !!choice.findingRef && usedFindings.has(choice.findingRef));
     if (choice.kind === "route" && choice.origin === "operator") {
@@ -90,5 +95,22 @@ export function validateDocumentationDocument(raw: unknown): DocumentationDocume
     }
   }
   requireIntegrity(sameReferences([...evidence.keys()], usedEvidence));
+  if (document.schemaVersion === 2) {
+    const contexts = byId(document.provenance.contexts), used = new Set<string>([document.provenance.revision.contextId]);
+    requireIntegrity(contexts.has(document.provenance.revision.contextId));
+    requireIntegrity(document.provenance.revision.basedOn?.documentId !== document.id);
+    requireIntegrity(new Set(document.provenance.revision.decisionIds).size === document.provenance.revision.decisionIds.length);
+    for (const finding of document.provenance.findings) {
+      requireIntegrity(contexts.has(finding.contextId)); used.add(finding.contextId);
+      for (const citation of finding.citations) requireIntegrity(document.provenance.evidence.find(e => e.id === citation.evidenceId)?.contextId === finding.contextId);
+    }
+    for (const entry of document.provenance.evidence) {
+      const source = contexts.get(entry.contextId); requireIntegrity(!!source); used.add(entry.contextId);
+      requireIntegrity(entry.commitId === (entry.side === "patch" ? null : source[entry.side]));
+    }
+    requireIntegrity(sameReferences([...contexts.keys()], used));
+    requireIntegrity(document.provenance.limited === document.provenance.contexts.some(source => source.limited));
+    requireIntegrity(document.provenance.contexts.every(source => source.limitations.every(limit => document.provenance.limitations.includes(limit))));
+  }
   return document;
 }

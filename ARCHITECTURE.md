@@ -140,11 +140,12 @@ orchestration should reconcile static/runtime evidence and relevant existing doc
 before proposing documentation impact and updates. Models do not own process
 launch, capture policy, publication or resource authorization.
 
-This is a target, not the current end-to-end behavior. Baseten currently serves
-source summaries, bounded semantic analysis and new-draft generation. The working
-tree also contains independent Meta vision and combined local runner/capture proofs;
-neither is connected to the product run. There is no model-driven inspection
-decision, saved-document analysis input or static/runtime evidence reconciliation.
+This is not the current request-bound documentation-run behavior. Baseten serves
+source summaries, bounded semantic analysis and new-draft generation. Independent
+inspection decisions, source/visual synthesis and saved-document impact planning
+also exist. The local runtime visual-evidence CLI now composes a scripted workflow,
+post-run checkpoint selection, Meta vision, synthesis and planning; none is wired
+automatically into the product run UI.
 The provider-neutral APIs isolate HTTP details but each currently selects one
 provider internally, without automatic fallback. See [MODEL_USAGE.md](MODEL_USAGE.md)
 for code references, model defaults, limits, gaps and planned connection steps.
@@ -388,6 +389,42 @@ orchestration. Application/feature ownership of documentation impact, generation
 review, publishing, and contextual delivery remains future work. Runtime-to-commit
 provenance is not inferred by these infrastructure proofs.
 
+## Completed runtime visual-evidence slice
+
+The explicit local `runtime:visual:verify` CLI now composes one caller-scripted
+workflow with bounded checkpoint capture, post-run text selection, selected Meta
+vision analysis, existing Sources product-impact synthesis and existing Documentation
+impact planning. It consumes an already validated source result and trusted local
+workflow configuration; it does not generate browser actions or mutate documentation.
+The request-bound change-to-draft workflow remains source-only.
+
+`runner/runtime/capture-workflow.ts` owns one launch/attach and cleanup lifecycle;
+`integrations/browser/capture-trace.ts` owns Playwright sampling, masked screenshots
+and provider-neutral trace structures. No models run during browser execution.
+Sources owns sanitized state grouping/deduplication, the single selection call,
+reference/budget validation and sequential vision orchestration. Images use existing
+ArtifactStorage; the CLI also stores ordinary JSON manifests there, without adding
+a run repository, database schema or persistence service. Runner imports no features;
+Sources imports no `infra/local` implementation.
+
+The inference image budget is integer 0–3, default 3; zero disables selection/vision.
+One completed eligible trace produces one selection call, with a 32 KiB request
+bound and declared deterministic compaction. Default local limits are 12 checkpoints,
+32 states, 32 MiB of unique image bytes and 120 seconds. Exact PNG hashes and
+sanitized semantic state/crop fingerprints remove redundant candidates. Stored image
+hashes are verified before vision transmission. Editable values are excluded/masked;
+configured required masks fail closed. Controlled local data and explicit non-input
+masking remain necessary; no universal secret/prompt-injection detection is claimed.
+
+Selection links are relevance metadata only. Existing RuntimeVisualEvidence and
+source/visual synthesis retain temporal, contradiction and runtime-revision limits;
+documentation revise/add still needs source support. Invalid selection, failed vision,
+missing artifacts and cancellation produce explicit incomplete outcomes; the CLI
+does not synthesize those partial results. No automatic retries or repair models run.
+No SDK changes, database migration, live stream, replay, autonomous browser agent,
+or expansion of request-bound run deadlines is included. Earlier independent capture
+proof descriptions remain applicable to their compatibility APIs, not this new path.
+
 ## Connected Sources workflows
 
 Sources now implements GitHub change summaries, pinned selected-file review, and
@@ -404,7 +441,36 @@ deferred. No architecture boundary has moved.
 
 ## Canonical documentation drafts
 
-`features/documentation/document.ts` owns canonical structured documentation v1.
+Canonical v1 remains readable and is still produced by the source-to-draft path.
+The targeted transformation capability now emits canonical v2 candidates for
+immutable revisions. V2 preserves the same content model and flat reference graph,
+adding bounded evidence contexts owned by findings/evidence and separate revision
+provenance (current context, baseline UUID/hash, plan hash, applied decision IDs).
+Historical comparisons are retained for unchanged content; document-level revision
+metadata does not reattribute every statement to the latest comparison. V2 is
+self-contained and requires no history traversal, version family or new service.
+Migration 0005 widens only the existing JSONB envelope constraint to versions 1/2;
+there is no backfill or rewrite of historical rows.
+
+Documentation owns `transformDocumentation`: validate impact/plan correspondence,
+load exact immutable targets, assign per-decision authority, batch structured generation,
+validate entries independently, check newly authored wording and materialize typed
+patches into canonical candidates. Exact subset partitioning minimizes calls within
+32 KiB requests, 128 KiB aggregate input and bounded output capacity. Typical work
+uses one generation plus one bounded support check; worst case eight plus one.
+No-change/unresolved use neither. No repair loops run. The support checker cannot
+reconsider targeting, old content/provenance or upstream mutation eligibility.
+
+The proposal boundary distinguishes generation, support, review readiness, canonical
+save compatibility and approval. Normal section revisions/additions and document
+replacement produce validated v2 candidates; ambiguity, conflicts, incomplete checks
+or genuine bounds block materialization. This is connected only through a local
+verification CLI and mocked integration proof, not request-bound run execution.
+Transformation performs no signing, approval, save, publication or publication replacement.
+Existing persistence/publication tests cover v1/v2 compatibility through explicit
+operations; they do not imply that transformation invokes those operations.
+
+`features/documentation/document.ts` owns canonical structured documentation v1/v2.
 Document/section UUIDs, explicit context associations and bounded provenance are
 independent of Markdown, which is content only. Draft blocks reference semantic
 facts/findings and their validated citations; server assembly preserves uncertainty.
@@ -423,8 +489,9 @@ handoff authenticates the exact generated preview string before save parsing, wi
 signing metadata outside the canonical document. This does not add authentication.
 Saved list/detail routes use persistence and the existing renderer independently of
 AI, semantic analysis, GitHub/source retrieval and signing credentials. Lazy database
-initialization remains intact. Version history, editing, targeting existing docs,
-updates, publishing and SDK delivery remain deferred.
+initialization remains intact. Targeted planning/transformation and narrow publication/
+SDK delivery are implemented independently as described here. Editing UI, version-family
+history and transformation review/save orchestration remain deferred.
 
 Repository context: the draft screen offers an optional saved product note (500
 characters) and optional run note (300). Sources owns the setting; narrow Drizzle

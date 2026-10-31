@@ -1,5 +1,43 @@
 # Sources
 
+## Post-run visual selection
+
+`analyzeRuntimeVisuals({ source, trace, description, maxSelectedScreenshots?, secrets? }, storage, signal?)`
+consumes direct source analysis and a completed browser trace. It performs no browser
+execution/source retrieval. `runtime-state-summary.ts` constructs a fresh sanitized
+allowlist DTO; exact image hashes and semantic state/crop fingerprints collapse
+redundant candidates. Only compact findings, states, IDs and coverage reach selection,
+never images, raw DOM/trace, selectors, storage keys or executable configuration.
+Query/hash, known secrets, credential patterns and recognized local paths are removed.
+Supply capture's private secrets again when projecting source/workflow text; the
+local CLI does this automatically.
+
+The selected-image budget defaults to 3 and accepts integer 0–3. Zero disables both
+selection and vision. Eligible candidates plus nonzero budget cause exactly one
+structured Baseten selection call. The serialized capability request is capped at
+32 KiB, output at 2,048 tokens. Deterministic compaction reduces text/control detail,
+then drops states without candidates, declaring omissions. Still-oversized requests
+fail before inference. No retry/repair loop exists. Local validation rejects invented
+or duplicate IDs/references, inconsistent decisions and excess selections.
+
+All product/source/workflow text and images are untrusted evidence, never model
+instructions. Fixed selection/vision prompts preserve task/schema/budget/grounding
+boundaries. Deterministic validation constrains references and budgets, not factual
+truth or universal prompt-injection resistance. Selection establishes relevance only.
+Separate server-owned state/source-selection links never become source citations.
+
+Only selected stored PNGs reach the existing vision capability, sequentially, with
+SHA-256 verification and cancellation. Results reuse `RuntimeVisualEvidence` and
+original capture IDs. Outcomes distinguish `complete`, `skipped` (valid model skip),
+`disabled`, and `incomplete` (invalid input, no eligible image, selection/vision
+failure or cancellation). Partial results remain explicitly incomplete. The CLI
+blocks synthesis/planning for incomplete/disabled results. Existing synthesis and
+documentation mutation grounding restrictions remain unchanged.
+
+`npm run runtime:visual:test` uses a real local browser and mocked providers through
+synthesis/planning. The opt-in paid CLI is documented in
+[SETUP](../../../SETUP.md#runtime-visual-evidence). Request-bound runs remain source-only.
+
 ## Independent product-impact synthesis
 
 `synthesizeProductImpact({ source, runtime? }, { signal? }?)` returns

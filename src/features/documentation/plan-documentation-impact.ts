@@ -22,6 +22,7 @@ successful interactions, workflows, deployments or hidden behavior. Missing runt
 Use exact existing route associations as hints only; general/unassociated documents remain candidates. Do not infer feature associations.
 Prefer the smallest existing section when justified; otherwise the whole document. Blocks have no stable identity: never target them.
 Describe bounded update intent, not final prose. No tools, repository reads, capture, extra models, saving or publication are available.`;
+import { validateImpactDecisions } from "./validate-documentation-impact-plan";
 const maxOutputTokens = 4096;
 
 /** Trusted server-only input: pass result.impact directly from synthesizeProductImpact().
@@ -40,21 +41,7 @@ export async function planDocumentationImpact(
   if (Buffer.byteLength(request, "utf8") > DOCUMENTATION_DRAFT_INPUT_BUDGET_BYTES) throw new Error("Documentation impact request exceeds 32 KiB. Nothing was omitted.");
   options.signal?.throwIfAborted();
   const generated = await generateStructured({ instructions, input, schema: documentationImpactOutputSchema, maxOutputTokens, signal: options.signal });
-  const claims = new Map(projected.claims.map(claim => [claim.id, claim]));
-  for (const decision of generated.data.decisions) {
-    if (new Set(decision.claimRefs).size !== decision.claimRefs.length || decision.claimRefs.some(id => !claims.has(id))) throw new Error("Unknown or duplicate documentation claim reference.");
-    const document = documents.find(document => document.id === decision.documentId);
-    if ((decision.documentId !== null && !document) || (decision.sectionId !== null && !document?.sections.some(section => section.id === decision.sectionId))) {
-      throw new Error("Unknown or mismatched documentation target.");
-    }
-    if ((decision.action === "revise" || decision.action === "no-change") && !document) throw new Error("Documentation action requires an existing target.");
-    if (decision.action === "add" && decision.sectionId !== null) throw new Error("New sections/documents cannot have invented or existing section targets.");
-    if (decision.action !== "unresolved" && (impact.assessment === "insufficient-evidence" || impact.contradictions.length)) throw new Error("Uncertain ProductImpact requires unresolved documentation decisions.");
-    if ((decision.action === "revise" || decision.action === "add") && !decision.claimRefs.some(id => claims.get(id)?.sourceSupported)) {
-      throw new Error("Documentation updates require source-supported claims.");
-    }
-    if ((decision.action === "revise" || decision.action === "add") && !decision.updateIntent.trim()) throw new Error("Documentation updates require an intent.");
-  }
+  validateImpactDecisions(impact, generated.data.decisions, documents);
   const plan = documentationImpactPlanSchema.parse({ ...generated.data,
     source: { repository: impact.provenance.source.repository, base: impact.provenance.source.base, head: impact.provenance.source.head },
     claimCatalog: catalog,

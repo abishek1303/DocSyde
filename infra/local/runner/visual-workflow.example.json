@@ -1,0 +1,6 @@
+{
+  "runtime": { "mode": "attach", "options": { "baseUrl": "http://127.0.0.1:4317" } },
+  "workflow": { "path": "/", "readySelector": "h1", "steps": [{ "type": "checkpoint" }] },
+  "description": "Inspect the initial rendered page against the supplied source findings.",
+  "maxSelectedScreenshots": 3
+}

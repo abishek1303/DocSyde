@@ -1,5 +1,13 @@
 # Local runtime boundary
 
+`captureWorkflowWithRuntime({ runtime, workflow }, storage, signal?)` validates and
+captures one complete scripted workflow with one runtime/browser lifecycle, then
+stops before returning `{ runtime, trace }`. Failures still clean up; combined
+capture/cleanup failures retain both errors. Attach never owns the external process.
+This reusable module has no model, semantic, persistence or feature dependency.
+Sources owns post-run selection. The older `infra/local/runner/execute-runtime-inspection.ts`
+remains an independent per-target immediate-vision proof, not this canonical path.
+
 `launchRuntime({ cwd, command, args, baseUrl, readinessPath?, env?, startupTimeoutMs?, signal? })`
 and `attachRuntime({ baseUrl, readinessPath?, startupTimeoutMs?, signal? })` return
 `{ description, stop() }`. Description contains a runtime ID, mode, URL, start time,

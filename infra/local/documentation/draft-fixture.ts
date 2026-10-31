@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { DocumentationDocument } from "@/features/documentation/document";
+import type { DocumentationDocumentV1 } from "@/features/documentation/document";
 
 // Test/verification data only; never seeded by migrations or application routes.
-export function draftFixture(): DocumentationDocument {
+export function draftFixture(): DocumentationDocumentV1 {
   const qualifications = { support: "inferred" as const, confidence: "low" as const, confidenceReason: "Fixture has no runtime evidence", assumptions: ["Caller uses the schema"], uncertainties: ["Reachability unverified"] };
   return {
     id: randomUUID(), schemaVersion: 1, status: "draft", title: "Persistence verification draft",

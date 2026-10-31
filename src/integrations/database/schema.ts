@@ -21,7 +21,7 @@ export const documentationDrafts = docsydeSchema.table("documentation_drafts", {
   check("documentation_drafts_canonical_envelope", sql`(
     jsonb_typeof(${table.document}) = 'object'
     AND ${table.document}->>'id' = ${table.id}::text
-    AND ${table.document}->'schemaVersion' = '1'::jsonb
+    AND ${table.document}->'schemaVersion' IN ('1'::jsonb, '2'::jsonb)
     AND ${table.document}->>'status' = 'draft'
   ) IS TRUE`),
   index("documentation_drafts_saved_at_id_idx").on(table.savedAt, table.id),
