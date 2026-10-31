@@ -2,7 +2,7 @@
 
 Contextual documentation, inside your product.
 
-DocSyde will generate documentation from source code and product context, and surface relevant documentation and answers inside a host application. This repository currently contains a minimal Next.js homepage, shared UI primitives, and a modular monolith scaffold. Independent persistence, source evidence, model invocation, runtime, SDK context, and browser capture proofs are implemented; the homepage connects GitHub evidence to AI change summaries. Structured proposed drafts can be explicitly saved to PostgreSQL and reopened without model calls; publishing and delivery remain planned.
+DocSyde generates proposed documentation from GitHub source changes and product context. The modular monolith includes repository navigation, persisted analysis runs, structured drafts, explicit saving and publication, and exact repository/pathname SDK delivery. Local runtime capture and Meta screenshot analysis remain independent proofs. The intended combined static/runtime reasoning loop is not connected; see [MODEL_USAGE.md](MODEL_USAGE.md) for current model use, gaps and next steps.
 
 ## Local development
 
@@ -97,7 +97,7 @@ src/
     embed/                documentation and assistant UI inside host apps
   integrations/
     github/               read-only GitHub comparison and pinned file reader
-    ai/                   typed text model invocation through Baseten
+    ai/                   structured text (Baseten) and screenshot vision (Meta)
     database/             PostgreSQL client, schema, queries, and migrations
   components/ui/          existing shared UI primitives
   lib/                    small shared helpers, including utils.ts
@@ -115,19 +115,21 @@ src/
 - Fetch server-rendered data through feature server functions. Use HTTP endpoints only for real HTTP boundaries, and validate untrusted input and enforce resource permissions in server operations.
 - Preserve shared UI, theme tokens, and `src/lib/utils.ts`. Add implementation files only for concrete requirements.
 
-See [AGENTS.md](AGENTS.md) for the full development rules. Model invocation and the host-context SDK are implemented as independent capability proofs. User authentication, provider installation flows, embeddings, ingestion, documentation delivery and embed UI, and background infrastructure remain future work. GitHub-to-AI summaries and structured proposed drafts with explicit PostgreSQL saving are implemented; publishing and delivery remain planned.
+See [AGENTS.md](AGENTS.md) for the full development rules. User authentication, provider installation flows, embeddings, broader ingestion/embed UX, existing-document updates and background infrastructure remain future work. GitHub-to-AI analysis, structured drafts, explicit PostgreSQL saving, narrow publication and SDK delivery are implemented. Runtime/vision evidence is not part of documentation generation.
 
 ## Independent capability proofs
 
-The following slices are implemented without connecting them into a product
-workflow. No documentation generation, new persistence, UI, or orchestration is
-included.
+These capabilities were proven independently. Text analysis and SDK delivery now
+also have feature-owned workflows; runtime/capture/vision proofs remain separate
+from those workflows. See [MODEL_USAGE.md](MODEL_USAGE.md) for the connection status.
 
 | Slice | Independent checks | Guide |
 | --- | --- | --- |
 | Text-only Baseten model | `npm run ai:test`, `npm run ai:verify` | [AI](src/integrations/ai/README.md) |
+| Meta screenshot vision | `npm run ai:vision:test`, opt-in `npm run ai:vision:verify -- <artifact-key> '<context>'` | [AI](src/integrations/ai/README.md#independent-screenshot-vision-analysis) |
 | Local committed Git evidence | `npm run git:test`, `npm run git:verify -- . HEAD~1 HEAD` | [Local Git](src/integrations/local-git/README.md) |
 | Local launch/attach | `npm run runner:test`, `npm run runner:verify -- infra/local/runner/example.json` | [Runtime](src/runner/runtime/README.md) |
+| Combined local runtime/capture proof | `npm run runner:capture:test` | [Runtime](src/runner/runtime/README.md#combined-local-capture-proof) |
 | Thin host context SDK | `npm run sdk:test`, `npm run sdk:verify` | [SDK](src/sdk/README.md) |
 | Scripted browser evidence | `npm run capture:test`, `npm run capture:verify -- infra/local/capture/example.json` | [Capture](src/integrations/browser/README.md) |
 

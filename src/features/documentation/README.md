@@ -201,3 +201,13 @@ Run `npm run documentation:publications:test` with local PostgreSQL. It cleans o
 its own fixture UUIDs, blocks external fetches, removes provider credentials, and
 checks lifecycle, isolation, immutable snapshots, projection and CORS. Delivery
 never creates or regenerates a suitable document for a demo proof.
+
+## Static and runtime evidence status
+
+The current orchestration in `generate-documentation-draft.ts` freezes advisory
+context, calls Sources semantic analysis, and generates a new draft from validated
+source findings. It does not retrieve existing saved documentation for analysis,
+request runtime inspection, call vision, or merge screenshot/DOM evidence. Saving
+and publication are explicit; publication replacement changes the saved-document
+reference rather than editing its content. The intended combined-evidence flow and
+planned implementation steps are recorded in [MODEL_USAGE.md](../../../MODEL_USAGE.md).

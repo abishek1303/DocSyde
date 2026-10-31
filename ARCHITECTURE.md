@@ -133,6 +133,22 @@ Application code should depend on a model capability or provider boundary rather
 
 Different tasks may eventually use different models.
 
+The intended allocation is Muse Spark Open through Baseten for semantic reasoning
+and inspection decisions, local runner + Playwright for scripted evidence capture,
+and a Meta Model API multimodal model for visible screenshot evidence. Feature
+orchestration should reconcile static/runtime evidence and relevant existing docs
+before proposing documentation impact and updates. Models do not own process
+launch, capture policy, publication or resource authorization.
+
+This is a target, not the current end-to-end behavior. Baseten currently serves
+source summaries, bounded semantic analysis and new-draft generation. The working
+tree also contains independent Meta vision and combined local runner/capture proofs;
+neither is connected to the product run. There is no model-driven inspection
+decision, saved-document analysis input or static/runtime evidence reconciliation.
+The provider-neutral APIs isolate HTTP details but each currently selects one
+provider internally, without automatic fallback. See [MODEL_USAGE.md](MODEL_USAGE.md)
+for code references, model defaults, limits, gaps and planned connection steps.
+
 ---
 
 ### Repository / Git Integration
@@ -345,6 +361,9 @@ If a new requirement appears to conflict with this architecture, discuss the con
 
 ## Independent capability proofs
 
+This section records the initial proofs; the connected workflows below and
+[MODEL_USAGE.md](MODEL_USAGE.md) describe subsequent implementation status.
+
 The remaining infrastructure slices are now implemented independently:
 
 - `src/integrations/ai`: narrow text-only `generateStructured` capability with
@@ -378,7 +397,10 @@ existing structured-model capability. Feature operations own authorization, cove
 limits and evidence validation; GitHub and Baseten implementations remain isolated.
 This supersedes earlier descriptions of source-to-model wiring as entirely planned.
 Documentation generation/mutation, persistence of analyses, runtime orchestration,
-and contextual delivery remain future work. No architecture boundary has moved.
+and contextual delivery were outside that Sources slice. Draft generation,
+persisted run snapshots and narrow contextual publication/delivery are implemented
+as described below; runtime orchestration and existing-document updates remain
+deferred. No architecture boundary has moved.
 
 ## Canonical documentation drafts
 

@@ -29,10 +29,27 @@ bytes or `null` only for an absent artifact; a missing root, permissions, collis
 symlinks and nonregular files remain errors. Keep the directory outside `public/`
 and preserve it to keep stored keys usable. To reset demo data, manually remove only
 the configured artifact directory when its contents are no longer needed.
-Browser capture remains independent and does not use this storage yet.
+Browser capture accepts an explicit `ArtifactStorage` and returns
+`screenshot.artifactKey` with its PNG hash and MIME type. The capture verification
+CLI loads `.env` and uses configured storage. `outputDirectory` controls only
+`evidence.json`; no screenshot file is written there. See the
+[capture guide](src/integrations/browser/README.md) for ordering and failure behavior.
 
 Run `npm run storage:test` for isolated temporary-directory tests. These do not load
 developer `.env` or require any external service.
+
+## Independent Meta vision proof
+
+Set `META_API_KEY` and `DOCSYDE_STORAGE_DIRECTORY` in ignored `.env`.
+Vision defaults to `muse-spark-1.3`; `META_VISION_MODEL` is an optional override.
+Vision uses Meta Model API directly;
+Baseten remains the text/semantic provider, with no fallback between them.
+Run `npm run ai:vision:test` for mocked tests, or explicitly run
+`npm run ai:vision:verify -- <artifact-key> 'Describe visible form controls.'`
+to analyze one existing stored PNG with exactly one model request. No configuration
+is needed for rendering/tests. See the [AI guide](src/integrations/ai/README.md#independent-screenshot-vision-analysis)
+for limits, normalized bounds, uncertainty and errors. Evidence is returned only;
+vision is not connected to the runner or application workflows.
 
 ## First setup
 
@@ -132,6 +149,7 @@ Other independent checks:
 | --- | --- |
 | `npm run git:verify -- . HEAD~1 HEAD --path README.md` | Local committed changes and a pinned file read; requires at least two commits |
 | `npm run runner:verify -- infra/local/runner/example.json` | Starts a small fixture, waits for readiness, prints its description, then stops it |
+| `npm run runner:capture:verify -- path/to/runner.json path/to/capture.json` | Launches/attaches, waits for readiness, captures through configured artifact storage, then stops the session before printing evidence |
 | `npm run sdk:verify` | Builds the browser SDK and checks context registration/cleanup in Chromium |
 | `npm run capture:test` | Captures a temporary test app; no separately started host app needed |
 | `npm run capture:verify -- infra/local/capture/example.json` | Captures the app at localhost:3000; start it separately first |
@@ -139,7 +157,13 @@ Other independent checks:
 
 Automated suites: `npm run github:test`, `npm run ai:test`, `npm run git:test`,
 `npm run runner:test`, `npm run sdk:test`, and `npm run capture:test`.
-Only `ai:verify` calls the hosted model; `ai:test` uses mocked responses.
+`npm run runner:capture:test` checks the combined lifecycle with isolated artifacts.
+For the combined verifier, configure `DOCSYDE_STORAGE_DIRECTORY`; the runtime URL
+overrides any capture JSON URL. The plain runner fixture needs capture JSON `{}`,
+without the browser example's `h1` selector. See the
+[runtime guide](src/runner/runtime/README.md#combined-local-capture-proof).
+`ai:verify` calls Baseten; `ai:vision:verify` calls Meta against a stored PNG.
+`ai:test` and `ai:vision:test` use mocked responses.
 See the [integration guides](README.md#independent-capability-proofs) for limits.
 
 ## Current rough edges
@@ -150,8 +174,9 @@ See the [integration guides](README.md#independent-capability-proofs) for limits
 - Browser checks require permission to launch Chromium and bind local ports.
 - Turbopack builds have encountered port-binding restrictions in the agent environment.
   A webpack build has passed; `npm run build -- --webpack` is the fallback to try.
-- Full-product testing comes after connecting the integrations. Targeting existing
-  documentation, automatic updates, publishing, and delivery remain to be implemented.
+- The combined static/runtime reasoning loop, targeting existing documentation and
+  content updates remain unimplemented. Explicit publication and narrow SDK delivery
+  are implemented; see the publication instructions below and [MODEL_USAGE.md](MODEL_USAGE.md).
 
 ## Local change summaries
 
@@ -322,8 +347,9 @@ running; this is not a background worker or publicly authenticated service.
 **Review draft** opens `/runs/[id]/review`; **View findings & evidence** opens a
 secondary view of the actual Git/source analysis. Saving remains explicit and uses
 the existing signed handoff. A failed save can be retried without regeneration.
-Proposals create new drafts; automatic targeting/updating of existing saved docs,
-publishing, and runtime/browser/SDK evidence remain unimplemented.
+Proposals create new drafts; automatic targeting/updating of existing saved docs
+and runtime/browser/SDK evidence inputs remain unimplemented. Publication is a
+separate explicit step described below.
 
 `npm run documentation:runs:test` uses isolated PostgreSQL records and mocked
 providers to verify atomic execution, stages, failure/skips, no-change, insufficient
@@ -366,3 +392,34 @@ The verifier requires saved create-request content, uses the actual publishing U
 checks matching/nonmatching, refresh and navigation cancellation, then unpublishes.
 It refuses an occupied target and does not seed or regenerate documents. Screenshots
 are written under ignored `.artifacts/publication-proof/`.
+
+## Model and runtime flow audit
+
+October 30, 2026: documentation-only audit of the working tree, including existing
+uncommitted vision/capture code. See [MODEL_USAGE.md](MODEL_USAGE.md) for code
+references, intended flow, current boundaries and planned steps. No application
+implementation was changed by this audit.
+
+| Check | Actual result |
+| --- | --- |
+| `npm run ai:test` | 10 passed, 0 failed |
+| `npm run ai:vision:test` | 18 passed, 0 failed; mocked Meta transport and screenshot contracts |
+| `npm run sources:test` | 27 passed, 0 failed |
+| `npm run documentation:test` | 16 passed, 0 failed |
+| `npm run github:test` | 42 passed, 0 failed |
+| `npm run git:test` | 4 passed, 0 failed |
+| `npm run sdk:test` | 6 passed, 0 failed |
+| `npm run storage:test` | 13 passed, 0 failed |
+| `npm run runner:test` | 0 passed, 2 failed: environment denied listening on `127.0.0.1` (`EPERM`) |
+| `npm run capture:test` | 1 passed, 10 failed (including parent/subtests): local fixture port binding denied (`EPERM`) |
+| `npm run runner:capture:test` | 34 passed, 2 failed: real launch/attach cases blocked by local port binding (`EPERM`); mocked lifecycle cases passed |
+| `npm run lint` | Passed |
+| `npx next typegen` | Passed |
+| `npx tsc --noEmit` | Passed |
+| `npm run build -- --webpack` | Passed, including TypeScript and route generation |
+
+No live hosted-model calls, database-backed suites, live SDK/browser verifier or
+combined product demo were run. Model tests establish local parsing, validation
+and transport behavior with mocks, not account/model availability or factual
+quality. Runtime/browser suites must be rerun where local fixture servers can
+listen before claiming a live capture pass. No visual UI changes were made.
