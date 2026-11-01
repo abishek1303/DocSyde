@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { decideRuntimeInspection } from "./decide-runtime-inspection";
 import { inspectionDecisionSchema, type InspectionDecision } from "./inspection-decision";
 import { inspectionRouteCandidates } from "./inspection-routes";
-import type { ProductResult } from "./product-change-analysis";
-import { PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES } from "./product-change-limits";
+import type { ProductResult } from "../analysis/product-change-analysis";
+import { PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES } from "../analysis/product-change-limits";
 
 const base = "a".repeat(40), head = "b".repeat(40);
 const routeText = '<Link href="/requests/new">New request</Link>';

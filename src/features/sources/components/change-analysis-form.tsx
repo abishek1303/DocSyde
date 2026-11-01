@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { AnalysisState, GeneratedSummary } from "../change-summary";
+import type { AnalysisState, GeneratedSummary } from "../summary/change-summary";
 
 export function ChangeAnalysisForm() {
   const [state, action, pending] = useActionState<AnalysisState, FormData>(analyzeChanges, {});

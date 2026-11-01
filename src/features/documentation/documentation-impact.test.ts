@@ -6,7 +6,7 @@ import type { ProductImpact } from "@/features/sources/product-analysis";
 import type { DocumentationDocument } from "./document";
 import { documentationImpactOutputSchema } from "./documentation-impact";
 import { draftFixture } from "../../../infra/local/documentation/draft-fixture";
-import { RUNTIME_REVISION_WARNING } from "@/features/sources/runtime-visual-evidence";
+import { RUNTIME_REVISION_WARNING } from "@/features/sources/runtime/runtime-visual-evidence";
 import type { z } from "zod";
 
 type Output = z.infer<typeof documentationImpactOutputSchema>;

@@ -3,9 +3,9 @@ import { readFile } from "node:fs/promises";
 import { captureWorkflowWithRuntime } from "@/runner/runtime/capture-workflow";
 import { workflowRuntimeConfigSchema } from "@/runner/runtime/workflow-config";
 import { getArtifactStorage } from "@/integrations/storage/storage";
-import { analyzeRuntimeVisuals } from "@/features/sources/analyze-runtime-visuals";
-import { validateProductResult } from "@/features/sources/validate-product-result";
-import { synthesizeProductImpact } from "@/features/sources/synthesize-product-impact";
+import { analyzeRuntimeVisuals } from "@/features/sources/runtime/analyze-runtime-visuals";
+import { validateProductResult } from "@/features/sources/analysis/validate-product-result";
+import { synthesizeProductImpact } from "@/features/sources/impact/synthesize-product-impact";
 import { planDocumentationImpact } from "@/features/documentation/plan-documentation-impact";
 
 const configSchema = workflowRuntimeConfigSchema;

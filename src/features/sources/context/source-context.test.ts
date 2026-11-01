@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readSourceContext } from "./read-source-context";
-import { withSourceAccess } from "./local-source-access";
+import { withSourceAccess } from "../repository/local-source-access";
 const sha = "a".repeat(40), tree = "b".repeat(40), blob = "c".repeat(40);
 const input = { owner: "abishek1303", repo: "DocSyde", revision: "main", paths: ["one.ts"] };
 test("invalid paths, revisions, counts and denied repositories make no requests", async t => {

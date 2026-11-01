@@ -1,6 +1,6 @@
 "use server";
-import { analyzeProductChanges } from "@/features/sources/analyze-product-changes";
-import type { ProductState } from "@/features/sources/product-change-analysis";
+import { analyzeProductChanges } from "@/features/sources/analysis/analyze-product-changes";
+import type { ProductState } from "@/features/sources/analysis/product-change-analysis";
 import { SourceReadError } from "@/integrations/github/errors";
 export async function runProductAnalysis(_previous: ProductState, form: FormData): Promise<ProductState> {
   const paths = form.get("paths");

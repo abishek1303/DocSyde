@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { boundInspectionContext, readInspectionContext } from "./read-inspection-context";
-import type { ContextFile } from "./source-context";
+import type { ContextFile } from "../context/source-context";
 const head = "a".repeat(40);
 const file = (path: string, text: string): ContextFile => ({ path, text, status: "available", contentId: null, size: Buffer.byteLength(text), url: "https://github.com/example/product" });
 test("explicit context includes only whole files within 16 KiB, preserving pinned identity and unavailable states", () => {

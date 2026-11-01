@@ -4,7 +4,7 @@ import { runProductAnalysis } from "@/app/sources/analysis/actions";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import type { ProductState } from "../product-change-analysis";
+import type { ProductState } from "../analysis/product-change-analysis";
 import { ProductChangeAnalysisResult } from "./product-change-analysis-result";
 export function ProductChangeAnalysisForm() {
   const [state, action, pending] = useActionState<ProductState, FormData>(runProductAnalysis, {});

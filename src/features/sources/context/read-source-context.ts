@@ -1,7 +1,7 @@
 import "server-only";
 import { resolveRevision, readFileAtCommit, revisionInput, repositoryPathInput } from "@/integrations/github/source-reader";
 import { SourceReadError } from "@/integrations/github/errors";
-import { assertAllowedRepository, withSourceAccess } from "./local-source-access";
+import { assertAllowedRepository, withSourceAccess } from "../repository/local-source-access";
 import { contextInput, type ContextFile, type SourceContext } from "./source-context";
 
 export async function readSourceContext(raw: unknown): Promise<SourceContext> {

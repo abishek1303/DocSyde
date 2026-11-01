@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
-import { getRepositoryContext, saveRepositoryContext } from "@/features/sources/repository-context";
+import { getRepositoryContext, saveRepositoryContext } from "@/features/sources/context/repository-context";
 import { createDraftFromChanges } from "@/features/documentation/generate-documentation-draft";
 import { signDraftPreview, verifyDraftPreview } from "@/features/documentation/draft-handoff";
 import { saveDocumentationDraft, getDocumentationDraft } from "@/features/documentation/operations";
@@ -11,8 +11,8 @@ import { closeDatabase, getDatabase } from "@/integrations/database/client";
 import { documentationDrafts } from "@/integrations/database/schema";
 import { draftFixture } from "./draft-fixture";
 import { serializeDraftInput } from "@/features/documentation/draft-input";
-import { serializeProductEvidence } from "@/features/sources/product-change-evidence";
-import type { ProductBundle } from "@/features/sources/product-change-analysis";
+import { serializeProductEvidence } from "@/features/sources/analysis/product-change-evidence";
+import type { ProductBundle } from "@/features/sources/analysis/product-change-analysis";
 
 test("repository isolation, exact text, one immutable pair across calls/sign/save/reconnect and historical absence", async t => {
   const a = { owner: "context-test", repo: randomUUID() }, b = { owner: "context-test", repo: randomUUID() };

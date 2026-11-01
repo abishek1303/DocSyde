@@ -87,7 +87,7 @@ also recorded in the user-supplied [hackathon guide](hackathon.md).
 ## Evidence contracts and ownership
 
 - Sources owns source selection, access checks, evidence coverage, semantic prompts
-  and citation validation. [analyze-product-changes.ts](src/features/sources/analyze-product-changes.ts)
+  and citation validation. [analyze-product-changes.ts](src/features/sources/analysis/analyze-product-changes.ts)
   directly composes GitHub evidence with `generateStructured`. Local Git provides
   an independent compatible evidence proof, not an automatic GitHub fallback.
 - Semantic analysis allows at most 30 changed files, 12 KiB per supplied patch,
@@ -104,7 +104,7 @@ also recorded in the user-supplied [hackathon guide](hackathon.md).
 - Runner/browser integrations collect evidence and do not decide product meaning.
   PNG bytes are stored through `ArtifactStorage`; capture evidence references an
   artifact key, MIME type and hash. Runtime identity does not establish commit identity.
-- Sources' independent [inspection decision](src/features/sources/decide-runtime-inspection.ts)
+- Sources' independent [inspection decision](src/features/sources/runtime/decide-runtime-inspection.ts)
   revalidates existing results/citations and uses at most one Baseten text call.
   A consistent no-change result skips inference; upstream errors reject. The complete
   evidence/findings/candidates request is capped at 64 KiB without truncation.
@@ -131,7 +131,7 @@ also recorded in the user-supplied [hackathon guide](hackathon.md).
 - Text and vision parse final JSON and validate with Zod; they do not salvage
   reasoning/prose. Provider failures remain sanitized. No schema validation proves
   semantic accuracy. See the [AI guide](src/integrations/ai/README.md) for limits.
-- Sources' independent [product-impact synthesis](src/features/sources/synthesize-product-impact.ts)
+- Sources' independent [product-impact synthesis](src/features/sources/impact/synthesize-product-impact.ts)
   revalidates source results/citations and accepts at most three Sources-owned compact
   captures. One Baseten text call receives bounded source excerpts and projected
   visual evidence with server-assigned reference IDs, never screenshot bytes or

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { AppShell } from "@/components/application/shell";
 import { LoadingList } from "@/components/application/loading-list";
-import { selectedRepository, type RepositorySearch } from "@/features/sources/repository-overview";
+import { selectedRepository, type RepositorySearch } from "@/features/sources/repository/repository-overview";
 async function AIContent({ searchParams }: { searchParams: Promise<RepositorySearch> }) {
   let repository;
   try { repository = selectedRepository(await searchParams); } catch { return <main className="p-8" role="alert">Invalid repository selection.</main>; }

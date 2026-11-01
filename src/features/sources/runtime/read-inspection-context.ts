@@ -1,8 +1,8 @@
 import "server-only";
 import { repositoryPathInput } from "@/integrations/github/source-reader";
-import { readPinnedSourceContext } from "./read-source-context";
-import { withSourceAccess } from "./local-source-access";
-import type { ContextFile } from "./source-context";
+import { readPinnedSourceContext } from "../context/read-source-context";
+import { withSourceAccess } from "../repository/local-source-access";
+import type { ContextFile } from "../context/source-context";
 import type { InspectionSupport } from "./inspection-capabilities";
 
 /** Explicit operator-selected head context; no discovery or semantic retrieval. */

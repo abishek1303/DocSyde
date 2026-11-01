@@ -3,7 +3,7 @@ import { z } from "zod";
 import { productChangeOutput, validateProductAnalysis, type ProductResult } from "@/features/sources/product-analysis";
 import { associationChoice, type AssociationChoice, type DraftFacts } from "./document";
 import { DOCUMENTATION_DRAFT_INPUT_BUDGET_BYTES } from "./draft-limits";
-import { noGenerationContext, type GenerationContextSnapshot } from "@/features/sources/generation-context";
+import { noGenerationContext, type GenerationContextSnapshot } from "@/features/sources/context/generation-context";
 export function prepareDraftInput(result: ProductResult, supplied: AssociationChoice[] = [], generationSnapshot: GenerationContextSnapshot = noGenerationContext): DraftFacts | null {
   if (result.status === "error" || result.status === "no-change" || !result.analysis) return null;
   const analysis = productChangeOutput.parse(result.analysis);

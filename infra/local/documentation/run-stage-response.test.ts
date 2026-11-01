@@ -11,7 +11,7 @@ import { runRecordV2 } from "@/features/documentation/run-record";
 import { runView } from "@/features/documentation/run-operations";
 import { initialWorkflowStages } from "@/features/documentation/run-workflow-state";
 import { documentationHash } from "@/features/documentation/document-identity";
-import { serializeProductEvidence } from "@/features/sources/product-change-evidence";
+import { serializeProductEvidence } from "@/features/sources/analysis/product-change-evidence";
 import { shortResponse } from "@/features/documentation/run-stage-response";
 import { projectStageResponsePreviews } from "@/features/documentation/run-response-projection";
 import { getRunStageResponse, serializeStageResponse } from "@/features/documentation/read-run-stage-response";

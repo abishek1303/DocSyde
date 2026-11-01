@@ -1,5 +1,5 @@
 import "server-only";
 // Model-free evidence contract for deterministic downstream operations.
-export { productImpactSchema } from "./product-impact";
-export { validateProductImpact } from "./validate-product-impact";
-export type { ProductImpact } from "./product-impact";
+export { productImpactSchema } from "./impact/product-impact";
+export { validateProductImpact } from "./impact/validate-product-impact";
+export type { ProductImpact } from "./impact/product-impact";

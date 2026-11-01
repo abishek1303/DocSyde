@@ -44,6 +44,6 @@ export type DocumentationDocumentV1 = z.infer<typeof documentV1Schema>;
 export type DocumentationDocumentV2 = z.infer<typeof documentV2Schema>;
 export type DraftProposal = z.infer<typeof draftProposal>;
 export type AssociationChoice = z.infer<typeof associationChoice>;
-import type { GenerationContextSnapshot } from "@/features/sources/generation-context";
+import type { GenerationContextSnapshot } from "@/features/sources/context/generation-context";
 export type DraftFacts = { generationSnapshot?: GenerationContextSnapshot; facts: z.infer<typeof fact>[]; context: AssociationChoice[]; provenance: z.infer<typeof provenance> };
 export type DraftResult = { status: "draft" | "no-draft" | "insufficient-evidence" | "error"; document: DocumentationDocument | null; reason?: string; analysisRejection?: AnalysisRejection; input?: DraftFacts; preview?: { serialized: string; signature: string }; saveUnavailable?: string };

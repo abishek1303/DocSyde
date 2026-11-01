@@ -10,7 +10,7 @@ import type { TransformationAuthorization } from "./transformation-input";
 import type { SupportUnit } from "./transformation-validation";
 import { documentationHash } from "./document-identity";
 import { validateDocumentationDocument } from "./document-validation";
-import { RUNTIME_REVISION_WARNING } from "@/features/sources/runtime-visual-evidence";
+import { RUNTIME_REVISION_WARNING } from "@/features/sources/runtime/runtime-visual-evidence";
 
 type Payload = { authorizations: TransformationAuthorization[]; documents: { documentId: string; sections: { id: string }[]; outline: { id: string }[] }[] };
 const load = createRequire(join(process.cwd(), "package.json")), dbPath = load.resolve("./src/integrations/database/documentation-drafts.ts");

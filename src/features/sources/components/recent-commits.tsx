@@ -1,4 +1,4 @@
-import { recentChanges, type selectedRepository } from "../repository-overview";
+import { recentChanges, type selectedRepository } from "../repository/repository-overview";
 export async function CommitList({ repository, limit = 20 }: { repository: ReturnType<typeof selectedRepository>; limit?: number }) {
   const result = await recentChanges(repository, limit).catch(() => null);
   if (!result) return <p role="alert" className="py-6 text-sm text-muted-foreground">Recent changes are unavailable. Check GitHub access and the selected branch, then reload. Documentation is still available.</p>;

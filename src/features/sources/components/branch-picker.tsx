@@ -1,6 +1,6 @@
 import Form from "next/form";
 import { Button } from "@/components/ui/button";
-import { repositoryBranches, type selectedRepository } from "../repository-overview";
+import { repositoryBranches, type selectedRepository } from "../repository/repository-overview";
 
 export async function BranchPicker({ repository, selected, action = "/changes" }: {
   repository: ReturnType<typeof selectedRepository>; selected?: string; action?: "/changes" | "/runs" | "/runs/new";

@@ -1,9 +1,9 @@
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { synthesizeProductImpact } from "./synthesize-product-impact";
-import type { ProductResult } from "./product-change-analysis";
+import type { ProductResult } from "../analysis/product-change-analysis";
 import { productImpactOutputSchema } from "./product-impact";
-import { RUNTIME_REVISION_WARNING, type RuntimeVisualEvidence } from "./runtime-visual-evidence";
+import { RUNTIME_REVISION_WARNING, type RuntimeVisualEvidence } from "../runtime/runtime-visual-evidence";
 import { validateProductImpact } from "./validate-product-impact";
 import type { ProductImpact } from "./product-impact";
 import type { z } from "zod";

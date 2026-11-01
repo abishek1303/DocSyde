@@ -1,4 +1,4 @@
-import { defaultBranch, type selectedRepository } from "../repository-overview";
+import { defaultBranch, type selectedRepository } from "../repository/repository-overview";
 export async function RepositoryBranch({ repository }: { repository: ReturnType<typeof selectedRepository> }) {
   if (repository.branch) return <>{repository.branch}</>;
   const branch = await defaultBranch(repository).catch(() => null);

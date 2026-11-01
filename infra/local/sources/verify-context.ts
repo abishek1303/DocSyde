@@ -1,9 +1,9 @@
 import "dotenv/config";
-import { readSourceContext } from "../../../src/features/sources/read-source-context";
+import { readSourceContext } from "../../../src/features/sources/context/read-source-context";
 const [revision = "cb08108", ...paths] = process.argv.slice(2);
 readSourceContext({ owner: "abishek1303", repo: "DocSyde", revision, paths: paths.length ? paths : [
-  "src/features/sources/change-summary.ts", "src/features/sources/summarize-changes.ts",
-  "src/features/sources/summary-evidence.ts", "src/app/actions.ts",
+  "src/features/sources/summary/change-summary.ts", "src/features/sources/summary/summarize-changes.ts",
+  "src/features/sources/summary/summary-evidence.ts", "src/app/actions.ts",
 ] }).then(result => {
   // Report provenance and coverage, never source bodies or credentials.
   console.log(JSON.stringify({ ...result, files: result.files.map(file => {

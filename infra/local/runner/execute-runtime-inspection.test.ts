@@ -2,7 +2,7 @@ import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { join } from "node:path";
-import type { InspectionDecision } from "@/features/sources/inspection-decision";
+import type { InspectionDecision } from "@/features/sources/runtime/inspection-decision";
 import type { CaptureEvidence } from "@/integrations/browser/capture";
 import type { ArtifactStorage } from "@/integrations/storage/artifact-storage";
 

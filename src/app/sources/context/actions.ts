@@ -1,6 +1,6 @@
 "use server";
-import { contextInput, type ContextState } from "@/features/sources/source-context";
-import { readSourceContext } from "@/features/sources/read-source-context";
+import { contextInput, type ContextState } from "@/features/sources/context/source-context";
+import { readSourceContext } from "@/features/sources/context/read-source-context";
 import { SourceReadError } from "@/integrations/github/errors";
 export async function loadSourceContext(_previous: ContextState, form: FormData): Promise<ContextState> {
   const paths = form.get("paths");

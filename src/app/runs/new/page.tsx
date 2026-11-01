@@ -6,7 +6,7 @@ import { BranchRunForm } from "@/features/documentation/components/branch-run-fo
 import { RetryRunForm } from "@/features/documentation/components/retry-run-form";
 import { RunBreadcrumbs } from "@/features/documentation/components/run-breadcrumbs";
 import { prepareDocumentationRun } from "@/features/documentation/prepare-run";
-import { selectedRepository, runBranchSelection, type RepositorySearch } from "@/features/sources/repository-overview";
+import { selectedRepository, runBranchSelection, type RepositorySearch } from "@/features/sources/repository/repository-overview";
 
 type SetupSearch = RepositorySearch & { rerun?: string };
 async function RerunSetup({ search }: { search: SetupSearch }) {

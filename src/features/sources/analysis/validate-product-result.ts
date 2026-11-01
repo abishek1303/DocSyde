@@ -1,4 +1,4 @@
-import { inspectionSourceSchema } from "./inspection-decision";
+import { inspectionSourceSchema } from "../runtime/inspection-decision";
 import { validateProductAnalysis } from "./product-change-evidence";
 
 // Preserve existing inspection rejection codes/messages when sharing these checks.

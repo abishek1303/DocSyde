@@ -5,7 +5,7 @@ import { analyzeRuntimeVisuals } from "./analyze-runtime-visuals";
 import { summarizeRuntimeStates } from "./runtime-state-summary";
 import { selectVisualCheckpoints } from "./select-visual-checkpoints";
 import { SELECTION_REQUEST_BYTES } from "./visual-selection";
-import { visualSourceFixture, visualTraceFixture } from "../../../infra/local/runner/visual-fixtures";
+import { visualSourceFixture, visualTraceFixture } from "../../../../infra/local/runner/visual-fixtures";
 
 type SelectionInput = ReturnType<typeof summarizeRuntimeStates>["input"] & { maxSelectedScreenshots: number };
 function selection(input: SelectionInput, count = 1) {

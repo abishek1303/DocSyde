@@ -1,7 +1,7 @@
 import "server-only";
 import { repositoryCoordinates, repositoryLocation } from "@/integrations/github/repository-identity";
 import { readRepositoryContext, writeRepositoryContext } from "@/integrations/database/repository-contexts";
-import { assertAllowedRepository } from "./local-source-access";
+import { assertAllowedRepository } from "../repository/local-source-access";
 import { repositoryContextText, runContextText, type GenerationContextSnapshot } from "./generation-context";
 function allowedIdentity(raw: unknown) {
   const coordinates = repositoryCoordinates.parse(raw);

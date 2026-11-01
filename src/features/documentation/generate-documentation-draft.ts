@@ -8,7 +8,7 @@ import { assembleDraft } from "./draft-validation";
 import { draftInstructions } from "./draft-prompt";
 import { DOCUMENTATION_DRAFT_OUTPUT_TOKENS } from "./draft-limits";
 // Server-internal input only: HTTP entry points obtain analysis through Sources.
-import { noGenerationContext, type GenerationContextSnapshot } from "@/features/sources/generation-context";
+import { noGenerationContext, type GenerationContextSnapshot } from "@/features/sources/context/generation-context";
 export async function generateDocumentationDraft(analysis: ProductResult, context: AssociationChoice[] = [], generationSnapshot: GenerationContextSnapshot = noGenerationContext, onProgress?: DraftProgress): Promise<DraftResult> {
   const input = prepareDraftInput(analysis, context, generationSnapshot);
   if (!input) return { status: analysis.status === "no-change" ? "no-draft" : "insufficient-evidence", document: null, reason: "No usable validated findings for documentation." };

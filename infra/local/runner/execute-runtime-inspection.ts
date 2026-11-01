@@ -4,7 +4,7 @@ import type { ArtifactStorage } from "@/integrations/storage/artifact-storage";
 import type { CaptureEvidence, CaptureInput } from "@/integrations/browser/capture";
 import { analyzeScreenshot } from "@/integrations/ai/analyze-screenshot";
 import { visionContextSchema, type VisualEvidence } from "@/integrations/ai/visual-evidence";
-import { inspectionDecisionSchema, isConcreteInspectionPath, type InspectionDecision } from "@/features/sources/inspection-decision";
+import { inspectionDecisionSchema, isConcreteInspectionPath, type InspectionDecision } from "@/features/sources/runtime/inspection-decision";
 import { captureWithRuntime } from "./capture-runtime";
 
 type CaptureSettings = Pick<CaptureInput, "viewport" | "outputDirectory">;

@@ -1,4 +1,4 @@
-import type { ProductAnalysis } from "./product-change-analysis";
+import type { ProductAnalysis } from "../analysis/product-change-analysis";
 import type { ProductImpact } from "./product-impact";
 
 type ClaimKind = ProductImpact["claims"][number]["kind"];

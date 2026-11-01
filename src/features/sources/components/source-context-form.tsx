@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { ContextState } from "../source-context";
+import type { ContextState } from "../context/source-context";
 export function SourceContextForm() {
   const [state, action, pending] = useActionState<ContextState, FormData>(loadSourceContext, {});
   const result = state.result;
@@ -17,7 +17,7 @@ export function SourceContextForm() {
         ["revision", "Branch, tag, or commit", "cb08108"],
       ].map(([name, label, value]) => <div key={name}><label className="mb-1 block text-sm font-medium" htmlFor={`context-${name}`}>{label}</label><Input id={`context-${name}`} name={name} defaultValue={value} required maxLength={name === "revision" ? 1024 : 100} aria-invalid={!!state.fieldErrors?.[name]} aria-describedby={`context-${name}-error`} /><p id={`context-${name}-error`} className="text-sm text-destructive">{state.fieldErrors?.[name]?.join(" ")}</p></div>)}</div>
       <label className="block text-sm font-medium" htmlFor="context-paths">File paths, one per line</label>
-      <Textarea id="context-paths" name="paths" required rows={5} maxLength={10240} defaultValue={"src/features/sources/change-summary.ts\nsrc/features/sources/summarize-changes.ts\nsrc/features/sources/summary-evidence.ts\nsrc/app/actions.ts"} aria-invalid={!!state.fieldErrors?.paths} aria-describedby="context-paths-help context-paths-error" />
+      <Textarea id="context-paths" name="paths" required rows={5} maxLength={10240} defaultValue={"src/features/sources/summary/change-summary.ts\nsrc/features/sources/summary/summarize-changes.ts\nsrc/features/sources/summary/summary-evidence.ts\nsrc/app/actions.ts"} aria-invalid={!!state.fieldErrors?.paths} aria-describedby="context-paths-help context-paths-error" />
       <p id="context-paths-error" className="text-sm text-destructive">{state.fieldErrors?.paths?.join(" ")}</p>
       <p id="context-paths-help" className="text-sm text-muted-foreground">Up to 10 unique relative paths. Review limits: 64 KiB per file, 256 KiB total. No model calls or data storage.</p>
       <Button disabled={pending} type="submit">{pending ? "Loading…" : "Load source context"}</Button>

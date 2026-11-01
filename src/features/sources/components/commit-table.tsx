@@ -4,8 +4,8 @@ import { ExternalLink, GitBranch, ChevronLeft, ChevronRight } from "lucide-react
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { COMMIT_PAGE_SIZE } from "../change-pagination";
-import { recentChanges, type selectedRepository } from "../repository-overview";
+import { COMMIT_PAGE_SIZE } from "../repository/change-pagination";
+import { recentChanges, type selectedRepository } from "../repository/repository-overview";
 import { BranchPicker } from "./branch-picker";
 
 export async function CommitTable({ repository, page, loadRunStatuses }: { repository: ReturnType<typeof selectedRepository>; page: number; loadRunStatuses?: (heads: string[]) => Promise<{ id: string; head: string; status: string }[]> }) {

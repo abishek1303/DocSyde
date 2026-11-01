@@ -754,3 +754,10 @@ inference calls. This is deterministic contract verification, not final live ver
 Run-stage panels now show readable saved findings and evidence limitations, with the
 technical response collapsed. Proposal previews are labelled as proposed content;
 saved-document receipts remain the authority for save state.
+
+## Sources module layout
+
+Sources implementations and colocated tests are grouped by responsibility under
+`src/features/sources`; see its [module map](src/features/sources/README.md#organization).
+`npm run sources:test` discovers the grouped test files. Existing feature entry
+modules, configuration and workflows are unchanged.

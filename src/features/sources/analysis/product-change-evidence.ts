@@ -1,6 +1,6 @@
 import type { ProductAnalysis, ProductBundle, AnalysisRejection } from "./product-change-analysis";
 import { PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES } from "./product-change-limits";
-import { noGenerationContext, type GenerationContextSnapshot } from "./generation-context";
+import { noGenerationContext, type GenerationContextSnapshot } from "../context/generation-context";
 export class ProductEvidenceBudgetError extends Error {
   constructor() { super(`Combined evidence exceeds the ${PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES}-byte budget. Select fewer context files or a narrower revision range; no model call was made.`); }
 }

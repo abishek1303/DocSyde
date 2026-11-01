@@ -2,8 +2,8 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { runtimeTraceSchema, type RuntimeTrace } from "@/integrations/browser/runtime-trace";
 import { redactRuntimeText, runtimePath } from "@/integrations/browser/runtime-redaction";
-import { validateProductResult } from "./validate-product-result";
-import type { ProductResult } from "./product-change-analysis";
+import { validateProductResult } from "../analysis/validate-product-result";
+import type { ProductResult } from "../analysis/product-change-analysis";
 
 /** A fresh allowlisted projection. Never serialize the original trace to a model. */
 export function summarizeRuntimeStates(source: ProductResult, raw: RuntimeTrace, description: string, secrets: readonly string[] = []) {

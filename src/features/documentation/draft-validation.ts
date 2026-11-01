@@ -1,4 +1,4 @@
-import { noGenerationContext } from "@/features/sources/generation-context";
+import { noGenerationContext } from "@/features/sources/context/generation-context";
 import { randomUUID } from "node:crypto";
 import { draftProposal, type DraftFacts, type DocumentationDocument } from "./document";
 import { validateDocumentationDocument } from "./document-validation";

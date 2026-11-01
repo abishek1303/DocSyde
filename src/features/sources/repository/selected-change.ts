@@ -4,7 +4,7 @@ import { readCommitDetails } from "@/integrations/github/browse";
 import { repositoryCoordinates } from "@/integrations/github/repository-identity";
 import { resolveRevision, repositoryPathInput } from "@/integrations/github/source-reader";
 import { assertAllowedRepository } from "./local-source-access";
-import { productChangeInput } from "./product-change-analysis";
+import { productChangeInput } from "../analysis/product-change-analysis";
 
 export function comparisonBase(parents: string[]) { return parents[0] ?? null; }
 export async function readSelectedChange(raw: unknown, sha: unknown) {

@@ -1,6 +1,6 @@
 import { modelDiagnosticSchema } from "@/integrations/ai/model-diagnostic";
 import { z } from "zod";
-import { productChangeOutput, productCitation } from "./product-change-analysis";
+import { productChangeOutput, productCitation } from "../analysis/product-change-analysis";
 
 const nonblank = (limit: number) => z.string().max(limit).refine(value => value.trim().length > 0);
 export function isConcreteInspectionPath(path: string): boolean {

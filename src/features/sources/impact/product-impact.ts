@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { runtimeInspectionContextSchema } from "./runtime-inspection-context";
-import { productChangeOutput } from "./product-change-analysis";
-import { runtimeVisualEvidenceSchema } from "./runtime-visual-evidence";
+import { runtimeInspectionContextSchema } from "../runtime/runtime-inspection-context";
+import { productChangeOutput } from "../analysis/product-change-analysis";
+import { runtimeVisualEvidenceSchema } from "../runtime/runtime-visual-evidence";
 
 const text = (limit: number) => z.string().max(limit).refine(value => value.trim().length > 0);
 const reference = z.string().min(1).max(120);

@@ -2,8 +2,8 @@ import { latestDocumentationRuns } from "@/features/documentation/run-status";
 import { Suspense } from "react";
 import { LoadingList } from "@/components/application/loading-list";
 import { CommitTable } from "@/features/sources/components/commit-table";
-import { parseChangePagination } from "@/features/sources/change-pagination";
-import { selectedRepository, type RepositorySearch } from "@/features/sources/repository-overview";
+import { parseChangePagination } from "@/features/sources/repository/change-pagination";
+import { selectedRepository, type RepositorySearch } from "@/features/sources/repository/repository-overview";
 async function ChangesPageContent({ searchParams }: { searchParams: Promise<RepositorySearch> }) {
   const search = await searchParams;
   let repository;

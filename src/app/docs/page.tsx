@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { AppShell } from "@/components/application/shell";
 import { LoadingList } from "@/components/application/loading-list";
-import { selectedRepository, type RepositorySearch } from "@/features/sources/repository-overview";
+import { selectedRepository, type RepositorySearch } from "@/features/sources/repository/repository-overview";
 import { archivedDocumentationDraft, documentationLibrary, latestDocumentationDraft } from "@/features/documentation/library-operations";
 import { DocumentationTabs, type DocumentationTab } from "@/features/documentation/components/documentation-tabs";
 import { DocumentationReader } from "@/features/documentation/components/documentation-reader";

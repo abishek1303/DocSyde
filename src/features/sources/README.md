@@ -1,5 +1,20 @@
 # Sources
 
+## Organization
+
+- `repository/`: repository browsing, commit selection/comparison, pagination and local access checks.
+- `context/`: pinned source reads and product/generation context.
+- `summary/`: lightweight change summaries and their evidence selection.
+- `analysis/`: semantic source analysis, schemas, evidence validation and diagnostics.
+- `runtime/`: inspection decisions, trusted context, checkpoint selection and visual evidence.
+- `impact/`: source/visual synthesis and product-impact validation.
+- `components/`: Sources UI. Tests stay beside the modules they exercise.
+
+The existing root entry modules (`product-analysis`, `product-evidence`,
+`repository-access`, `response-evidence`, `run-preparation`) retain their exports.
+This is an internal organization change; provider ownership and runtime behavior
+are unchanged.
+
 ## Post-run visual selection
 
 `analyzeRuntimeVisuals({ source, trace, description, maxSelectedScreenshots?, secrets? }, storage, signal?)`

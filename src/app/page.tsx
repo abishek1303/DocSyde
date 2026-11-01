@@ -5,7 +5,7 @@ import { MotionReveal } from "@/components/application/motion-reveal";
 import { AppShell } from "@/components/application/shell";
 import { LoadingList } from "@/components/application/loading-list";
 import { buttonVariants } from "@/components/ui/button";
-import { selectedRepository, type RepositorySearch } from "@/features/sources/repository-overview";
+import { selectedRepository, type RepositorySearch } from "@/features/sources/repository/repository-overview";
 
 async function Overview({ searchParams }: { searchParams: Promise<RepositorySearch> }) {
   let repository;

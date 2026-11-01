@@ -1,7 +1,7 @@
 import "server-only";
 import { compareCommits } from "@/integrations/github/source-reader";
-import { assertAllowedRepository } from "./repository-access";
-import { summaryInput } from "./change-summary";
+import { assertAllowedRepository } from "../repository-access";
+import { summaryInput } from "../summary/change-summary";
 
 /** Read-only preview: no inference, persistence or execution. */
 export async function previewSourceComparison(raw: unknown) {

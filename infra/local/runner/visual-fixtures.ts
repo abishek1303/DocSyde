@@ -1,6 +1,6 @@
 // Test-only evidence. Never used by product execution or the live verification CLI.
 import { createHash, randomUUID } from "node:crypto";
-import type { ProductResult } from "@/features/sources/product-change-analysis";
+import type { ProductResult } from "@/features/sources/analysis/product-change-analysis";
 import type { RuntimeTrace } from "@/integrations/browser/runtime-trace";
 import type { ArtifactStorage } from "@/integrations/storage/artifact-storage";
 

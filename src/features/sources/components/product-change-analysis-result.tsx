@@ -1,7 +1,7 @@
-import { PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES } from "../product-change-limits";
+import { PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES } from "../analysis/product-change-limits";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import type { ProductResult } from "../product-change-analysis";
+import type { ProductResult } from "../analysis/product-change-analysis";
 export function ProductChangeAnalysisResult({ result }: { result: ProductResult }) {
   return <section aria-label="Product analysis result" className="space-y-4"><h2 className="text-xl font-semibold">{result.status === "no-change" ? "No net source change" : result.analysis?.assessment ?? result.status}</h2>
     <p className="break-all text-sm">{result.bundle.repository}<br/>{result.bundle.base} → {result.bundle.head}</p><Badge variant={result.bundle.limited ? "destructive" : "secondary"}>{result.bundle.limited ? "Limited evidence" : "Supplied evidence only"}</Badge>

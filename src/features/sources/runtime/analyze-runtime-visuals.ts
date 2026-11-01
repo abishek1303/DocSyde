@@ -3,7 +3,7 @@ import type { ArtifactStorage } from "@/integrations/storage/artifact-storage";
 import type { RuntimeTrace } from "@/integrations/browser/runtime-trace";
 import { redactRuntimeText, runtimePath } from "@/integrations/browser/runtime-redaction";
 import { analyzeScreenshot } from "@/integrations/ai/analyze-screenshot";
-import type { ProductResult } from "./product-change-analysis";
+import type { ProductResult } from "../analysis/product-change-analysis";
 import { summarizeRuntimeStates, type RuntimeStateSummary } from "./runtime-state-summary";
 import { selectVisualCheckpoints } from "./select-visual-checkpoints";
 import { selectedScreenshotLimit, DEFAULT_SELECTED_SCREENSHOTS } from "./visual-selection";

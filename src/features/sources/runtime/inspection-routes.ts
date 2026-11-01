@@ -1,4 +1,4 @@
-import { type ProductAnalysis, type ProductBundle, type ProductEvidence } from "./product-change-analysis";
+import { type ProductAnalysis, type ProductBundle, type ProductEvidence } from "../analysis/product-change-analysis";
 import { isConcreteInspectionPath } from "./inspection-decision";
 
 type RouteCandidate = { pathname: string; citation: ProductAnalysis["findings"][number]["citations"][number] };

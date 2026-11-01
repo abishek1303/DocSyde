@@ -1,6 +1,6 @@
 import { supportsImpactClaim } from "./impact-claim-support";
 import { productImpactSchema } from "./product-impact";
-import { RUNTIME_REVISION_WARNING } from "./runtime-visual-evidence";
+import { RUNTIME_REVISION_WARNING } from "../runtime/runtime-visual-evidence";
 
 function reject(): never { throw new Error("Product impact reference graph is invalid."); }
 function unique<T>(entries: T[], identity: (entry: T) => string) {
