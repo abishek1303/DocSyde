@@ -4,13 +4,13 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { getRepositoryContext, saveRepositoryContext } from "@/features/sources/context/repository-context";
-import { createDraftFromChanges } from "@/features/documentation/generate-documentation-draft";
-import { signDraftPreview, verifyDraftPreview } from "@/features/documentation/draft-handoff";
-import { saveDocumentationDraft, getDocumentationDraft } from "@/features/documentation/operations";
+import { createDraftFromChanges } from "@/features/documentation/drafts/generate-documentation-draft";
+import { signDraftPreview, verifyDraftPreview } from "@/features/documentation/drafts/draft-handoff";
+import { saveDocumentationDraft, getDocumentationDraft } from "@/features/documentation/documents/operations";
 import { closeDatabase, getDatabase } from "@/integrations/database/client";
 import { documentationDrafts } from "@/integrations/database/schema";
 import { draftFixture } from "./draft-fixture";
-import { serializeDraftInput } from "@/features/documentation/draft-input";
+import { serializeDraftInput } from "@/features/documentation/drafts/draft-input";
 import { serializeProductEvidence } from "@/features/sources/analysis/product-change-evidence";
 import type { ProductBundle } from "@/features/sources/analysis/product-change-analysis";
 

@@ -7,8 +7,8 @@ import { draftFixture } from "./draft-fixture";
 import { v2CandidateFixture } from "./v2-fixture";
 import { getDatabase, closeDatabase } from "@/integrations/database/client";
 import { documentationDrafts, documentationPublications, documentationPublicationHistory } from "@/integrations/database/schema";
-import { saveDocumentationDraft, getDocumentationDraft } from "@/features/documentation/operations";
-import { publishDocumentation, getContextualDocumentation, unpublishDocumentation } from "@/features/documentation/publication-operations";
+import { saveDocumentationDraft, getDocumentationDraft } from "@/features/documentation/documents/operations";
+import { publishDocumentation, getContextualDocumentation, unpublishDocumentation } from "@/features/documentation/publication/publication-operations";
 
 test("PostgreSQL v1/v2 compatibility: existing save/publication boundaries accept immutable revision candidates", async t => {
   const owner = `revision-${randomUUID()}`, repository = `https://github.com/${owner}/product`;

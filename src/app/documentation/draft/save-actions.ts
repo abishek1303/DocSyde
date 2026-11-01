@@ -1,7 +1,7 @@
 "use server";
 
-import { verifyDraftPreview } from "@/features/documentation/draft-handoff";
-import { saveDocumentationDraft } from "@/features/documentation/operations";
+import { verifyDraftPreview } from "@/features/documentation/drafts/draft-handoff";
+import { saveDocumentationDraft } from "@/features/documentation/documents/operations";
 
 type SaveState = { status: "idle" | "saved" | "error"; message?: string; id?: string; savedAt?: string };
 

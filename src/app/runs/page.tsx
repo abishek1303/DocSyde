@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { selectedRepository, type RepositorySearch } from "@/features/sources/repository/repository-overview";
-import { RunHistory } from "@/features/documentation/components/run-history";
+import { RunHistory } from "@/features/documentation/components/runs/run-history";
 import { LoadingList } from "@/components/application/loading-list";
 import { AppShell } from "@/components/application/shell";
 import { buttonVariants } from "@/components/ui/button";

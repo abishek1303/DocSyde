@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { createDraftFromChanges } from "../../../src/features/documentation/generate-documentation-draft";
+import { createDraftFromChanges } from "../../../src/features/documentation/drafts/generate-documentation-draft";
 const [base = "cb08108", head = "e321954", ...paths] = process.argv.slice(2);
 createDraftFromChanges({ owner: "abishek1303", repo: "DocSyde", base, head, paths: paths.length ? paths : ["src/app/sources/context/page.tsx", "src/features/sources/components/source-context-form.tsx"] }).then(result => {
   console.log(JSON.stringify(result, null, 2)); if (result.status === "error") process.exitCode = 1;

@@ -8,15 +8,15 @@ import { draftFixture } from "./draft-fixture";
 import { getDatabase, closeDatabase } from "@/integrations/database/client";
 import { documentationReviews, documentationDrafts, documentationPublications, documentationPublicationHistory } from "@/integrations/database/schema";
 import { documentationReviewTransaction } from "@/integrations/database/documentation-reviews";
-import { retainDocumentationProposal, getDocumentationReview } from "@/features/documentation/review-proposal-operations";
-import { applyDocumentationReview } from "@/features/documentation/apply-documentation-review";
-import { materializeApprovedUnit } from "@/features/documentation/materialize-approved-changes";
-import { saveDocumentationDraft, getDocumentationDraft } from "@/features/documentation/operations";
-import { publishDocumentation, getContextualDocumentation } from "@/features/documentation/publication-operations";
-import { documentationHash } from "@/features/documentation/document-identity";
-import type { DocumentationDocument } from "@/features/documentation/document";
-import { normalizeReviewSelection } from "@/features/documentation/documentation-review";
-import type { ReviewSelection } from "@/features/documentation/documentation-review";
+import { retainDocumentationProposal, getDocumentationReview } from "@/features/documentation/review/review-proposal-operations";
+import { applyDocumentationReview } from "@/features/documentation/review/apply-documentation-review";
+import { materializeApprovedUnit } from "@/features/documentation/review/materialize-approved-changes";
+import { saveDocumentationDraft, getDocumentationDraft } from "@/features/documentation/documents/operations";
+import { publishDocumentation, getContextualDocumentation } from "@/features/documentation/publication/publication-operations";
+import { documentationHash } from "@/features/documentation/documents/document-identity";
+import type { DocumentationDocument } from "@/features/documentation/documents/document";
+import { normalizeReviewSelection } from "@/features/documentation/review/documentation-review";
+import type { ReviewSelection } from "@/features/documentation/review/documentation-review";
 
 test("model-free retained approval/save/publication integration proof", async t => {
   const owner = `review-${randomUUID()}`, repository = `https://github.com/${owner}/product`;

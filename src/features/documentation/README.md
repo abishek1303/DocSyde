@@ -1,5 +1,20 @@
 # Documentation drafts
 
+## Organization
+
+- `documents/`: canonical document contracts, identity, validation and saved-document operations.
+- `drafts/`: legacy source-to-draft generation, validation and signed handoff.
+- `planning/`: documentation impact, candidate selection and targeting.
+- `transformation/`: authorized changes, generation, support checks and assembly.
+- `review/`: retained proposals, human decisions and approved save materialization.
+- `publication/`: explicit publication and contextual delivery.
+- `runs/`: preparation, orchestration, checkpoints, status and saved responses.
+- `library/`: library projections and navigation behavior.
+- `components/`: UI grouped into `reader/`, `drafts/`, `runs/`, `review/` and `publication/`.
+
+Tests remain beside their modules. This organization changes import paths only;
+exports, authorization, evidence rules and runtime behavior are preserved.
+
 ## Targeted transformations and canonical v2
 
 `transformDocumentation({ impact, plan, context? }, { signal? }?)` accepts direct

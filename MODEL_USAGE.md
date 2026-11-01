@@ -95,7 +95,7 @@ also recorded in the user-supplied [hackathon guide](hackathon.md).
   missing evidence is rejected or explicitly marked unavailable/limited. The
   prompt says no investigation/tools are available. It cannot claim runtime success.
 - Documentation owns orchestration in
-  [generate-documentation-draft.ts](src/features/documentation/generate-documentation-draft.ts):
+  [generate-documentation-draft.ts](src/features/documentation/drafts/generate-documentation-draft.ts):
   freeze advisory context, analyze changes, prepare validated facts, generate and
   assemble a proposed draft. The draft call receives facts/association choices and
   limitations, not screenshots, DOM, raw source or saved-document content. Its
@@ -143,7 +143,7 @@ also recorded in the user-supplied [hackathon guide](hackathon.md).
   A fixed runtime/revision mismatch warning is injected server-side when visual
   references contribute. Neither evidence kind automatically overrides the other.
   This adds no documentation decisions, model fallback or runtime/Meta invocation.
-- Documentation's independent [impact planner](src/features/documentation/plan-documentation-impact.ts)
+- Documentation's independent [impact planner](src/features/documentation/planning/plan-documentation-impact.ts)
   reparses Sources ProductImpact and validates its retained reference graph before
   selecting at most ten canonical repository-scoped saved documents using deterministic
   exact metadata/bounded text matching, with unchanged complete broad fallback on no hits. Incomplete listings, corrupt/missing/mismatched candidates and a complete

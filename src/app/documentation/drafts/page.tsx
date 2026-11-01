@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { listDocumentationDrafts } from "@/features/documentation/operations";
+import { listDocumentationDrafts } from "@/features/documentation/documents/operations";
 
 type Search = Promise<{ before?: string; id?: string }>;
 

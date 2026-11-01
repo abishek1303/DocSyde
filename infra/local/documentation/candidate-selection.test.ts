@@ -5,16 +5,16 @@ import { randomUUID } from "node:crypto";
 import { inArray } from "drizzle-orm";
 import { getDatabase, closeDatabase } from "@/integrations/database/client";
 import { searchDocumentationSections } from "@/integrations/database/documentation-drafts";
-import { matchSection, type CandidateQuery } from "@/features/documentation/candidate-selection";
+import { matchSection, type CandidateQuery } from "@/features/documentation/planning/candidate-selection";
 import { documentationDrafts } from "@/integrations/database/schema";
 import { draftFixture } from "./draft-fixture";
 import { transformationImpactFixture, transformationDecisionFixture } from "./transformation-fixtures";
-import { selectDocumentationCandidates } from "@/features/documentation/select-documentation-candidates";
-import { transformDocumentation } from "@/features/documentation/transform-documentation";
-import { planDocumentationImpact } from "@/features/documentation/plan-documentation-impact";
-import { validateDocumentationImpactPlan } from "@/features/documentation/validate-documentation-impact-plan";
-import { documentationHash } from "@/features/documentation/document-identity";
-import { projectSectionContexts } from "@/features/documentation/section-context";
+import { selectDocumentationCandidates } from "@/features/documentation/planning/select-documentation-candidates";
+import { transformDocumentation } from "@/features/documentation/transformation/transform-documentation";
+import { planDocumentationImpact } from "@/features/documentation/planning/plan-documentation-impact";
+import { validateDocumentationImpactPlan } from "@/features/documentation/planning/validate-documentation-impact-plan";
+import { documentationHash } from "@/features/documentation/documents/document-identity";
+import { projectSectionContexts } from "@/features/documentation/documents/section-context";
 import { reviewProposalFixture } from "./review-fixtures";
 
 test("PostgreSQL section selector narrows candidates before one grounded planner call", { timeout: 30_000 }, async t => {

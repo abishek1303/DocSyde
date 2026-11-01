@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { inArray } from "drizzle-orm";
 import { getDatabase, closeDatabase } from "@/integrations/database/client";
 import { documentationDrafts } from "@/integrations/database/schema";
-import { saveDocumentationDraft, listDocumentationDrafts, getDocumentationDraft } from "@/features/documentation/operations";
+import { saveDocumentationDraft, listDocumentationDrafts, getDocumentationDraft } from "@/features/documentation/documents/operations";
 import { draftFixture } from "./draft-fixture";
 
 test("repository scope precedes pagination and applies to detail reads", async t => {

@@ -1,11 +1,11 @@
-import { getPublication, savedDocumentCoordinates } from "@/features/documentation/publication-operations";
-import { PublicationControls } from "@/features/documentation/components/publication-controls";
+import { getPublication, savedDocumentCoordinates } from "@/features/documentation/publication/publication-operations";
+import { PublicationControls } from "@/features/documentation/components/publication/publication-controls";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { z } from "zod";
-import { getDocumentationDraft } from "@/features/documentation/operations";
-import { ArticleSkeleton } from "@/features/documentation/components/article-skeleton";
-import { DraftInspector } from "@/features/documentation/components/draft-inspector";
+import { getDocumentationDraft } from "@/features/documentation/documents/operations";
+import { ArticleSkeleton } from "@/features/documentation/components/reader/article-skeleton";
+import { DraftInspector } from "@/features/documentation/components/reader/draft-inspector";
 
 async function SavedDraft({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ repository?: string; route?: string }> }) {
   const { id } = await params;

@@ -1,16 +1,16 @@
-import { ProposalReviewForm } from "@/features/documentation/components/proposal-review-form";
-import { intrinsicReviewReady } from "@/features/documentation/materialize-approved-changes";
+import { ProposalReviewForm } from "@/features/documentation/components/review/proposal-review-form";
+import { intrinsicReviewReady } from "@/features/documentation/review/materialize-approved-changes";
 import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { z } from "zod";
-import { getDocumentationRun } from "@/features/documentation/run-operations";
-import { RunBreadcrumbs } from "@/features/documentation/components/run-breadcrumbs";
-import { getDocumentationReviewPresentation } from "@/features/documentation/review-proposal-operations";
+import { getDocumentationRun } from "@/features/documentation/runs/run-operations";
+import { RunBreadcrumbs } from "@/features/documentation/components/runs/run-breadcrumbs";
+import { getDocumentationReviewPresentation } from "@/features/documentation/review/review-proposal-operations";
 import { AppShell } from "@/components/application/shell";
 import { LoadingList } from "@/components/application/loading-list";
-import { DocumentationTabs } from "@/features/documentation/components/documentation-tabs";
-import { DraftInspector } from "@/features/documentation/components/draft-inspector";
+import { DocumentationTabs } from "@/features/documentation/components/reader/documentation-tabs";
+import { DraftInspector } from "@/features/documentation/components/reader/draft-inspector";
 async function Proposal({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ fromRun?: string }> }) {
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();

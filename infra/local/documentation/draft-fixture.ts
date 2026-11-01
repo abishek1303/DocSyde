@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { DocumentationDocumentV1 } from "@/features/documentation/document";
+import type { DocumentationDocumentV1 } from "@/features/documentation/documents/document";
 
 // Test/verification data only; never seeded by migrations or application routes.
 export function draftFixture(): DocumentationDocumentV1 {

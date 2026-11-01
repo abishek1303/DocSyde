@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { z } from "zod";
-import { RunBreadcrumbs } from "@/features/documentation/components/run-breadcrumbs";
-import { getDocumentationRun } from "@/features/documentation/run-operations";
+import { RunBreadcrumbs } from "@/features/documentation/components/runs/run-breadcrumbs";
+import { getDocumentationRun } from "@/features/documentation/runs/run-operations";
 import { Suspense } from "react";
 import { selectedRepository, type RepositorySearch } from "@/features/sources/repository/repository-overview";
 import { readSelectedChange } from "@/features/sources/repository/selected-change";
-import { ChangeRunForm } from "@/features/documentation/components/change-run-form";
+import { ChangeRunForm } from "@/features/documentation/components/runs/change-run-form";
 import { LoadingList } from "@/components/application/loading-list";
 import { Badge } from "@/components/ui/badge";
 async function ChangeContent({ params, searchParams }: { params: Promise<{ commit: string }>; searchParams: Promise<RepositorySearch & { fromRun?: string }> }) {

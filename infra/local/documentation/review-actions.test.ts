@@ -9,9 +9,9 @@ import { reviewProposalFixture } from "./review-fixtures";
 import { draftFixture } from "./draft-fixture";
 import { getDatabase, closeDatabase } from "@/integrations/database/client";
 import { documentationReviews, documentationDrafts } from "@/integrations/database/schema";
-import { retainDocumentationProposal } from "@/features/documentation/review-proposal-operations";
-import { saveDocumentationDraft } from "@/features/documentation/operations";
-import { saveReviewedChanges } from "@/features/documentation/review-actions";
+import { retainDocumentationProposal } from "@/features/documentation/review/review-proposal-operations";
+import { saveDocumentationDraft } from "@/features/documentation/documents/operations";
+import { saveReviewedChanges } from "@/features/documentation/review/review-actions";
 
 test("review action accepts only authority references and explicit decisions; saves/replays without inference", async t => {
   const owner = `review-ui-${randomUUID()}`, repository = `https://github.com/${owner}/product`;

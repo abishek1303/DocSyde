@@ -1,9 +1,9 @@
 "use server";
 import { z } from "zod";
-import { createDraftFromChanges } from "@/features/documentation/generate-documentation-draft";
-import { associationChoice, type DraftResult } from "@/features/documentation/document";
+import { createDraftFromChanges } from "@/features/documentation/drafts/generate-documentation-draft";
+import { associationChoice, type DraftResult } from "@/features/documentation/documents/document";
 import { SourceReadError } from "@/integrations/github/errors";
-import { signDraftPreview } from "@/features/documentation/draft-handoff";
+import { signDraftPreview } from "@/features/documentation/drafts/draft-handoff";
 export async function runDraft(_previous: DraftResult | null, form: FormData): Promise<DraftResult> {
   try {
     const paths = form.get("paths"); const contextText = form.get("context");

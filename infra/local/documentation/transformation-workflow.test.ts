@@ -4,8 +4,8 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import { draftFixture } from "./draft-fixture";
 import { transformationImpactFixture, transformationDecisionFixture, transformationEntryFixture } from "./transformation-fixtures";
-import type { TransformationAuthorization } from "@/features/documentation/transformation-input";
-import type { SupportUnit } from "@/features/documentation/transformation-validation";
+import type { TransformationAuthorization } from "@/features/documentation/transformation/transformation-input";
+import type { SupportUnit } from "@/features/documentation/transformation/transformation-validation";
 
 test("ProductImpact → real planner → batched transformations → support → canonical v2, with zero writes", async t => {
   const docs = [draftFixture(), draftFixture(), draftFixture(), draftFixture(), draftFixture()];
@@ -21,7 +21,7 @@ test("ProductImpact → real planner → batched transformations → support →
   const rows = docs.map(document => ({ id: document.id, document, savedAt: new Date() }));
   databaseModule.exports = { ...queries, searchDocumentationSections: async () => [], selectDocumentationDrafts: async () => rows,
     findDocumentationDraft: async (id: string) => rows.find(row => row.id === id) ?? null, insertDocumentationDraft: writes };
-  const paths = ["operations", "documentation-impact-input", "select-documentation-candidates", "validate-documentation-impact-plan", "plan-documentation-impact", "transform-documentation"].map(name => load.resolve(`./src/features/documentation/${name}.ts`));
+  const paths = ["documents/operations", "planning/documentation-impact-input", "planning/select-documentation-candidates", "planning/validate-documentation-impact-plan", "planning/plan-documentation-impact", "transformation/transform-documentation"].map(name => load.resolve(`./src/features/documentation/${name}.ts`));
   const cached = paths.map(path => load.cache[path]); paths.forEach(path => { delete load.cache[path]; });
   const old = process.env.BASETEN_API_KEY; process.env.BASETEN_API_KEY = "fixture";
   t.after(() => { databaseModule.exports = previous; paths.forEach((path, i) => { if (cached[i]) load.cache[path] = cached[i]; else delete load.cache[path]; }); if (old === undefined) delete process.env.BASETEN_API_KEY; else process.env.BASETEN_API_KEY = old; });
@@ -42,8 +42,8 @@ test("ProductImpact → real planner → batched transformations → support →
     }
     return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(output) } }] });
   });
-  const { planDocumentationImpact }: typeof import("@/features/documentation/plan-documentation-impact") = load(paths.find(path => path.endsWith("/plan-documentation-impact.ts"))!);
-  const { transformDocumentation }: typeof import("@/features/documentation/transform-documentation") = load(paths.find(path => path.endsWith("/transform-documentation.ts"))!);
+  const { planDocumentationImpact }: typeof import("@/features/documentation/planning/plan-documentation-impact") = load(paths.find(path => path.endsWith("/plan-documentation-impact.ts"))!);
+  const { transformDocumentation }: typeof import("@/features/documentation/transformation/transform-documentation") = load(paths.find(path => path.endsWith("/transform-documentation.ts"))!);
   const { plan } = await planDocumentationImpact({ impact });
   const proposal = await transformDocumentation({ impact, plan });
   assert.equal(planning, 1); assert.equal(generation, 2); assert.equal(support, 1);

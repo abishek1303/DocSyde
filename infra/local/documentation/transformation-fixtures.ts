@@ -1,9 +1,9 @@
 // Deterministic test/proof fixtures only. Never seeded by product operations.
 import type { ProductImpact } from "@/features/sources/product-analysis";
-import type { DocumentationImpactPlan } from "@/features/documentation/documentation-impact";
-import { documentationImpactClaims } from "@/features/documentation/documentation-impact-input";
-import type { TransformationAuthorization } from "@/features/documentation/transformation-input";
-import type { TransformationChange } from "@/features/documentation/documentation-change-proposal";
+import type { DocumentationImpactPlan } from "@/features/documentation/planning/documentation-impact";
+import { documentationImpactClaims } from "@/features/documentation/planning/documentation-impact-input";
+import type { TransformationAuthorization } from "@/features/documentation/transformation/transformation-input";
+import type { TransformationChange } from "@/features/documentation/transformation/documentation-change-proposal";
 
 export function transformationImpactFixture(count = 1): ProductImpact {
   const sourceReferences = Array.from({ length: count }, (_, i) => ({ id: `source-${i + 1}`, findingIndex: i, finding: {

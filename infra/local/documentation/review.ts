@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { readFile } from "node:fs/promises";
-import { getDocumentationReview } from "@/features/documentation/review-proposal-operations";
-import { applyDocumentationReview } from "@/features/documentation/apply-documentation-review";
+import { getDocumentationReview } from "@/features/documentation/review/review-proposal-operations";
+import { applyDocumentationReview } from "@/features/documentation/review/apply-documentation-review";
 import { closeDatabase } from "@/integrations/database/client";
 
 // No unsigned proposal import and no inference imports. Retention is available

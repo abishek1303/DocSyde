@@ -1,10 +1,10 @@
 "use server";
 import { redirect } from "next/navigation";
-import { createDocumentationRun, getDocumentationRun } from "@/features/documentation/run-operations";
-import { createBranchDocumentationRun } from "@/features/documentation/prepare-run";
-import { classifyRunFailure } from "@/features/documentation/classify-run-failure";
-import { runFailureDescription } from "@/features/documentation/run-failure";
-import { associationChoice } from "@/features/documentation/document";
+import { createDocumentationRun, getDocumentationRun } from "@/features/documentation/runs/run-operations";
+import { createBranchDocumentationRun } from "@/features/documentation/runs/prepare-run";
+import { classifyRunFailure } from "@/features/documentation/runs/classify-run-failure";
+import { runFailureDescription } from "@/features/documentation/runs/run-failure";
+import { associationChoice } from "@/features/documentation/documents/document";
 import { z } from "zod";
 export async function startRun(_previous: { error?: string }, form: FormData): Promise<{ error?: string }> {
   let id;

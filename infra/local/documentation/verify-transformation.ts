@@ -2,11 +2,11 @@ import "dotenv/config";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { validateProductImpact } from "@/features/sources/product-analysis";
-import { planDocumentationImpact } from "@/features/documentation/plan-documentation-impact";
-import { validateDocumentationImpactPlan } from "@/features/documentation/validate-documentation-impact-plan";
+import { planDocumentationImpact } from "@/features/documentation/planning/plan-documentation-impact";
+import { validateDocumentationImpactPlan } from "@/features/documentation/planning/validate-documentation-impact-plan";
 import { closeDatabase } from "@/integrations/database/client";
-import { retainDocumentationProposal } from "@/features/documentation/review-proposal-operations";
-import { transformDocumentation } from "@/features/documentation/transform-documentation";
+import { retainDocumentationProposal } from "@/features/documentation/review/review-proposal-operations";
+import { transformDocumentation } from "@/features/documentation/transformation/transform-documentation";
 
 async function main() {
   const args = process.argv.slice(2), retain = args.includes("--retain");

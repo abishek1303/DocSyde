@@ -1,4 +1,4 @@
-import { getDocumentationRun, runView } from "@/features/documentation/run-operations";
+import { getDocumentationRun, runView } from "@/features/documentation/runs/run-operations";
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const run = await getDocumentationRun((await params).id);

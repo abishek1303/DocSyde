@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { listDocumentationDrafts } from "@/features/documentation/operations";
+import { listDocumentationDrafts } from "@/features/documentation/documents/operations";
 
 export async function loadDocumentationNavigation(repository?: string) {
   const scope = z.string().url().optional().parse(repository);

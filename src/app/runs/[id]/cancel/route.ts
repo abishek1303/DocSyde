@@ -1,5 +1,5 @@
-import { cancelDocumentationRun } from "@/features/documentation/run-coordinator";
-import { RunBusyError } from "@/features/documentation/run-coordinator";
+import { cancelDocumentationRun } from "@/features/documentation/runs/run-coordinator";
+import { RunBusyError } from "@/features/documentation/runs/run-coordinator";
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   // Next can normalize request.url to localhost while the browser uses 127.0.0.1.
   // Compare the browser Origin with the actual HTTP Host, not that internal URL.

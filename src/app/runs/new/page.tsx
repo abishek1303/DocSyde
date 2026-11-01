@@ -2,10 +2,10 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { AppShell } from "@/components/application/shell";
 import { LoadingList } from "@/components/application/loading-list";
-import { BranchRunForm } from "@/features/documentation/components/branch-run-form";
-import { RetryRunForm } from "@/features/documentation/components/retry-run-form";
-import { RunBreadcrumbs } from "@/features/documentation/components/run-breadcrumbs";
-import { prepareDocumentationRun } from "@/features/documentation/prepare-run";
+import { BranchRunForm } from "@/features/documentation/components/runs/branch-run-form";
+import { RetryRunForm } from "@/features/documentation/components/runs/retry-run-form";
+import { RunBreadcrumbs } from "@/features/documentation/components/runs/run-breadcrumbs";
+import { prepareDocumentationRun } from "@/features/documentation/runs/prepare-run";
 import { selectedRepository, runBranchSelection, type RepositorySearch } from "@/features/sources/repository/repository-overview";
 
 type SetupSearch = RepositorySearch & { rerun?: string };

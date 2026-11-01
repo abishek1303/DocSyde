@@ -1,5 +1,5 @@
 import { ZodError } from "zod";
-import { getRunStageResponse } from "@/features/documentation/read-run-stage-response";
+import { getRunStageResponse } from "@/features/documentation/runs/read-run-stage-response";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string; stage: string }> }) {
   const headers = { "Cache-Control": "no-store" };

@@ -1,7 +1,7 @@
-import { RunBreadcrumbs } from "@/features/documentation/components/run-breadcrumbs";
+import { RunBreadcrumbs } from "@/features/documentation/components/runs/run-breadcrumbs";
 import { AppShell } from "@/components/application/shell";
 import { Suspense } from "react";
-import { getDocumentationRun } from "@/features/documentation/run-operations";
+import { getDocumentationRun } from "@/features/documentation/runs/run-operations";
 import { ProductChangeAnalysisResult } from "@/features/sources/components/product-change-analysis-result";
 import { LoadingList } from "@/components/application/loading-list";
 async function EvidenceContent({ params }: { params: Promise<{ id: string }> }) {

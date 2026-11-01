@@ -4,8 +4,8 @@ import { randomUUID } from "node:crypto";
 import { test } from "node:test";
 import { Pool } from "pg";
 import { closeDatabase } from "@/integrations/database/client";
-import { documentationLibrary, latestDocumentationDraft, archivedDocumentationDraft } from "@/features/documentation/library-operations";
-import { documentationHash } from "@/features/documentation/document-identity";
+import { documentationLibrary, latestDocumentationDraft, archivedDocumentationDraft } from "@/features/documentation/library/library-operations";
+import { documentationHash } from "@/features/documentation/documents/document-identity";
 import { draftFixture } from "./draft-fixture";
 import { reviewProposalFixture } from "./review-fixtures";
 
@@ -56,7 +56,7 @@ test("document reader distinguishes published documentation from saved content",
       global.React = require("react");
       global.fetch = () => { throw Error("No provider calls permitted"); };
       const { renderToStaticMarkup } = require("react-dom/server");
-      const { DraftInspector } = require("./src/features/documentation/components/draft-inspector.tsx");
+      const { DraftInspector } = require("./src/features/documentation/components/reader/draft-inspector.tsx");
       const props = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
       process.stdout.write(renderToStaticMarkup(React.createElement(DraftInspector, props)));
     `], { input: JSON.stringify({ document: draftFixture(), savedAt: "2026-10-30T12:00:00.000Z", published, showMetadata }), encoding: "utf8", env: { ...process.env, NODE_OPTIONS: "" } });

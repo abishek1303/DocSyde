@@ -7,8 +7,8 @@ import { createRequire } from "node:module";
 import { eq, inArray, sql } from "drizzle-orm";
 import { getDatabase, closeDatabase } from "@/integrations/database/client";
 import { documentationDrafts, projects } from "@/integrations/database/schema";
-import { saveDocumentationDraft, getDocumentationDraft, listDocumentationDrafts } from "@/features/documentation/operations";
-import { signDraftPreview } from "@/features/documentation/draft-handoff";
+import { saveDocumentationDraft, getDocumentationDraft, listDocumentationDrafts } from "@/features/documentation/documents/operations";
+import { signDraftPreview } from "@/features/documentation/drafts/draft-handoff";
 import { saveDraftPreview } from "@/app/documentation/draft/save-actions";
 import { draftFixture } from "./draft-fixture";
 
@@ -48,11 +48,11 @@ test("PostgreSQL: signed save → reconnect → list → repeated load/render, w
     if (loaded.status !== "found") throw new Error("Missing saved fixture");
     assert.deepEqual(loaded.document, document);
     assert.equal(loaded.savedAt.toISOString(), saved.savedAt);
-    const render = spawnSync(process.execPath, ["--import", "tsx", "-e", `global.React=require('react');global.fetch=()=>{throw Error('Unexpected HTTP')};const {renderToStaticMarkup}=require('react-dom/server');const {DraftInspector}=require('./src/features/documentation/components/draft-inspector.tsx');const document=JSON.parse(require('node:fs').readFileSync(0,'utf8'));process.stdout.write(renderToStaticMarkup(React.createElement(DraftInspector,{document,savedAt:'persisted'})));`], { input: JSON.stringify(loaded.document), encoding: "utf8", env: { ...process.env, NODE_OPTIONS: "" } });
+    const render = spawnSync(process.execPath, ["--import", "tsx", "-e", `global.React=require('react');global.fetch=()=>{throw Error('Unexpected HTTP')};const {renderToStaticMarkup}=require('react-dom/server');const {DraftInspector}=require('./src/features/documentation/components/reader/draft-inspector.tsx');const document=JSON.parse(require('node:fs').readFileSync(0,'utf8'));process.stdout.write(renderToStaticMarkup(React.createElement(DraftInspector,{document,savedAt:'persisted'})));`], { input: JSON.stringify(loaded.document), encoding: "utf8", env: { ...process.env, NODE_OPTIONS: "" } });
     assert.equal(render.status, 0, render.stderr);
     assert.ok(render.stdout.includes("<strong>may be required</strong>"));
-    assert.ok(render.stdout.includes("Preserved qualifications"));
-    assert.ok(render.stdout.includes("Block provenance"));
+    assert.ok(render.stdout.includes("Support and limitations"));
+    assert.ok(render.stdout.includes("Evidence for paragraph"));
     assert.ok(render.stdout.includes(document.sections[0].id));
     assert.ok(!render.stdout.includes("not saved"));
   }

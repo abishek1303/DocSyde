@@ -2,8 +2,8 @@ import { AppShell } from "@/components/application/shell";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { z } from "zod";
-import { getDocumentationRun, runView } from "@/features/documentation/run-operations";
-import { RunMonitor } from "@/features/documentation/components/run-monitor";
+import { getDocumentationRun, runView } from "@/features/documentation/runs/run-operations";
+import { RunMonitor } from "@/features/documentation/components/runs/run-monitor";
 import { LoadingList } from "@/components/application/loading-list";
 async function RunContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

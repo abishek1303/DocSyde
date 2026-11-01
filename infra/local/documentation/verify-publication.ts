@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { closeDatabase } from "@/integrations/database/client";
-import { getDocumentationDraft } from "@/features/documentation/operations";
-import { getPublication, savedDocumentCoordinates, unpublishDocumentation } from "@/features/documentation/publication-operations";
+import { getDocumentationDraft } from "@/features/documentation/documents/operations";
+import { getPublication, savedDocumentCoordinates, unpublishDocumentation } from "@/features/documentation/publication/publication-operations";
 
 // Uses an existing saved document only. Never generate, seed or substitute content.
 async function main() {

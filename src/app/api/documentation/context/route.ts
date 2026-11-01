@@ -1,5 +1,5 @@
 import { ZodError } from "zod";
-import { getContextualDocumentation } from "@/features/documentation/publication-operations";
+import { getContextualDocumentation } from "@/features/documentation/publication/publication-operations";
 
 export async function GET(request: Request) {
   const headers = new Headers({ "Cache-Control": "no-store", "Vary": "Origin" });

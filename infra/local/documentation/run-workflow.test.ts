@@ -8,27 +8,27 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq, inArray, sql } from "drizzle-orm";
-import { reconcileDocumentationRuns, writeRunCheckpoint } from "@/features/documentation/run-checkpoints";
-import { runRecordV2 } from "@/features/documentation/run-record";
+import { reconcileDocumentationRuns, writeRunCheckpoint } from "@/features/documentation/runs/run-checkpoints";
+import { runRecordV2 } from "@/features/documentation/runs/run-record";
 import { getDatabase, closeDatabase } from "@/integrations/database/client";
 import { documentationRuns, documentationDrafts, documentationReviews, documentationPublications } from "@/integrations/database/schema";
-import { getDocumentationReview, retainDocumentationProposal } from "@/features/documentation/review-proposal-operations";
+import { getDocumentationReview, retainDocumentationProposal } from "@/features/documentation/review/review-proposal-operations";
 import { draftFixture } from "./draft-fixture";
 import { reviewProposalFixture } from "./review-fixtures";
-import { initialStages } from "@/features/documentation/run-progress";
-import { RUN_DEADLINE_MS, RUN_HEARTBEAT_MS } from "@/features/documentation/run-workflow-state";
+import { initialStages } from "@/features/documentation/drafts/run-progress";
+import { RUN_DEADLINE_MS, RUN_HEARTBEAT_MS } from "@/features/documentation/runs/run-workflow-state";
 import { transformationEntryFixture } from "./transformation-fixtures";
-import type { TransformationAuthorization } from "@/features/documentation/transformation-input";
-import type { SupportUnit } from "@/features/documentation/transformation-validation";
+import type { TransformationAuthorization } from "@/features/documentation/transformation/transformation-input";
+import type { SupportUnit } from "@/features/documentation/transformation/transformation-validation";
 
 // Real PostgreSQL, feature operations, canonical validators and Chromium; only provider transport is mocked.
 test("schema-v2 end-to-end orchestration and local execution boundary", { timeout: 120_000 }, async t => {
   const load = createRequire(import.meta.url);
   const forbidden = t.mock.fn(() => { throw new Error("Orchestration must never approve/save/publish"); });
   const guarded = [
-    ["../../../src/features/documentation/operations.ts", ["saveDocumentationDraft"]],
-    ["../../../src/features/documentation/apply-documentation-review.ts", ["applyDocumentationReview"]],
-    ["../../../src/features/documentation/publication-operations.ts", ["publishDocumentation", "unpublishDocumentation"]],
+    ["../../../src/features/documentation/documents/operations.ts", ["saveDocumentationDraft"]],
+    ["../../../src/features/documentation/review/apply-documentation-review.ts", ["applyDocumentationReview"]],
+    ["../../../src/features/documentation/publication/publication-operations.ts", ["publishDocumentation", "unpublishDocumentation"]],
     ["../../../src/integrations/database/documentation-drafts.ts", ["insertDocumentationDraft"]],
     ["../../../src/integrations/database/documentation-publications.ts", ["insertPublicationIfAbsent", "replacePublication"]],
     ["../../../src/integrations/database/documentation-reviews.ts", ["documentationReviewTransaction"]],
@@ -40,8 +40,8 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
     restore.push(() => { cached.exports = original; });
   }
   t.after(() => { restore.forEach(reset => reset()); assert.equal(forbidden.mock.callCount(), 0); });
-  const { createDocumentationRun, executeDocumentationRun, getDocumentationRun, runView, listDocumentationRuns, latestDocumentationRuns }: typeof import("@/features/documentation/run-operations") = load("../../../src/features/documentation/run-operations.ts");
-  const { cancelDocumentationRun, stopRunCoordinator, RunBusyError }: typeof import("@/features/documentation/run-coordinator") = load("../../../src/features/documentation/run-coordinator.ts");
+  const { createDocumentationRun, executeDocumentationRun, getDocumentationRun, runView, listDocumentationRuns, latestDocumentationRuns }: typeof import("@/features/documentation/runs/run-operations") = load("../../../src/features/documentation/runs/run-operations.ts");
+  const { cancelDocumentationRun, stopRunCoordinator, RunBusyError }: typeof import("@/features/documentation/runs/run-coordinator") = load("../../../src/features/documentation/runs/run-coordinator.ts");
   const { POST }: typeof import("@/app/runs/[id]/execute/route") = load("../../../src/app/runs/[id]/execute/route.ts");
   const repo = { owner: "run-test", repo: randomUUID() }, repository = `https://github.com/${repo.owner}/${repo.repo}`;
   const env = { ...process.env }, directory = await mkdtemp(join(tmpdir(), "docsyde-run-"));

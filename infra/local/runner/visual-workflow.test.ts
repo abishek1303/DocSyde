@@ -68,10 +68,10 @@ test("real workflow → selection → vision → synthesis → existing document
     findDocumentationDraft: async () => ({ id: document.id, document, savedAt: new Date() }),
     insertDocumentationDraft: () => { throw new Error("Planning cannot write"); },
   };
-  const reload = ["./src/features/documentation/operations.ts", "./src/features/documentation/documentation-impact-input.ts", "./src/features/documentation/select-documentation-candidates.ts", "./src/features/documentation/plan-documentation-impact.ts"].map(path => load.resolve(path));
+  const reload = ["./src/features/documentation/documents/operations.ts", "./src/features/documentation/planning/documentation-impact-input.ts", "./src/features/documentation/planning/select-documentation-candidates.ts", "./src/features/documentation/planning/plan-documentation-impact.ts"].map(path => load.resolve(path));
   const originals = reload.map(path => load.cache[path]); reload.forEach(path => { delete load.cache[path]; });
   t.after(() => { databaseModule.exports = original; reload.forEach((path, i) => { if (originals[i]) load.cache[path] = originals[i]; else delete load.cache[path]; }); });
-  const { planDocumentationImpact }: typeof import("@/features/documentation/plan-documentation-impact") = load(reload[3]);
+  const { planDocumentationImpact }: typeof import("@/features/documentation/planning/plan-documentation-impact") = load(reload[3]);
 
   const { trace } = await captureWorkflowWithRuntime({ runtime: { mode: "attach", options: { baseUrl } },
     workflow: { steps: [{ type: "fill", selector: "input", value: "private" }, { type: "click", selector: "#open" }, { type: "click", selector: "#close" }] } }, storage);

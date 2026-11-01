@@ -1,4 +1,4 @@
-import { latestDocumentationRuns } from "@/features/documentation/run-status";
+import { latestDocumentationRuns } from "@/features/documentation/runs/run-status";
 import { Suspense } from "react";
 import { LoadingList } from "@/components/application/loading-list";
 import { CommitTable } from "@/features/sources/components/commit-table";

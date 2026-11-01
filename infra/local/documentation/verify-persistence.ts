@@ -1,6 +1,6 @@
 import "dotenv/config";
 import assert from "node:assert/strict";
-import { saveDocumentationDraft, getDocumentationDraft, listDocumentationDrafts } from "@/features/documentation/operations";
+import { saveDocumentationDraft, getDocumentationDraft, listDocumentationDrafts } from "@/features/documentation/documents/operations";
 import { closeDatabase } from "@/integrations/database/client";
 import { draftFixture } from "./draft-fixture";
 

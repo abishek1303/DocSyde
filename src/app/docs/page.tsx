@@ -3,10 +3,10 @@ import { Suspense } from "react";
 import { AppShell } from "@/components/application/shell";
 import { LoadingList } from "@/components/application/loading-list";
 import { selectedRepository, type RepositorySearch } from "@/features/sources/repository/repository-overview";
-import { archivedDocumentationDraft, documentationLibrary, latestDocumentationDraft } from "@/features/documentation/library-operations";
-import { DocumentationTabs, type DocumentationTab } from "@/features/documentation/components/documentation-tabs";
-import { DocumentationReader } from "@/features/documentation/components/documentation-reader";
-import { DraftInspector } from "@/features/documentation/components/draft-inspector";
+import { archivedDocumentationDraft, documentationLibrary, latestDocumentationDraft } from "@/features/documentation/library/library-operations";
+import { DocumentationTabs, type DocumentationTab } from "@/features/documentation/components/reader/documentation-tabs";
+import { DocumentationReader } from "@/features/documentation/components/reader/documentation-reader";
+import { DraftInspector } from "@/features/documentation/components/reader/draft-inspector";
 
 type Search = RepositorySearch & { tab?: string; view?: string; version?: string };
 const date = (value: string) => new Date(value).toLocaleDateString("en-US", { timeZone: "America/Los_Angeles", dateStyle: "medium" });

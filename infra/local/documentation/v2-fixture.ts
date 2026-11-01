@@ -2,11 +2,11 @@
 import { randomUUID } from "node:crypto";
 import { draftFixture } from "./draft-fixture";
 import { transformationImpactFixture, transformationPlanFixture, transformationDecisionFixture, transformationEntryFixture } from "./transformation-fixtures";
-import { documentationHash } from "@/features/documentation/document-identity";
-import { assembleDocumentationChange } from "@/features/documentation/assemble-documentation-change";
-import { transformationSource, authorizeTransformation } from "@/features/documentation/transformation-input";
-import type { DecisionResult } from "@/features/documentation/documentation-change-proposal";
-import type { DocumentationDocument } from "@/features/documentation/document";
+import { documentationHash } from "@/features/documentation/documents/document-identity";
+import { assembleDocumentationChange } from "@/features/documentation/transformation/assemble-documentation-change";
+import { transformationSource, authorizeTransformation } from "@/features/documentation/transformation/transformation-input";
+import type { DecisionResult } from "@/features/documentation/transformation/documentation-change-proposal";
+import type { DocumentationDocument } from "@/features/documentation/documents/document";
 
 export function v2CandidateFixture(baseline: DocumentationDocument = draftFixture()) {
   const proposalId = randomUUID(), impact = transformationImpactFixture(), decision = transformationDecisionFixture(baseline.id, baseline.sections[0].id);

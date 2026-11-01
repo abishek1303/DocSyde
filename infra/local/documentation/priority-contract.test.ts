@@ -13,12 +13,12 @@ import { validateProductImpact } from "@/features/sources/impact/validate-produc
 import { productImpactOutputSchema } from "@/features/sources/impact/product-impact";
 import { runtimeVisualEvidenceList } from "@/features/sources/runtime/runtime-visual-evidence";
 import { runtimeInspectionContextSchema } from "@/features/sources/runtime/runtime-inspection-context";
-import { validateDocumentationDocument } from "@/features/documentation/document-validation";
-import { validateDocumentationProposal } from "@/features/documentation/validate-documentation-proposal";
-import { validateImpactDecisions } from "@/features/documentation/validate-documentation-impact-plan";
-import { intrinsicReviewReady, materializeApprovedUnit } from "@/features/documentation/materialize-approved-changes";
-import type { TransformationAuthorization } from "@/features/documentation/transformation-input";
-import type { SupportUnit } from "@/features/documentation/transformation-validation";
+import { validateDocumentationDocument } from "@/features/documentation/documents/document-validation";
+import { validateDocumentationProposal } from "@/features/documentation/transformation/validate-documentation-proposal";
+import { validateImpactDecisions } from "@/features/documentation/planning/validate-documentation-impact-plan";
+import { intrinsicReviewReady, materializeApprovedUnit } from "@/features/documentation/review/materialize-approved-changes";
+import type { TransformationAuthorization } from "@/features/documentation/transformation/transformation-input";
+import type { SupportUnit } from "@/features/documentation/transformation/transformation-validation";
 
 test("retained priority inputs → corrected synthesis → planner → transformation → review materialization, entirely offline", async t => {
   for (const [kind, expected] of [
@@ -82,11 +82,11 @@ test("retained priority inputs → corrected synthesis → planner → transform
   const writes=t.mock.fn(()=>{throw new Error("No persistence writes allowed");});
   const row={id:baseline.id,document:baseline,savedAt:new Date("2026-10-30T00:00:00Z")};
   databaseModule.exports={...queries,searchDocumentationSections:async()=>[],selectDocumentationDrafts:async()=>[row],findDocumentationDraft:async(id:string)=>id===baseline.id?row:null,insertDocumentationDraft:writes};
-  const paths=["operations","documentation-impact-input","select-documentation-candidates","validate-documentation-impact-plan","plan-documentation-impact","transform-documentation"].map(name=>load.resolve(`./src/features/documentation/${name}.ts`));
+  const paths=["documents/operations","planning/documentation-impact-input","planning/select-documentation-candidates","planning/validate-documentation-impact-plan","planning/plan-documentation-impact","transformation/transform-documentation"].map(name=>load.resolve(`./src/features/documentation/${name}.ts`));
   const cached=paths.map(p=>load.cache[p]);paths.forEach(p=>{delete load.cache[p];});
   t.after(()=>{databaseModule.exports=previous;paths.forEach((p,i)=>{if(cached[i])load.cache[p]=cached[i];else delete load.cache[p];});});
-  const {planDocumentationImpact}:typeof import("@/features/documentation/plan-documentation-impact")=load(paths[4]);
-  const {transformDocumentation}:typeof import("@/features/documentation/transform-documentation")=load(paths[5]);
+  const {planDocumentationImpact}:typeof import("@/features/documentation/planning/plan-documentation-impact")=load(paths[4]);
+  const {transformDocumentation}:typeof import("@/features/documentation/transformation/transform-documentation")=load(paths[5]);
   const {plan}=await planDocumentationImpact({impact});
   assert.throws(() => validateImpactDecisions(impact, [{ ...plan.decisions[0], claimRefs: ["claim-4"] }], [baseline]), /source-supported/);
   const proposal=validateDocumentationProposal(await transformDocumentation({impact,plan}));

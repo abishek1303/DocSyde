@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { RunBreadcrumbs } from "@/features/documentation/components/run-breadcrumbs";
+import { RunBreadcrumbs } from "@/features/documentation/components/runs/run-breadcrumbs";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { getDocumentationRun } from "@/features/documentation/run-operations";
-import { SaveDraftForm } from "@/features/documentation/components/save-draft-form";
-import { DraftInspector } from "@/features/documentation/components/draft-inspector";
+import { getDocumentationRun } from "@/features/documentation/runs/run-operations";
+import { SaveDraftForm } from "@/features/documentation/components/drafts/save-draft-form";
+import { DraftInspector } from "@/features/documentation/components/reader/draft-inspector";
 import { LoadingList } from "@/components/application/loading-list";
 async function ReviewContent({ params }: { params: Promise<{ id: string }> }) {
   const run = await getDocumentationRun((await params).id).catch(() => null);

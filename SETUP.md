@@ -602,7 +602,7 @@ SDK retrieval/publication behavior and model-call counts are unchanged.
 Focused checks (providers mocked; PostgreSQL required for the second command):
 
 ```sh
-node --conditions=react-server --import tsx --test src/features/documentation/candidate-selection.test.ts
+node --conditions=react-server --import tsx --test src/features/documentation/planning/candidate-selection.test.ts
 node --conditions=react-server --import tsx --test infra/local/documentation/candidate-selection.test.ts
 ```
 
@@ -761,3 +761,9 @@ Sources implementations and colocated tests are grouped by responsibility under
 `src/features/sources`; see its [module map](src/features/sources/README.md#organization).
 `npm run sources:test` discovers the grouped test files. Existing feature entry
 modules, configuration and workflows are unchanged.
+
+## Documentation module layout
+
+Documentation implementations, UI and colocated tests are grouped by responsibility;
+see the [module map](src/features/documentation/README.md#organization). Existing
+verification scripts use the grouped paths. No configuration or workflow changes.
