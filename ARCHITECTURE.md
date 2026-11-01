@@ -927,3 +927,10 @@ Only real owned child handles release a running lease after confirmed exit;
 ambiguous/crashed acquisition state remains blocked. Sealing requires proof of two
 healthy, stopped host generations. This fixes preflight-to-execution restart without
 changing experiment treatments, inference policy, persistence, or publication.
+
+Reliability-only DocSyde server identity is exposed through a token-gated route
+composed from integration-owned checks (checkout/build, actual database and process
+identity). Both Request Desk and DocSyde launchers share the bounded two-kind
+ownership lifecycle; ordinary product execution remains unchanged. Admission
+requires separate stopped-generation proofs and checks the live DocSyde identity
+before the experiment execution reservation or run insert.

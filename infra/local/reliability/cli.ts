@@ -29,7 +29,7 @@ async function output(path: string, value: unknown) {
 }
 async function main() {
   const [command, ...args] = process.argv.slice(2);
-  const modes: Record<string, ReliabilityContext["mode"]> = { scenarios: "offline", offline: "offline", freeze: "baseline-read", clone: "provision", batch: "scenario", seal: "scenario", github: "scenario", host: "scenario", serve: "scenario", "host-readiness": "scenario", report: "report", compare: "report" };
+  const modes: Record<string, ReliabilityContext["mode"]> = { scenarios: "offline", offline: "offline", freeze: "baseline-read", clone: "provision", batch: "scenario", seal: "scenario", github: "scenario", host: "scenario", serve: "scenario", "host-readiness": "scenario", "docsyde-readiness": "scenario", report: "report", compare: "report" };
   const context = requireReliabilityContext(modes[command] ? [modes[command]] : []);
   const code = await readCleanCheckoutIdentity(context.repositoryRoot);
   if (code.sha !== context.docsydeSha || process.cwd() !== context.repositoryRoot) throw new Error("Expected clean DocSyde checkout required.");
@@ -118,17 +118,38 @@ async function main() {
     if (Number(port) > 65535 || resolve(args[0]) !== context.manifestPath || !process.env.DATABASE_URL) throw new Error("Explicit application configuration required.");
     const manifest = reliabilityManifestSchema.parse(await json(args[0]));
     await assertReliabilityBaseline(manifest);
-    const child = spawnOwned(context, process.execPath, [resolve(context.repositoryRoot, "node_modules/next/dist/bin/next"), "start", "--hostname", "127.0.0.1", "--port", port],
-      { cwd: context.repositoryRoot, env: reliabilityEnvironment(context, process.env.DOCSYDE_RELIABILITY_CONTEXT!, "application", {
-        NODE_ENV: "production", DATABASE_URL: process.env.DATABASE_URL, DOCSYDE_RELIABILITY_MANIFEST: context.manifestPath!, DOCSYDE_RUN_RUNTIME_CONFIG: manifest.runtime.path }), stdio: "ignore" });
-    const stop = () => { void stopOwned(context, child).catch(() => { process.exitCode = 1; }); };
+    const lease = await acquireHost(context, "docsyde");
+    let child: ReturnType<typeof spawnOwned> | undefined;
+    const stop = () => { if (child) void stopOwned(context, child).catch(() => { process.exitCode = 1; }); };
     process.once("SIGINT", stop); process.once("SIGTERM", stop);
     try {
-      await output(join(context.outputRoot, "docsyde-process.json"), { pid: child.pid, port, experimentId: context.experimentId, scenario: context.scenario, docsydeSha: context.docsydeSha });
-      console.log("Owned DocSyde server starting; no run or inference is started by this command.");
-      await new Promise<void>((resolve, reject) => { child.once("exit", code => code ? reject(new Error("Owned DocSyde exited.")) : resolve()); child.once("error", reject); });
-    } finally { process.removeListener("SIGINT", stop); process.removeListener("SIGTERM", stop); await stopOwned(context, child); }
+      const buildId = (await readFile(join(context.repositoryRoot, ".next/BUILD_ID"), "utf8")).trim();
+      child = spawnOwned(context, process.execPath, [resolve(context.repositoryRoot, "node_modules/next/dist/bin/next"), "start", "--hostname", "127.0.0.1", "--port", port],
+        { cwd: context.repositoryRoot, env: reliabilityEnvironment(context, process.env.DOCSYDE_RELIABILITY_CONTEXT!, "application", {
+          NODE_ENV: "production", DATABASE_URL: process.env.DATABASE_URL, DOCSYDE_RELIABILITY_SERVER_TOKEN: lease.token, DOCSYDE_RELIABILITY_SERVER_PORT: port,
+          DOCSYDE_RELIABILITY_MANIFEST: context.manifestPath!, DOCSYDE_RUN_RUNTIME_CONFIG: manifest.runtime.path }), stdio: "ignore" });
+      await lease.running(child);
+      let healthy = false;
+      for (let attempt = 0; attempt < 100; attempt++) {
+        if (child.exitCode !== null || child.signalCode !== null) throw new Error("Owned DocSyde exited before identity verification.");
+        try { await lease.healthy({ port, databaseName: manifest.databaseName, buildId }); healthy = true; break; } catch { await new Promise(resolve => setTimeout(resolve, 150)); }
+      }
+      if (!healthy) throw new Error("Owned DocSyde identity verification failed.");
+      console.log("Owned DocSyde identity verified; no run or inference started.");
+      await new Promise<void>((resolve, reject) => { child!.once("exit", code => code ? reject(new Error("Owned DocSyde exited.")) : resolve()); child!.once("error", reject); });
+    } finally {
+      process.removeListener("SIGINT", stop); process.removeListener("SIGTERM", stop);
+      await lease.stopped(child);
+    }
     return;
+  }
+  if (command === "docsyde-readiness" && args.length === 0) {
+    await recordHostRestartReadiness(context, "docsyde");
+    await output(join(context.outputRoot, "docsyde-admission.json"), {
+      experimentId: context.experimentId, scenario: context.scenario,
+      manifest: await fileReceipt(context.manifestPath!), restart: await fileReceipt(join(context.outputRoot, "docsyde-restart.json")),
+    });
+    console.log("Two identity-verified stopped DocSyde generations prove restart readiness; no inference."); return;
   }
   if (command === "host-readiness" && args.length === 0) {
     await recordHostRestartReadiness(context);

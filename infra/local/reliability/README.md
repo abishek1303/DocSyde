@@ -391,3 +391,24 @@ root. Attempt reservations and all other evidence exclusivity remain unchanged.
 
 The historical `frozen-v2-20261101214519436` is not upgraded or rewritten. Its
 admitted-then-startup-blocked evidence remains authoritative for that old version.
+
+## DocSyde server lifecycle and identity correction
+
+The `serve` command now uses the same atomic, tokenized lifecycle as `host`, with
+separate `docsyde-process.json`, `docsyde-record.guard` and `docsyde-history/`.
+Stopped proof allows reacquisition; live/ambiguous/legacy ownership blocks. Retain
+old failed experiments unchanged rather than converting their legacy records.
+
+After sealing, keep the exact Request Desk host running. Start and stop `serve`
+twice, verifying each launch's authenticated `/api/reliability/identity` response.
+Then run `reliability docsyde-readiness`. Its receipt binds the immutable healthy /
+stopped generation hashes to the exact sealed manifest. Run preparation requires
+this receipt plus a fresh live identity check before reserving or inserting a run.
+The identity includes scenario, experiment, checkout SHA, build ID, launch token,
+PID and `current_database()`. Ordinary app execution exposes no identity.
+
+For future paid execution, start both owned launchers and explicitly verify the
+DocSyde identity against its current process record before submitting through the
+UI. HTTP availability alone is never sufficient. No launcher authorizes inference.
+The historical `frozen-restart-v2-20261101223813683` remains startup-blocked evidence,
+including its accidental pending original-database row; do not delete or execute it.

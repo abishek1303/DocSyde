@@ -840,3 +840,10 @@ Host restart readiness is now a required sealing gate: use the normal launcher f
 start → healthy → stop → restart → healthy → stop, emit `reliability host-readiness`,
 and start again for sealing. See the reliability runbook's host lifecycle correction.
 Old process records are not silently deleted or upgraded; use a fresh freeze.
+
+Reliability server launches now journal stopped generations just like Request Desk.
+Before execution, prove two identity-verified DocSyde start/stop cycles, then run
+`reliability docsyde-readiness` with the sealed scenario context. Execution checks
+that receipt and the currently running server's launch token, PID, actual database,
+checkout SHA and build ID before reserving a run. An occupied port or ordinary
+server response cannot establish readiness. See the reliability runbook.

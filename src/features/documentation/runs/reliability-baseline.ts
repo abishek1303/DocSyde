@@ -151,6 +151,17 @@ export async function prepareReliabilityRun(id: string, input: z.infer<typeof ru
   if (input.base !== RELIABILITY_BASE || input.head !== manifest.head || input.branch !== manifest.branch || input.runContext !== manifest.runContext
     || input.paths.length || input.associations.length || `https://github.com/${input.owner.toLowerCase()}/${input.repo.toLowerCase()}` !== manifest.baseline.repository) throw new ReliabilityIsolationError("run-input");
   await assertReliabilityBaseline(manifest);
+  const serverAdmission = z.object({ experimentId: z.literal(context.experimentId), scenario: z.literal(context.scenario),
+    manifest: fileReceiptSchema, restart: fileReceiptSchema }).strict().parse(JSON.parse(await readFile(await ownedPath(context, join(context.outputRoot, "docsyde-admission.json")), "utf8")));
+  if (serverAdmission.manifest.path !== context.manifestPath || serverAdmission.manifest.sha256 !== bytesHash(bytes)
+    || serverAdmission.restart.path !== join(context.outputRoot, "docsyde-restart.json")) throw new ReliabilityIsolationError("docsyde-admission");
+  await verifyFile(serverAdmission.restart);
+  await verifyHostRestartReadiness(context, serverAdmission.restart.path, "docsyde");
+  const server = JSON.parse(await readFile(await ownedPath(context, join(context.outputRoot, "docsyde-process.json")), "utf8"));
+  if (server.state !== "running") throw new ReliabilityIsolationError("docsyde-not-running");
+  const { verifyDocsydeIdentity } = await import("@/integrations/reliability/docsyde-identity");
+  await verifyDocsydeIdentity(context, server.token, server.childPid, { port: process.env.DOCSYDE_RELIABILITY_SERVER_PORT ?? "3000", databaseName: manifest.databaseName,
+    buildId: (await readFile(join(context.repositoryRoot, ".next/BUILD_ID"), "utf8")).trim() });
   await reserveAttempt(context, "execution", { runId: id, manifestSha256: bytesHash(bytes) });
 }
 export async function preflightReliabilityProcess() {
