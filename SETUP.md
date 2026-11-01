@@ -801,3 +801,16 @@ Existing reasoning/sampling behavior and output ceilings are unchanged. Do not u
 AI verification commands to tune them without separate authorization. See
 [MODEL_USAGE.md](MODEL_USAGE.md#reliability-baseline-and-safe-payload-policy) for the
 allowlist, current capacity risks and exact-alias reasoning restriction.
+
+### Three-scenario reliability baseline
+
+Run `npm run reliability:test` for offline budget/capability checks and
+`npm run reliability -- scenarios` for the three pinned Request Desk patch fixtures,
+app tests/build, deterministic Chromium checks and inference-free runner capture.
+Artifacts remain under ignored `.artifacts/reliability`; the original test-project
+worktree and publications are untouched. See the [reliability runbook](infra/local/reliability/README.md)
+for independent commits/GitHub readability, frozen corpus and database copies,
+single-batch admission, manifest sealing, explicit live-run authorization,
+review/publication lineage, restoration and comparison reports. Set server-only
+`DOCSYDE_RELIABILITY_MANIFEST` only for an isolated experiment server; ordinary
+runs retain existing behavior. Offline checks are not live reliability results.

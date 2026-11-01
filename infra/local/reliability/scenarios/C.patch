@@ -1,0 +1,77 @@
+diff --git a/test-app/src/public/app.ts b/test-app/src/public/app.ts
+--- a/test-app/src/public/app.ts
++++ b/test-app/src/public/app.ts
+@@ -1,5 +1,5 @@
+ import { updateHelpContext } from "./contextual-help.js";
+-import { initialRequests, createRequest, closeRequest, reopenRequest, requestPriority, type Request } from "./requests.js";
++import { initialRequests, createRequest, closeRequest, reopenRequest, requestPriority, requestStatusLabel, type Request } from "./requests.js";
+ const key = "request-desk-baseline";
+ const app = document.querySelector<HTMLElement>("#app")!;
+ function readRequests(): Request[] {
+@@ -24,7 +24,7 @@
+       for (const request of requests) {
+         const item = document.createElement("li"); const link = document.createElement("a");
+         link.href = `/requests/${request.id}`; link.textContent = request.title;
+-        item.append(link, text("span", ` — ${request.status} — ${request.priority === "urgent" ? "Urgent" : "Normal"} priority`)); list.append(item);
++        item.append(link, text("span", ` — ${requestStatusLabel(request.status)} — ${request.priority === "urgent" ? "Urgent" : "Normal"} priority`)); list.append(item);
+       }
+       app.append(list);
+     } else if (path === "/requests/new") {
+@@ -47,7 +47,7 @@
+       else {
+         const detail = document.createElement("section"); detail.id = "request-detail";
+         const description = text("p", request.description || "No description provided."); description.className = "description";
+-        const status = text("p", `Status: ${request.status}`); status.id = "request-status";
++        const status = text("p", `Status: ${requestStatusLabel(request.status)}`); status.id = "request-status";
+         detail.append(text("h1", request.title), description, status, text("p", `Priority: ${request.priority === "urgent" ? "Urgent" : "Normal"}`));
+         if (request.status === "open") {
+           const button = text("button", "Close request"); button.id = "close-request";
+diff --git a/test-app/src/public/requests.ts b/test-app/src/public/requests.ts
+--- a/test-app/src/public/requests.ts
++++ b/test-app/src/public/requests.ts
+@@ -25,3 +25,7 @@
+   if (!requests.some(request => request.id === id)) throw new Error("Request not found.");
+   return requests.map(request => request.id === id ? { ...request, status: "open" } : request);
+ }
++
++export function requestStatusLabel(status: Request["status"]): string {
++  return status === "closed" ? "Resolved" : "open";
++}
+diff --git a/test-app/tests/requests.test.ts b/test-app/tests/requests.test.ts
+--- a/test-app/tests/requests.test.ts
++++ b/test-app/tests/requests.test.ts
+@@ -1,6 +1,6 @@
+ import { test } from "node:test";
+ import assert from "node:assert/strict";
+-import { initialRequests, createRequest, closeRequest, reopenRequest, requestPriority } from "../src/public/requests.js";
++import { initialRequests, createRequest, closeRequest, reopenRequest, requestPriority, requestStatusLabel } from "../src/public/requests.js";
+ test("deterministic independent initial data", () => { const first = initialRequests(); first[0].title = "changed"; assert.equal(initialRequests()[0].title, "Update team contact"); assert.deepEqual(initialRequests().map(r => r.id), ["r-001", "r-002"]); });
+ test("creation requires a nonblank title and permits optional description", () => { for (const title of ["", "   "]) assert.throws(() => createRequest(initialRequests(), title, ""), /title/); const initial = initialRequests(); const next = createRequest(initial, "  Help  ", ""); assert.equal(initial.length, 2); assert.deepEqual(next[2], { id: "r-003", title: "Help", description: "", status: "open", priority: "normal" }); assert.equal(createRequest(next, "Next", "Details")[3].id, "r-004"); });
+ test("closing is immutable, idempotent, and rejects missing requests", () => { const initial = initialRequests(); const next = closeRequest(initial, "r-001"); assert.equal(initial[0].status, "open"); assert.equal(next[0].status, "closed"); assert.deepEqual(closeRequest(next, "r-001"), next); assert.throws(() => closeRequest(initial, "missing"), /not found/); });
+@@ -15,3 +15,15 @@
+   assert.throws(() => createRequest(initialRequests(), "Invalid", "", "high"), /Normal or Urgent/);
+   assert.throws(() => requestPriority(null), /Normal or Urgent/);
+ });
++
++test("Resolved is presentation only; close and reopen preserve domain values", () => {
++  const initial = initialRequests();
++  assert.equal(initial[1].status, "closed");
++  assert.equal(requestStatusLabel(initial[1].status), "Resolved");
++  const closed = closeRequest(initial, "r-001");
++  assert.equal(closed[0].status, "closed");
++  assert.equal(requestStatusLabel(closed[0].status), "Resolved");
++  assert.equal(reopenRequest(closed, "r-001")[0].status, "open");
++  assert.equal(requestStatusLabel("open"), "open");
++  assert.ok(!JSON.stringify(closed).includes('"status":"resolved"'));
++});
+diff --git a/test-app/README.md b/test-app/README.md
+--- a/test-app/README.md
++++ b/test-app/README.md
+@@ -89,3 +89,7 @@
+ unpublish removes the association without changing the document. Context changes
+ clear old content and cancel pending retrieval. This remains a local-only demo,
+ without credentialed delivery, authentication redesign or baseline product changes.
++
++## Reliability scenario C
++
++Closed requests display as Resolved in lists and details. Stored status remains closed, and Reopen request retains its existing behavior.

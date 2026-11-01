@@ -45,8 +45,8 @@ function setup(t: TestContext, docs: DocumentationDocument[], options: {
       : options.generation?.(input) ?? { entries: input.authorizations.map((auth: TransformationAuthorization) => transformationEntryFixture(auth, input.documents)) };
     return Response.json({ choices: [{ finish_reason: "stop", message: { content: typeof output === "string" ? output : JSON.stringify(output) } }] });
   });
-  const { transformDocumentation }: typeof import("./transform-documentation") = load(paths[4]);
-  return { transformDocumentation, requests, reads, writes, counts: () => ({ generations, supports }) };
+  const { transformDocumentation, inspectTransformationBatches }: typeof import("./transform-documentation") = load(paths[4]);
+  return { transformDocumentation, inspectTransformationBatches, requests, reads, writes, counts: () => ({ generations, supports }) };
 }
 
 test("one shared generation plus one support check yields independent mixed-provenance canonical candidates", async t => {
@@ -289,4 +289,24 @@ test("fabricated, duplicate or provenance-bearing checker verdicts cannot approv
     assert.equal(proposal.results[0].support, "uncertain"); assert.equal(proposal.results[0].saveCompatible, false);
     assert.equal(proposal.supportAttempted, true); assert.equal(proposal.candidates.length, 0);
   });
+});
+
+
+test("offline batch admission uses real targets and spends zero model calls", async t => {
+  const doc = draftFixture(), p = setup(t, [doc]), impact = transformationImpactFixture();
+  const plan = transformationPlanFixture(impact, [transformationDecisionFixture(doc.id, doc.sections[0].id)]);
+  const preview = await p.inspectTransformationBatches({ impact, plan });
+  assert.equal(preview.eligible, true); assert.equal(preview.batchCount, 1);
+  assert.deepEqual(preview.targets, [{ documentId: doc.id, sha256: documentationHash(doc) }]);
+  assert.deepEqual(p.counts(), { generations: 0, supports: 0 }); assert.equal(p.writes.mock.callCount(), 0);
+});
+
+test("baseline excludes multi-batch scope before any generation, without changing ordinary batching", async t => {
+  const docs = Array.from({ length: 8 }, () => draftFixture()), p = setup(t, docs), impact = transformationImpactFixture();
+  const plan = transformationPlanFixture(impact, docs.map(doc => transformationDecisionFixture(doc.id, doc.sections[0].id)));
+  const preview = await p.inspectTransformationBatches({ impact, plan });
+  assert.equal(preview.eligible, false); assert.ok((preview.batchCount ?? 0) > 1);
+  const { withInferenceBudget } = await import("@/integrations/ai/inference-budget");
+  await assert.rejects(withInferenceBudget("run", {}, () => p.transformDocumentation({ impact, plan })), { code: "outside-single-batch-scope" });
+  assert.deepEqual(p.counts(), { generations: 0, supports: 0 });
 });

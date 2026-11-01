@@ -893,3 +893,19 @@ operations. Baseten's canonical Muse slug documents optional top-level reasoning
 temperature and top-p; its -1026 alias is not explicitly confirmed, so requesting new
 controls for that alias rejects before network access. No model switching, arbitrary
 provider-option passthrough, repair, retry, or automatic tuning loop is introduced.
+
+## Opt-in reliability baseline tooling
+
+`infra/local/reliability` owns operator preparation, the three independent pinned
+Request Desk patch fixtures, offline browser/runner checks, snapshot-copy commands,
+and evidence/reporting tools. It adds no service, model provider or runtime authority.
+Documentation owns frozen-corpus/run admission and reuses the production transformation
+preparation for deterministic batch inspection. The AI boundary has an opt-in async
+invocation budget around existing logging/provider dispatch; experiment runs permit
+each operation once, eight attempts total, and one transformation generation batch.
+A multi-batch plan is an experiment scope exclusion before generation, not a product
+defect. Ordinary runs keep existing multi-batch behavior and inference settings.
+Independent database copies on the existing PostgreSQL server preserve earlier
+scenario evidence without contaminating later candidate searches or deleting history.
+The complete operator protocol and separate authorization boundaries are documented
+in [the reliability runbook](infra/local/reliability/README.md).

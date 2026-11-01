@@ -1,4 +1,5 @@
 import "server-only";
+import { admitInference, stopInferenceBudget, requireInferenceLog } from "./inference-budget";
 import { randomUUID } from "node:crypto";
 import { insertAiModelInvocation, updateAiModelInvocation } from "@/integrations/database/ai-model-invocations";
 import { modelDiagnosticSchema, type ModelInvocationMetadata } from "./model-diagnostic";
@@ -23,6 +24,8 @@ export async function logStructuredInvocation<T extends { model: string; metadat
   invoke: () => Promise<T>,
 ): Promise<T & { invocationId?: string }> {
   const id = randomUUID(), context = options.invocation ?? { stage: "standalone", operation: options.provider === "meta" ? "runtime-vision" : "structured-generation" };
+  const settings = options.settings ?? resolveInference(options.provider, context.operation);
+  await admitInference(options.provider, context.operation, settings, context.runId);
   const configured = options.settings?.model ?? configuredModel(options.provider);
   let inserted = false;
   try {
@@ -34,6 +37,7 @@ export async function logStructuredInvocation<T extends { model: string; metadat
       responseOmissionReason: responseAllowed(context.operation) ? "pending-validation" : "not-allowlisted", inferenceConfig: config });
     inserted = true;
   } catch { warn(id); }
+  requireInferenceLog(inserted);
   const started = Date.now();
   try {
     const result = await invoke();
@@ -48,10 +52,11 @@ export async function logStructuredInvocation<T extends { model: string; metadat
         }
         await updateAiModelInvocation(id, { ...metadata(result.metadata), model: result.model.slice(0, 300), elapsedMs,
           status: options.postValidation ? "structured-success" : "succeeded", responsePayload: response.payload, responseOmissionReason: response.reason });
-      } catch { warn(id); }
+      } catch { warn(id); stopInferenceBudget(); }
     }
     return { ...result, invocationId: inserted ? id : undefined };
   } catch (error) {
+    stopInferenceBudget();
     const elapsedMs = Date.now() - started;
     if (inserted) {
       const diagnostic = error instanceof ModelError ? modelDiagnosticSchema.safeParse(error.diagnostic) : undefined;
@@ -68,6 +73,7 @@ export async function logStructuredInvocation<T extends { model: string; metadat
 
 /** Called only beside existing feature validators. Does not alter provider metadata. */
 export async function finishInvocationValidation(id: string | undefined, rejection?: "grounding-rejection" | "correspondence-rejection", accepted?: () => ApprovedInvocationResponse) {
+  if (rejection) stopInferenceBudget();
   if (!id) return;
   let response: { payload: unknown; reason: string | null } = { payload: null, reason: rejection ? "validation-rejected" : "not-allowlisted" };
   let operation: string | undefined;
@@ -77,7 +83,7 @@ export async function finishInvocationValidation(id: string | undefined, rejecti
   }
   try { await updateAiModelInvocation(id, { status: rejection ? "failed" : "succeeded", failureKind: rejection ?? null,
     responsePayload: response.payload, responseOmissionReason: response.reason }, true, operation); }
-  catch { warn(id); }
+  catch { warn(id); stopInferenceBudget(); }
 }
 
 /** Scope the callback to existing validation only, never progress/persistence/downstream work. */

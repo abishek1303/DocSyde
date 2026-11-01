@@ -1,4 +1,5 @@
 import "server-only";
+import { assertPlannedGenerationBatches, stopInferenceBudget } from "@/integrations/ai/inference-budget";
 import type { InvocationContext } from "@/integrations/ai/invocation-context";
 import { finishInvocationValidation } from "@/integrations/ai/invocation-log";
 import { randomUUID } from "node:crypto";
@@ -29,9 +30,8 @@ function fail(result: DecisionResult, issue: string, generation: DecisionResult[
 
 /** Trusted server-only operation. Correspondence checks do not authenticate client
  * artifacts or re-prove upstream citations. No save/sign/publication operations. */
-export async function transformDocumentation({ impact: rawImpact, plan: rawPlan, context = [] }: {
-  impact: ProductImpact; plan: DocumentationImpactPlan; context?: AssociationChoice[];
-}, { signal, invocation }: { invocation?: InvocationContext; signal?: AbortSignal } = {}): Promise<DocumentationChangeProposal> {
+type TransformationInput = { impact: ProductImpact; plan: DocumentationImpactPlan; context?: AssociationChoice[] };
+async function prepareTransformation({ impact: rawImpact, plan: rawPlan, context = [] }: TransformationInput, signal?: AbortSignal) {
   const impact = validateProductImpact(rawImpact), plan = validateDocumentationImpactPlan(impact, rawPlan);
   const supplied = z.array(associationChoice).max(20).parse(context);
   if (new Set(supplied.map(choice => choice.id)).size !== supplied.length || supplied.some(choice => choice.origin !== "operator" || choice.findingRef
@@ -90,6 +90,26 @@ export async function transformDocumentation({ impact: rawImpact, plan: rawPlan,
     const result = results.find(result => result.decisionId === auth.decisionId)!;
     if (result.generation === "pending") fail(result, "aggregate-generation-budget");
   }
+  return { proposal, partition, targets, baselines, source, supplied, results, authorizations, limitations };
+}
+
+/** Uses the exact production authorization and partition logic, without inference or writes. */
+export async function inspectTransformationBatches(input: TransformationInput, signal?: AbortSignal) {
+  const { proposal, partition } = await prepareTransformation(input, signal);
+  return { batchCount: partition.batches?.length ?? null,
+    individuallyInfeasible: partition.individuallyInfeasible.length,
+    authorizationFailures: proposal.results.filter(result => result.generation === "incomplete").length,
+    eligible: partition.batches?.length === 1 && !partition.individuallyInfeasible.length
+      && !proposal.results.some(result => result.generation === "incomplete"),
+    targets: proposal.targets.map(target => target.identity),
+    batches: partition.batches?.map(batch => ({ decisionIds: batch.items.map(item => item.decisionId), requestBytes: batch.bytes })) ?? [] };
+}
+
+export async function transformDocumentation(input: TransformationInput,
+  { signal, invocation }: { invocation?: InvocationContext; signal?: AbortSignal } = {}): Promise<DocumentationChangeProposal> {
+  const { proposal, partition, targets, baselines, source, supplied, results, authorizations, limitations } = await prepareTransformation(input, signal);
+  assertPlannedGenerationBatches(partition.batches?.length ?? 0,
+    partition.individuallyInfeasible.length > 0 || results.some(result => result.generation === "incomplete"));
   for (const batch of partition.batches ?? []) {
     const request = transformationRequest(batch.items, targets);
     const record: DocumentationChangeProposal["batches"][number] = { decisionIds: batch.items.map(auth => auth.decisionId), requestBytes: request.bytes, status: "not-attempted", model: null };
@@ -131,6 +151,7 @@ export async function transformDocumentation({ impact: rawImpact, plan: rawPlan,
       batch.items.forEach(auth => fail(results.find(result => result.decisionId === auth.decisionId)!, signal?.aborted ? "cancelled-during-generation" : "generation-provider-or-output-failure", "failed"));
     }
   }
+  if (results.some(result => result.generation === "failed" || result.generation === "incomplete")) stopInferenceBudget();
   const generated = results.filter(result => result.generation === "generated" && result.change);
   const generatedAuth = authorizations.filter(auth => generated.some(result => result.decisionId === auth.decisionId));
   const units = generatedAuth.flatMap(auth => transformationSupportUnits(auth, results.find(result => result.decisionId === auth.decisionId)!.change!, auth.target.documentId ? baselines.get(auth.target.documentId) : undefined));
@@ -160,7 +181,7 @@ export async function transformDocumentation({ impact: rawImpact, plan: rawPlan,
       continue;
     }
     try {
-      const document = assembleDocumentationChange({ proposalId, createdAt, planSha256: proposal.planSha256,
+      const document = assembleDocumentationChange({ proposalId: proposal.proposalId, createdAt: proposal.createdAt, planSha256: proposal.planSha256,
         baseline: group[0].decision.documentId ? baselines.get(group[0].decision.documentId) : undefined,
         results: group, source, suppliedContext: supplied, limitations });
       proposal.candidates.push({ decisionIds: group.map(result => result.decisionId), document });

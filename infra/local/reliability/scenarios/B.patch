@@ -1,0 +1,31 @@
+diff --git a/test-app/src/public/app.ts b/test-app/src/public/app.ts
+--- a/test-app/src/public/app.ts
++++ b/test-app/src/public/app.ts
+@@ -51,7 +51,15 @@
+         detail.append(text("h1", request.title), description, status, text("p", `Priority: ${request.priority === "urgent" ? "Urgent" : "Normal"}`));
+         if (request.status === "open") {
+           const button = text("button", "Close request"); button.id = "close-request";
+-          button.addEventListener("click", () => { try { save(closeRequest(readRequests(), request.id)); render(); } catch (error) { showError(error); } }); detail.append(button);
++          button.addEventListener("click", () => {
++            const confirmation = document.createElement("div"); confirmation.id = "close-confirmation";
++            const confirm = text("button", "Confirm close"); confirm.id = "confirm-close";
++            const cancel = text("button", "Cancel"); cancel.id = "cancel-close";
++            confirm.addEventListener("click", () => { try { save(closeRequest(readRequests(), request.id)); render(); } catch (error) { showError(error); } });
++            cancel.addEventListener("click", render);
++            confirmation.append(text("p", "Close this request?"), confirm, cancel);
++            button.replaceWith(confirmation);
++          }); detail.append(button);
+         }
+         if (request.status === "closed") {
+           const button = text("button", "Reopen request"); button.id = "reopen-request";
+diff --git a/test-app/README.md b/test-app/README.md
+--- a/test-app/README.md
++++ b/test-app/README.md
+@@ -89,3 +89,7 @@
+ unpublish removes the association without changing the document. Context changes
+ clear old content and cancel pending retrieval. This remains a local-only demo,
+ without credentialed delivery, authentication redesign or baseline product changes.
++
++## Reliability scenario B
++
++Close request now asks for inline confirmation. Confirm close closes the request; Cancel leaves it open. Reopen request is unchanged.

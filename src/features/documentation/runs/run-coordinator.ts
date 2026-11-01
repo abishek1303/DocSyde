@@ -1,4 +1,6 @@
 import "server-only";
+import { withReliabilityBaseline } from "./reliability-baseline";
+import { InferenceBudgetError } from "@/integrations/ai/inference-budget";
 import { randomUUID } from "node:crypto";
 import { admitDocumentationRun, findDocumentationRun, mutateDocumentationRun } from "@/integrations/database/documentation-runs";
 import { getDocumentationRun } from "./run-operations";
@@ -89,18 +91,20 @@ export async function startDocumentationRun(rawId: unknown) {
     }, RUN_CONTROL_MS);
     const deadline = setTimeout(() => active.controller.abort("application-deadline"), RUN_DEADLINE_MS);
     // The promise is retained and all rejection handling is installed before returning acceptance.
-    active.task = executeRunWorkflow(active.id, active.token, active.controller.signal, () => control(active)).catch(async error => {
+    active.task = withReliabilityBaseline(active.id, run.record.input, () => executeRunWorkflow(active.id, active.token, active.controller.signal, () => control(active))).catch(async error => {
       if (error instanceof RunOwnershipLost) return;
       try {
         await writeRunCheckpoint(active.id, active.token, r => {
           const cancelled = Boolean(r.execution?.cancelRequestedAt);
           const selectionIncomplete = error instanceof RunStageError && error.cause instanceof CandidateSelectionIncompleteError;
-          const reason = cancelled ? "user-cancelled" : selectionIncomplete ? "documentation-candidates-incomplete" : active.controller.signal.aborted ? String(active.controller.signal.reason) : `stage-failed:${error instanceof RunStageError ? error.stage : r.activeStage ?? "execution"}`;
+          const scopeExcluded = error instanceof RunStageError && error.cause instanceof InferenceBudgetError && error.cause.code === "outside-single-batch-scope";
+          const budgetStop = error instanceof RunStageError && error.cause instanceof InferenceBudgetError ? error.cause : error instanceof InferenceBudgetError ? error : null;
+          const reason = scopeExcluded ? "outside-single-batch-baseline-scope" : budgetStop ? `reliability-${budgetStop.code}` : cancelled ? "user-cancelled" : selectionIncomplete ? "documentation-candidates-incomplete" : active.controller.signal.aborted ? String(active.controller.signal.reason) : `stage-failed:${error instanceof RunStageError ? error.stage : r.activeStage ?? "execution"}`;
           const stage = error instanceof RunStageError ? error.stage : r.activeStage ?? "execution";
-          const failure = cancelled ? undefined : selectionIncomplete ? { stage, code: "candidates-incomplete" as const }
+          const failure = cancelled || scopeExcluded ? undefined : selectionIncomplete ? { stage, code: "candidates-incomplete" as const }
             : active.controller.signal.aborted ? { stage, code: active.controller.signal.reason === "application-deadline" ? "deadline" as const : active.controller.signal.reason === "heartbeat-renewal-failed" ? "heartbeat" as const : "stage-failed" as const }
             : classifyRunFailure(stage, error instanceof RunStageError ? error.cause : error);
-          return finishRun(error instanceof RunStageError ? { ...r, activeStage: error.stage } : r, cancelled ? "cancelled" : selectionIncomplete ? "incomplete" : "failed", reason, failure);
+          return finishRun(error instanceof RunStageError ? { ...r, activeStage: error.stage } : r, cancelled ? "cancelled" : selectionIncomplete || scopeExcluded ? "incomplete" : "failed", reason, failure);
         }, true);
       } catch { /* Lost ownership/DB failure: preserved checkpoints are reconciled after heartbeat expiry. */ }
     }).finally(async () => {
