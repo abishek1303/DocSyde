@@ -63,7 +63,7 @@ export async function analyzeProductChanges(raw: unknown, capturedSnapshot?: Gen
     } catch (error) {
       const rejection = error instanceof ModelError ? { stage: "model-output" as const, code: error.code } : error instanceof ProductAnalysisValidationError ? error.rejection : undefined;
       await onProgress?.({ step: "understand-impact", status: "failed", summary: "Semantic output or evidence validation failed." });
-      return { ...result, status: "error", ...(rejection ? { rejection } : {}), error: rejection ? `Semantic analysis rejected (${rejection.stage}: ${rejection.code}). Draft generation must be skipped. Retry manually.` : "Semantic analysis validation failed. Retry manually." };
+      return { ...result, ...(error instanceof ModelError && error.diagnostic ? { diagnostic: error.diagnostic } : {}), status: "error", ...(rejection ? { rejection } : {}), error: rejection ? `Semantic analysis rejected (${rejection.stage}: ${rejection.code}). Draft generation must be skipped. Retry manually.` : "Semantic analysis validation failed. Retry manually." };
     }
   });
 }

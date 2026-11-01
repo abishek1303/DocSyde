@@ -1,0 +1,675 @@
+{
+  "runId": "881ed8a6-edde-42bf-b822-434a6dfc5ae2",
+  "failure": {
+    "code": "evidence-validation",
+    "stage": "impact-synthesis",
+    "diagnostic": {
+      "kind": "grounding-rejection",
+      "issues": [
+        {
+          "code": "unsupported-change-claim",
+          "path": "claims"
+        }
+      ]
+    }
+  },
+  "source": {
+    "bytes": 14127,
+    "model": "meta-models/muse-spark-open-1026",
+    "bundle": {
+      "base": "940018cc1452ff9da4df287268819009132b93f4",
+      "head": "45799b2fae07f1326296b8ba85fae51476fd153d",
+      "notice": "Selected context only. Supplied patches may be incomplete. Runtime behavior, deployment and tests are unverified.",
+      "limited": false,
+      "evidence": [
+        {
+          "id": "patch-f1",
+          "path": "test-app/README.md",
+          "side": "patch",
+          "text": "@@ -32,7 +32,8 @@ and nonzero exit. No fallback port is selected. Stop with Ctrl-C.\n   `/requests/:id`. Unknown IDs show Request not found. Other paths return HTTP 404.\n - Data lives in this tab's sessionStorage. Fresh browser contexts start identically;\n   full page navigation and refresh retain session data. IDs increment deterministically.\n-- No priority, stricter validation, confirmation workflow, or route migration yet.\n+- Choose Normal (default) or Urgent priority when creating a request. Lists and details display priority; closing/reopening and refresh preserve it. Older session data without priority reads as Normal.\n+- No stricter title/description validation, confirmation workflow, or route migration yet.\n \n ## Runner and capture\n ",
+          "status": "included",
+          "changed": true,
+          "commitId": null
+        },
+        {
+          "id": "patch-f2",
+          "path": "test-app/public/styles.css",
+          "side": "patch",
+          "text": "@@ -1,6 +1,6 @@\n body { font: 17px/1.6 system-ui, sans-serif; color: #183043; background: #f4f7fa; max-width: 850px; margin: 0 auto; padding: 32px; }\n header, nav { display: flex; align-items: center; gap: 24px; } header { justify-content: space-between; }\n main { margin: 32px 0; padding: 28px; background: white; border: 1px solid #c7d5df; border-radius: 8px; }\n-a { color: #125e98; } button { cursor: pointer; padding: 8px 16px; font: inherit; } input, textarea { display: block; width: 100%; box-sizing: border-box; padding: 10px; font: inherit; margin-bottom: 20px; }\n+a { color: #125e98; } button { cursor: pointer; padding: 8px 16px; font: inherit; } input, textarea, select { display: block; width: 100%; box-sizing: border-box; padding: 10px; font: inherit; margin-bottom: 20px; }\n li { margin: 16px 0; } :focus-visible { outline: 3px solid #e08b00; outline-offset: 3px; } [role=alert] { color: #a51e1e; } .description { white-space: pre-wrap; }\n @media (max-width: 600px) { body { padding: 16px; } header { align-items: start; flex-direction: column; gap: 8px; } }",
+          "status": "included",
+          "changed": true,
+          "commitId": null
+        },
+        {
+          "id": "patch-f3",
+          "path": "test-app/src/public/app.ts",
+          "side": "patch",
+          "text": "@@ -1,13 +1,13 @@\n import { updateHelpContext } from \"./contextual-help.js\";\n-import { initialRequests, createRequest, closeRequest, reopenRequest, type Request } from \"./requests.js\";\n+import { initialRequests, createRequest, closeRequest, reopenRequest, requestPriority, type Request } from \"./requests.js\";\n const key = \"request-desk-baseline\";\n const app = document.querySelector<HTMLElement>(\"#app\")!;\n function readRequests(): Request[] {\n   const raw = sessionStorage.getItem(key);\n   if (!raw) return initialRequests();\n   const value: unknown = JSON.parse(raw);\n   if (!Array.isArray(value) || !value.every(item => item && typeof item.id === \"string\" && typeof item.title === \"string\" && typeof item.description === \"string\" && [\"open\", \"closed\"].includes(item.status))) throw new Error(\"Stored demo data is invalid. Reset demo data to continue.\");\n-  return value;\n+  return value.map(item => ({ ...item, priority: requestPriority(item.priority) }));\n }\n function save(requests: Request[]) { sessionStorage.setItem(key, JSON.stringify(requests)); }\n function text(tag: string, value: string) { const element = document.createElement(tag); element.textContent = value; return element; }\n@@ -24,18 +24,18 @@ function render() {\n       for (const request of requests) {\n         const item = document.createElement(\"li\"); const link = document.createElement(\"a\");\n         link.href = `/requests/${request.id}`; link.textContent = request.title;\n-        item.append(link, text(\"span\", ` — ${request.status}`)); list.append(item);\n+        item.append(link, text(\"span\", ` — ${request.status} — ${request.priority === \"urgent\" ? \"Urgent\" : \"Normal\"} priority`)); list.append(item);\n       }\n       app.append(list);\n     } else if (path === \"/requests/new\") {\n       app.append(text(\"h1\", \"New request\"));\n       const form = document.createElement(\"form\"); form.id = \"request-form\"; form.noValidate = true;\n-      form.innerHTML = '<label for=\"title\">Title (required)</label><input id=\"title\" name=\"title\" required><label for=\"description\">Description (optional)</label><textarea id=\"description\" name=\"description\"></textarea><button type=\"submit\">Create request</button><p id=\"validation\" role=\"alert\"></p>';\n+      form.innerHTML = '<label for=\"title\">Title (required)</label><input id=\"title\" name=\"title\" required><label for=\"description\">Description (optional)</label><textarea id=\"description\" name=\"description\"></textarea><label for=\"priority\">Priority</label><select id=\"priority\" name=\"priority\"><option value=\"normal\">Normal</option><option value=\"urgent\">Urgent</option></select><button type=\"submit\">Create request</button><p id=\"validation\" role=\"alert\"></p>';\n       form.addEventListener(\"submit\", event => {\n         event.preventDefault();\n         try {\n           const data = new FormData(form);\n-          const next = createRequest(readRequests(), String(data.get(\"title\") ?? \"\"), String(data.get(\"description\") ?? \"\"));\n+          const next = createRequest(readRequests(), String(data.get(\"title\") ?? \"\"), String(data.get(\"description\") ?? \"\"), data.get(\"priority\"));\n           save(next); history.pushState(null, \"\", `/requests/${next.at(-1)!.id}`); render();\n           const message = text(\"p\", \"Request created.\"); message.id = \"created\"; message.setAttribute(\"role\", \"status\"); app.prepend(message);\n         } catch (error) { form.querySelector(\"#validation\")!.textContent = error instanceof Error ? error.message : \"Could not save request.\"; }\n@@ -48,7 +48,7 @@ function render() {\n         const detail = document.createElement(\"section\"); detail.id = \"request-detail\";\n         const description = text(\"p\", request.description || \"No description provided.\"); description.className = \"description\";\n         const status = text(\"p\", `Status: ${request.status}`); status.id = \"request-status\";\n-        detail.append(text(\"h1\", request.title), description, status);\n+        detail.append(text(\"h1\", request.title), description, status, text(\"p\", `Priority: ${request.priority === \"urgent\" ? \"Urgent\" : \"Normal\"}`));\n         if (request.status === \"open\") {\n           const button = text(\"button\", \"Close request\"); button.id = \"close-request\";\n           button.addEventListener(\"click\", () => { try { save(closeRequest(readRequests(), request.id)); render(); } catch (error) { showError(error); } }); detail.append(button);",
+          "status": "included",
+          "changed": true,
+          "commitId": null
+        },
+        {
+          "id": "patch-f4",
+          "path": "test-app/src/public/requests.ts",
+          "side": "patch",
+          "text": "@@ -1,15 +1,21 @@\n-export type Request = { id: string; title: string; description: string; status: \"open\" | \"closed\" };\n+export type Priority = \"normal\" | \"urgent\";\n+export function requestPriority(value: unknown): Priority {\n+  if (value === undefined) return \"normal\";\n+  if (value === \"normal\" || value === \"urgent\") return value;\n+  throw new Error(\"Choose Normal or Urgent priority.\");\n+}\n+export type Request = { id: string; title: string; description: string; status: \"open\" | \"closed\"; priority: Priority };\n export function initialRequests(): Request[] {\n   return [\n-    { id: \"r-001\", title: \"Update team contact\", description: \"The support contact needs updating.\", status: \"open\" },\n-    { id: \"r-002\", title: \"Find monthly report\", description: \"Help locating the monthly report.\", status: \"closed\" },\n+    { id: \"r-001\", title: \"Update team contact\", description: \"The support contact needs updating.\", status: \"open\", priority: \"normal\" },\n+    { id: \"r-002\", title: \"Find monthly report\", description: \"Help locating the monthly report.\", status: \"closed\", priority: \"normal\" },\n   ];\n }\n-export function createRequest(requests: Request[], title: string, description: string): Request[] {\n+export function createRequest(requests: Request[], title: string, description: string, priority: unknown = \"normal\"): Request[] {\n   if (!title.trim()) throw new Error(\"Enter a title.\");\n   let number = requests.length + 1;\n   while (requests.some(request => request.id === `r-${String(number).padStart(3, \"0\")}`)) number++;\n-  return [...requests, { id: `r-${String(number).padStart(3, \"0\")}`, title: title.trim(), description: description.trim(), status: \"open\" }];\n+  return [...requests, { id: `r-${String(number).padStart(3, \"0\")}`, title: title.trim(), description: description.trim(), status: \"open\", priority: requestPriority(priority) }];\n }\n export function closeRequest(requests: Request[], id: string): Request[] {\n   if (!requests.some(request => request.id === id)) throw new Error(\"Request not found.\");",
+          "status": "included",
+          "changed": true,
+          "commitId": null
+        },
+        {
+          "id": "patch-f5",
+          "path": "test-app/tests/requests.test.ts",
+          "side": "patch",
+          "text": "@@ -1,7 +1,17 @@\n import { test } from \"node:test\";\n import assert from \"node:assert/strict\";\n-import { initialRequests, createRequest, closeRequest, reopenRequest } from \"../src/public/requests.js\";\n+import { initialRequests, createRequest, closeRequest, reopenRequest, requestPriority } from \"../src/public/requests.js\";\n test(\"deterministic independent initial data\", () => { const first = initialRequests(); first[0].title = \"changed\"; assert.equal(initialRequests()[0].title, \"Update team contact\"); assert.deepEqual(initialRequests().map(r => r.id), [\"r-001\", \"r-002\"]); });\n-test(\"creation requires a nonblank title and permits optional description\", () => { for (const title of [\"\", \"   \"]) assert.throws(() => createRequest(initialRequests(), title, \"\"), /title/); const initial = initialRequests(); const next = createRequest(initial, \"  Help  \", \"\"); assert.equal(initial.length, 2); assert.deepEqual(next[2], { id: \"r-003\", title: \"Help\", description: \"\", status: \"open\" }); assert.equal(createRequest(next, \"Next\", \"Details\")[3].id, \"r-004\"); });\n+test(\"creation requires a nonblank title and permits optional description\", () => { for (const title of [\"\", \"   \"]) assert.throws(() => createRequest(initialRequests(), title, \"\"), /title/); const initial = initialRequests(); const next = createRequest(initial, \"  Help  \", \"\"); assert.equal(initial.length, 2); assert.deepEqual(next[2], { id: \"r-003\", title: \"Help\", description: \"\", status: \"open\", priority: \"normal\" }); assert.equal(createRequest(next, \"Next\", \"Details\")[3].id, \"r-004\"); });\n test(\"closing is immutable, idempotent, and rejects missing requests\", () => { const initial = initialRequests(); const next = closeRequest(initial, \"r-001\"); assert.equal(initial[0].status, \"open\"); assert.equal(next[0].status, \"closed\"); assert.deepEqual(closeRequest(next, \"r-001\"), next); assert.throws(() => closeRequest(initial, \"missing\"), /not found/); });\n test(\"reopening is immutable, idempotent, preserves other requests and rejects missing ids\", () => { const initial = initialRequests(); const next = reopenRequest(initial, \"r-002\"); assert.equal(initial[1].status, \"closed\"); assert.equal(next[1].status, \"open\"); assert.deepEqual(next[0], initial[0]); assert.deepEqual(reopenRequest(next, \"r-002\"), next); assert.throws(() => reopenRequest(initial, \"missing\"), /not found/); });\n+\n+test(\"priority defaults, validates, and survives close/reopen\", () => {\n+  assert.equal(requestPriority(undefined), \"normal\");\n+  assert.equal(createRequest(initialRequests(), \"Default\", \"\")[2].priority, \"normal\");\n+  const next = createRequest(initialRequests(), \"Urgent issue\", \"Details\", \"urgent\");\n+  assert.equal(next[2].priority, \"urgent\");\n+  assert.equal(reopenRequest(closeRequest(next, \"r-003\"), \"r-003\")[2].priority, \"urgent\");\n+  assert.throws(() => createRequest(initialRequests(), \"Invalid\", \"\", \"high\"), /Normal or Urgent/);\n+  assert.throws(() => requestPriority(null), /Normal or Urgent/);\n+});",
+          "status": "included",
+          "changed": true,
+          "commitId": null
+        }
+      ],
+      "inventory": [
+        {
+          "kind": "modified",
+          "path": "test-app/README.md",
+          "previousPath": null
+        },
+        {
+          "kind": "modified",
+          "path": "test-app/public/styles.css",
+          "previousPath": null
+        },
+        {
+          "kind": "modified",
+          "path": "test-app/src/public/app.ts",
+          "previousPath": null
+        },
+        {
+          "kind": "modified",
+          "path": "test-app/src/public/requests.ts",
+          "previousPath": null
+        },
+        {
+          "kind": "modified",
+          "path": "test-app/tests/requests.test.ts",
+          "previousPath": null
+        }
+      ],
+      "repository": "https://github.com/abishek1303/docsyde"
+    },
+    "status": "analyzed",
+    "analysis": {
+      "findings": [
+        {
+          "kind": "capability-added",
+          "after": "Form includes Priority select default Normal; createRequest(requests,title,description,priority=\"normal\") validates via requestPriority and stores priority \"normal\"|\"urgent\".",
+          "before": "Form had only Title and Description; createRequest(requests,title,description) created {status:\"open\"} without priority.",
+          "support": "directly-supported",
+          "citations": [
+            {
+              "endLine": 29,
+              "excerpt": "+      form.innerHTML = '<label for=\"title\">Title (required)</label><input id=\"title\" name=\"title\" required><label for=\"description\">Description (optional)</label><textarea id=\"description\" name=\"description\"></textarea><label for=\"priority\">Priority</label><select id=\"priority\" name=\"priority\"><option value=\"normal\">Normal</option><option value=\"urgent\">Urgent</option></select><button type=\"submit\">Create request</button><p id=\"validation\" role=\"alert\"></p>';",
+              "startLine": 29,
+              "evidenceId": "patch-f3"
+            },
+            {
+              "endLine": 5,
+              "excerpt": "+  if (value === undefined) return \"normal\";",
+              "startLine": 5,
+              "evidenceId": "patch-f4"
+            },
+            {
+              "endLine": 35,
+              "excerpt": "+          const next = createRequest(readRequests(), String(data.get(\"title\") ?? \"\"), String(data.get(\"description\") ?? \"\"), data.get(\"priority\"));",
+              "startLine": 35,
+              "evidenceId": "patch-f3"
+            }
+          ],
+          "confidence": "high",
+          "assumptions": [],
+          "description": "Creating a request at /requests/new now offers a Priority choice. Form renders Title (required), Description (optional), and Priority label with select id=\"priority\" options Normal (value normal) and Urgent (value urgent) plus Create request button; submit passes priority to createRequest which validates with requestPriority. Undefined defaults to Normal; invalid values show \"Choose Normal or Urgent priority.\"",
+          "uncertainties": [],
+          "confidenceReason": "Patch adds select markup, passes FormData priority to createRequest, and implements requestPriority default/validation directly.",
+          "reachabilityEvidenceIds": [
+            "patch-f3",
+            "patch-f4"
+          ]
+        },
+        {
+          "kind": "workflow-changed",
+          "after": "List shows status plus priority label; detail shows Priority paragraph via request.priority === \"urgent\" ? \"Urgent\" : \"Normal\".",
+          "before": "List showed only \" — {status}\" and detail showed title, description, Status without priority.",
+          "support": "directly-supported",
+          "citations": [
+            {
+              "endLine": 22,
+              "excerpt": "+        item.append(link, text(\"span\", ` — ${request.status} — ${request.priority === \"urgent\" ? \"Urgent\" : \"Normal\"} priority`)); list.append(item);",
+              "startLine": 22,
+              "evidenceId": "patch-f3"
+            },
+            {
+              "endLine": 44,
+              "excerpt": "+        detail.append(text(\"h1\", request.title), description, status, text(\"p\", `Priority: ${request.priority === \"urgent\" ? \"Urgent\" : \"Normal\"}`));",
+              "startLine": 44,
+              "evidenceId": "patch-f3"
+            }
+          ],
+          "confidence": "high",
+          "assumptions": [],
+          "description": "Lists and detail views now display priority. List items append \" — {status} — Normal priority\" or \" — {status} — Urgent priority\" after title link; request detail section adds paragraph \"Priority: Normal\" / \"Priority: Urgent\" below Status paragraph.",
+          "uncertainties": [],
+          "confidenceReason": "app.ts render changes explicitly append priority text in list and detail rendering.",
+          "reachabilityEvidenceIds": []
+        },
+        {
+          "kind": "behavior-modified",
+          "after": "initialRequests includes priority:\"normal\"; readRequests returns value.map(item=>({...item,priority:requestPriority(item.priority)})); priority survives close/reopen and refresh, missing becomes Normal.",
+          "before": "No priority field; initialRequests had two objects without priority and readRequests returned raw array without mapping.",
+          "support": "directly-supported",
+          "citations": [
+            {
+              "endLine": 13,
+              "excerpt": "+  return value.map(item => ({ ...item, priority: requestPriority(item.priority) }));",
+              "startLine": 13,
+              "evidenceId": "patch-f3"
+            },
+            {
+              "endLine": 17,
+              "excerpt": "+  assert.equal(reopenRequest(closeRequest(next, \"r-003\"), \"r-003\")[2].priority, \"urgent\");",
+              "startLine": 17,
+              "evidenceId": "patch-f5"
+            },
+            {
+              "endLine": 6,
+              "excerpt": "+- Choose Normal (default) or Urgent priority when creating a request. Lists and details display priority; closing/reopening and refresh preserve it. Older session data without priority reads as Normal.",
+              "startLine": 6,
+              "evidenceId": "patch-f1"
+            }
+          ],
+          "confidence": "high",
+          "assumptions": [],
+          "description": "Priority persists across close/reopen and sessionStorage refresh/navigation. readRequests maps stored items through requestPriority(item.priority) so older data without priority becomes Normal; closeRequest/reopenRequest preserve priority; invalid stored priority throws validation error.",
+          "uncertainties": [],
+          "confidenceReason": "Code mapping and tests directly assert default, urgent creation, preservation through close/reopen, and validation error.",
+          "reachabilityEvidenceIds": []
+        }
+      ],
+      "assessment": "product-change",
+      "uncertainties": [
+        "Runtime inspection limited to urgent-request detail state per run context; form defaults, close/reopen, and refresh persistence not visually verified, inferred from code/tests.",
+        "Supplied patches may be incomplete; other priority-related routing or styling not shown beyond cited lines."
+      ]
+    },
+    "elapsedMs": 16539
+  },
+  "runtimeInspection": {
+    "reason": "analyzed",
+    "outcome": "completed",
+    "decision": "inspect",
+    "workflow": {
+      "id": "priority-result",
+      "sha256": "43bae64c3d946e2ec91c840a744ca37362172a94189433c42e33d5160ff9f9fb",
+      "version": "2"
+    },
+    "limitations": [],
+    "requestedTargets": [
+      "/requests/new"
+    ],
+    "uncoveredTargets": [],
+    "unresolvedQuestions": [
+      "Form default Normal selection and invalid priority error Choose Normal or Urgent priority not verified by this capability",
+      "Close/reopen preservation and refresh persistence of priority not visually confirmed",
+      "Styling of select element and list rendering for pre-existing Normal requests remains unconfirmed"
+    ]
+  },
+  "runtime": [
+    {
+      "captureId": "511349db-1a6c-47d1-b589-6baec10e43f4",
+      "requestedPathname": "/requests/new",
+      "finalPathname": "/requests/r-003",
+      "capturedAt": "2026-11-01T01:45:48.617Z",
+      "screenshotSha256": "217a82bc67340ddd9f3387db980c663f64d812821de1c4afad73910d7294171a",
+      "artifactKey": "a3846e29-e06e-4e04-a3ee-304c261a42e7",
+      "vision": {
+        "model": "muse-spark-1.3",
+        "elapsedMs": 7386,
+        "data": {
+          "elements": [
+            {
+              "description": "Request detail paragraph showing priority value",
+              "visibleText": "Priority: Urgent",
+              "bounds": {
+                "xMin": 0.214,
+                "yMin": 0.396,
+                "xMax": 0.288,
+                "yMax": 0.419
+              },
+              "certainty": "clear"
+            },
+            {
+              "description": "Request detail paragraph showing status above priority",
+              "visibleText": "Status: open",
+              "bounds": {
+                "xMin": 0.214,
+                "yMin": 0.345,
+                "xMax": 0.273,
+                "yMax": 0.369
+              },
+              "certainty": "clear"
+            },
+            {
+              "description": "Note about demo data storage scope",
+              "visibleText": "Local demo. Data is saved in this tab's session only.",
+              "bounds": {
+                "xMin": 0.184,
+                "yMin": 0.7,
+                "xMax": 0.399,
+                "yMax": 0.722
+              },
+              "certainty": "clear"
+            }
+          ],
+          "observations": [
+            "Detail view shows 'Priority: Urgent' below 'Status: open'.",
+            "Page shows storage scope note stating data is saved in this tab's session only.",
+            "No list with priority suffixes is visible in the viewport."
+          ],
+          "limitations": [
+            "Viewport only; list views and other views are unobserved.",
+            "Visible text alone cannot confirm whether Priority text reflects a stored value versus presentational text.",
+            "Persistence beyond this view cannot be determined from current visible evidence."
+          ]
+        }
+      }
+    }
+  ],
+  "baseline": {
+    "id": "ccf1b64a-b4e8-4da4-a3ca-840eefda41c3",
+    "title": "Request Desk",
+    "status": "draft",
+    "context": [
+      {
+        "id": "requests-route",
+        "kind": "route",
+        "value": "/requests",
+        "origin": "operator"
+      },
+      {
+        "id": "create-request-route",
+        "kind": "route",
+        "value": "/requests/new",
+        "origin": "operator"
+      }
+    ],
+    "sections": [
+      {
+        "id": "f8888cb1-7b46-4e61-a82c-b634036c1582",
+        "kind": "overview",
+        "title": "What you can do",
+        "content": [
+          {
+            "factRefs": [
+              "finding-2-description",
+              "finding-2-after"
+            ],
+            "markdown": "You can browse your requests, open details, close open requests, and create new ones. You start with two requests: Update team contact (open) and Find monthly report (closed). You can add more as you work in this tab."
+          }
+        ],
+        "findingRefs": [
+          "finding-2"
+        ],
+        "associations": [
+          "requests-route",
+          "create-request-route"
+        ],
+        "qualifications": [
+          {
+            "support": "directly-supported",
+            "confidence": "high",
+            "findingRef": "finding-2",
+            "assumptions": [],
+            "uncertainties": [],
+            "confidenceReason": "README baseline bullets, initialRequests values and app.ts list/detail/close/reset handlers directly describe the workflow."
+          }
+        ]
+      },
+      {
+        "id": "7de6ba15-1e89-4916-9170-a8db6ddf68fb",
+        "kind": "workflow",
+        "title": "Browse and close requests",
+        "content": [
+          {
+            "factRefs": [
+              "finding-2-description",
+              "finding-2-after"
+            ],
+            "markdown": "Your list is at /requests. Each title is a link to its details at /requests/:id.\n\n1. Go to /requests to see your requests.\n2. Select a title to open its details.\n3. If the request is open, close it with Close request. Closed requests do not show this action.\n4. Use Reset demo data to restore the original two requests."
+          }
+        ],
+        "findingRefs": [
+          "finding-2"
+        ],
+        "associations": [
+          "requests-route"
+        ],
+        "qualifications": [
+          {
+            "support": "directly-supported",
+            "confidence": "high",
+            "findingRef": "finding-2",
+            "assumptions": [],
+            "uncertainties": [],
+            "confidenceReason": "README baseline bullets, initialRequests values and app.ts list/detail/close/reset handlers directly describe the workflow."
+          }
+        ]
+      },
+      {
+        "id": "e172e256-6590-4eec-b384-adc09c4c5466",
+        "kind": "workflow",
+        "title": "Create a request",
+        "content": [
+          {
+            "factRefs": [
+              "finding-3-description",
+              "finding-3-after"
+            ],
+            "markdown": "Create requests at /requests/new. Title is required and Description is optional. Leading and trailing spaces are removed on save.\n\n1. Go to /requests/new.\n2. Enter a title in Title. Enter a description in Description if you want.\n3. Submit the form.\n\nIf the title is blank you see Enter a title. Otherwise your request is saved as open and you go to its details with Request created."
+          }
+        ],
+        "findingRefs": [
+          "finding-3"
+        ],
+        "associations": [
+          "create-request-route"
+        ],
+        "qualifications": [
+          {
+            "support": "directly-supported",
+            "confidence": "high",
+            "findingRef": "finding-3",
+            "assumptions": [],
+            "uncertainties": [],
+            "confidenceReason": "README create bullet and createRequest validation/form handler directly establish required-field behavior."
+          }
+        ]
+      },
+      {
+        "id": "04b35d68-9593-40bf-8085-3964fd373590",
+        "kind": "behavior",
+        "title": "Navigate and handle missing pages",
+        "content": [
+          {
+            "factRefs": [
+              "finding-4-description",
+              "finding-4-after"
+            ],
+            "markdown": "You can go directly to /requests, /requests/new, or a detail page and refresh. Going to / takes you to /requests. If you open a request that does not exist you see Request not found. Other unknown paths show Not found."
+          },
+          {
+            "factRefs": [
+              "finding-2-description",
+              "finding-2-after"
+            ],
+            "markdown": "Your requests stay in this browser tab. Refresh keeps them. Closing the tab ends the session. Reset demo data clears the tab and restores the initial two requests."
+          }
+        ],
+        "findingRefs": [
+          "finding-4",
+          "finding-2"
+        ],
+        "associations": [
+          "requests-route",
+          "create-request-route"
+        ],
+        "qualifications": [
+          {
+            "support": "directly-supported",
+            "confidence": "high",
+            "findingRef": "finding-4",
+            "assumptions": [],
+            "uncertainties": [],
+            "confidenceReason": "server.ts routing/redirect/404 branches and app.ts missing-request branch directly prove the navigation behavior."
+          },
+          {
+            "support": "directly-supported",
+            "confidence": "high",
+            "findingRef": "finding-2",
+            "assumptions": [],
+            "uncertainties": [],
+            "confidenceReason": "README baseline bullets, initialRequests values and app.ts list/detail/close/reset handlers directly describe the workflow."
+          }
+        ]
+      }
+    ],
+    "generation": {
+      "model": "meta-models/muse-spark-open-1026",
+      "createdAt": "2026-10-30T00:40:11.722Z"
+    },
+    "provenance": {
+      "base": "a52b17511f24d095544784604ac50f75b363450e",
+      "head": "88494ef57c40ab3181630e07ac4294a8f8465349",
+      "facts": [
+        {
+          "id": "finding-2-description",
+          "field": "description",
+          "value": "Browse workflow added: list two seeded requests, open details via title link, close open requests (closed have no close action), and Reset demo data to restore original two; data lives in tab sessionStorage with deterministic incremental IDs.",
+          "findingRef": "finding-2",
+          "qualifications": {
+            "support": "directly-supported",
+            "confidence": "high",
+            "assumptions": [],
+            "uncertainties": [],
+            "confidenceReason": "README baseline bullets, initialRequests values and app.ts list/detail/close/reset handlers directly describe the workflow."
+          }
+        },
+        {
+          "id": "finding-2-after",
+          "field": "after",
+          "value": "Initial data is r-001 open Update team contact and r-002 closed Find monthly report; list at /requests with links to /requests/:id, detail shows Close request button only when status=open, Reset button clears sessionStorage key request-desk-baseline.",
+          "findingRef": "finding-2",
+          "qualifications": {
+            "support": "directly-supported",
+            "confidence": "high",
+            "assumptions": [],
+            "uncertainties": [],
+            "confidenceReason": "README baseline bullets, initialRequests values and app.ts list/detail/close/reset handlers directly describe the workflow."
+          }
+        },
+        {
+          "id": "finding-3-description",
+          "field": "description",
+          "value": "Create workflow at /requests/new requires nonblank title, optional description; both trimmed on save and invalid titles show validation error.",
+          "findingRef": "finding-3",
+          "qualifications": {
+            "support": "directly-supported",
+            "confidence": "high",
+            "assumptions": [],
+            "uncertainties": [],
+            "confidenceReason": "README create bullet and createRequest validation/form handler directly establish required-field behavior."
+          }
+        },
+        {
+          "id": "finding-3-after",
+          "field": "after",
+          "value": "Form has Title (required) input #title and Description (optional) textarea; submit throws Enter a title. when title.trim() empty, otherwise creates new request with status open and trimmed values and navigates to /requests/:id with Request created. message.",
+          "findingRef": "finding-3",
+          "qualifications": {
+            "support": "directly-supported",
+            "confidence": "high",
+            "assumptions": [],
+            "uncertainties": [],
+            "confidenceReason": "README create bullet and createRequest validation/form handler directly establish required-field behavior."
+          }
+        },
+        {
+          "id": "finding-4-description",
+          "field": "description",
+          "value": "Routing supports direct navigation/refresh at /requests, /requests/new and /requests/:id; unknown IDs render Request not found, other paths return HTTP 404, and / redirects to /requests.",
+          "findingRef": "finding-4",
+          "qualifications": {
+            "support": "directly-supported",
+            "confidence": "high",
+            "assumptions": [],
+            "uncertainties": [],
+            "confidenceReason": "server.ts routing/redirect/404 branches and app.ts missing-request branch directly prove the navigation behavior."
+          }
+        },
+        {
+          "id": "finding-4-after",
+          "field": "after",
+          "value": "Server returns 302 Location /requests for /, serves index.html for applicationRoute regex /^\\/requests\\/[^/]+$/, returns 404 Not found otherwise; client detail view shows Request not found for missing session ID.",
+          "findingRef": "finding-4",
+          "qualifications": {
+            "support": "directly-supported",
+            "confidence": "high",
+            "assumptions": [],
+            "uncertainties": [],
+            "confidenceReason": "server.ts routing/redirect/404 branches and app.ts missing-request branch directly prove the navigation behavior."
+          }
+        }
+      ],
+      "limited": false,
+      "evidence": [
+        {
+          "id": "patch-f2",
+          "path": "test-app/README.md",
+          "side": "patch",
+          "commitId": null,
+          "contentId": null
+        },
+        {
+          "id": "patch-f9",
+          "path": "test-app/src/public/app.ts",
+          "side": "patch",
+          "commitId": null,
+          "contentId": null
+        },
+        {
+          "id": "patch-f10",
+          "path": "test-app/src/public/requests.ts",
+          "side": "patch",
+          "commitId": null,
+          "contentId": null
+        },
+        {
+          "id": "patch-f11",
+          "path": "test-app/src/server.ts",
+          "side": "patch",
+          "commitId": null,
+          "contentId": null
+        }
+      ],
+      "findings": [
+        {
+          "id": "finding-2",
+          "kind": "workflow-changed",
+          "after": "Initial data is r-001 open Update team contact and r-002 closed Find monthly report; list at /requests with links to /requests/:id, detail shows Close request button only when status=open, Reset button clears sessionStorage key request-desk-baseline.",
+          "before": null,
+          "citations": [
+            {
+              "endLine": 27,
+              "excerpt": "+- List two fixed requests; open request details from the list.",
+              "startLine": 27,
+              "evidenceId": "patch-f2"
+            },
+            {
+              "endLine": 5,
+              "excerpt": "+    { id: \"r-001\", title: \"Update team contact\", description: \"The support contact needs updating.\", status: \"open\" },",
+              "startLine": 5,
+              "evidenceId": "patch-f10"
+            },
+            {
+              "endLine": 52,
+              "excerpt": "+          const button = text(\"button\", \"Close request\"); button.id = \"close-request\";",
+              "startLine": 52,
+              "evidenceId": "patch-f9"
+            }
+          ],
+          "description": "Browse workflow added: list two seeded requests, open details via title link, close open requests (closed have no close action), and Reset demo data to restore original two; data lives in tab sessionStorage with deterministic incremental IDs.",
+          "qualifications": {
+            "support": "directly-supported",
+            "confidence": "high",
+            "assumptions": [],
+            "uncertainties": [],
+            "confidenceReason": "README baseline bullets, initialRequests values and app.ts list/detail/close/reset handlers directly describe the workflow."
+          }
+        },
+        {
+          "id": "finding-3",
+          "kind": "field-requirement-changed",
+          "after": "Form has Title (required) input #title and Description (optional) textarea; submit throws Enter a title. when title.trim() empty, otherwise creates new request with status open and trimmed values and navigates to /requests/:id with Request created. message.",
+          "before": null,
+          "citations": [
+            {
+              "endLine": 28,
+              "excerpt": "+- Create a request with a required nonblank title and optional description.",
+              "startLine": 28,
+              "evidenceId": "patch-f2"
+            },
+            {
+              "endLine": 10,
+              "excerpt": "+  if (!title.trim()) throw new Error(\"Enter a title.\");",
+              "startLine": 10,
+              "evidenceId": "patch-f10"
+            }
+          ],
+          "description": "Create workflow at /requests/new requires nonblank title, optional description; both trimmed on save and invalid titles show validation error.",
+          "qualifications": {
+            "support": "directly-supported",
+            "confidence": "high",
+            "assumptions": [],
+            "uncertainties": [],
+            "confidenceReason": "README create bullet and createRequest validation/form handler directly establish required-field behavior."
+          }
+        },
+        {
+          "id": "finding-4",
+          "kind": "behavior-modified",
+          "after": "Server returns 302 Location /requests for /, serves index.html for applicationRoute regex /^\\/requests\\/[^/]+$/, returns 404 Not found otherwise; client detail view shows Request not found for missing session ID.",
+          "before": null,
+          "citations": [
+            {
+              "endLine": 13,
+              "excerpt": "+  if (path === \"/\") { response.writeHead(302, { Location: \"/requests\" }).end(); return; }",
+              "startLine": 13,
+              "evidenceId": "patch-f11"
+            },
+            {
+              "endLine": 15,
+              "excerpt": "+  const applicationRoute = path === \"/requests\" || path === \"/requests/new\" || /^\\/requests\\/[^/]+$/.test(path);",
+              "startLine": 15,
+              "evidenceId": "patch-f11"
+            },
+            {
+              "endLine": 45,
+              "excerpt": "+      if (!request) { app.append(text(\"h1\", \"Request not found\"), text(\"p\", \"This request does not exist in this session.\")); }",
+              "startLine": 45,
+              "evidenceId": "patch-f9"
+            }
+          ],
+          "description": "Routing supports direct navigation/refresh at /requests, /requests/new and /requests/:id; unknown IDs render Request not found, other paths return HTTP 404, and / redirects to /requests.",
+          "qualifications": {
+            "support": "directly-supported",
+            "confidence": "high",
+            "assumptions": [],
+            "uncertainties": [],
+            "confidenceReason": "server.ts routing/redirect/404 branches and app.ts missing-request branch directly prove the navigation behavior."
+          }
+        }
+      ],
+      "analysisId": "6db8a48d-09e9-47d3-8054-f6e6a1b8491c",
+      "assessment": "product-change",
+      "repository": "https://github.com/abishek1303/DocSyde",
+      "limitations": [
+        "Selected context only. Supplied patches may be incomplete. Runtime behavior, deployment and tests are unverified.",
+        "No runtime/deployment evidence; server listen and capture configs show intent but not that port was available or artifacts were generated.",
+        "SessionStorage lifetime described in README as tab-only with full navigation/refresh retention; cross-tab or persistent storage behavior not evidenced beyond code."
+      ]
+    },
+    "associations": [
+      "requests-route",
+      "create-request-route"
+    ],
+    "schemaVersion": 1
+  }
+}

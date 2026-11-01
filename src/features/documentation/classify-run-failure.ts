@@ -6,6 +6,7 @@ import { ProductEvidenceBudgetError } from "@/features/sources/product-analysis"
 import type { RunFailure, RunFailureCode } from "./run-failure";
 
 const modelCodes: Record<string, RunFailureCode> = {
+  "grounding-rejection": "evidence-validation",
   "missing-credentials": "model-credentials", unauthorized: "model-access", forbidden: "model-access", billing: "model-billing", "rate-limited": "model-rate-limit", timeout: "model-timeout", "model-unavailable": "model-unavailable", "invalid-json": "model-output", "schema-mismatch": "model-output", "incomplete-output": "model-output", "invalid-response": "model-output", refused: "model-output",
 };
 export function modelFailureCode(code: string): RunFailureCode { return Object.hasOwn(modelCodes, code) ? modelCodes[code] : "model-failed"; }
@@ -16,7 +17,7 @@ export function classifyRunFailure(stage: string, error: unknown): RunFailure {
     };
     return { stage, code: Object.hasOwn(codes, error.code) ? codes[error.code] : "source-unavailable" };
   }
-  if (error instanceof ModelError) return { stage, code: modelFailureCode(error.code) };
+  if (error instanceof ModelError) return { stage, code: modelFailureCode(error.code), ...(error.diagnostic ? { diagnostic: error.diagnostic } : {}) };
   if (error instanceof ProductEvidenceBudgetError) return { stage, code: "evidence-budget" };
   if (error instanceof ZodError) return { stage, code: "invalid-data" };
   // Database wrappers preserve a typed cause. Inspect only known codes, never

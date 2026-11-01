@@ -13,11 +13,11 @@ const codeSteps: Record<string, { running: string; completed: string }> = {
   "proposal-retention": { running: "Saving the proposal for your review…", completed: "The proposal is ready for your review." },
 };
 const thinkingSteps: Record<string, string> = {
-  "source-analysis": "Thinking through the source changes…",
-  "understand-impact": "Thinking through the product impact…",
-  "runtime-decision": "Thinking about what to inspect in the app…",
-  "impact-synthesis": "Thinking through the product impact…",
-  "documentation-planning": "Thinking about which documentation needs updating…",
+  "source-analysis": "Analyzing source changes…",
+  "understand-impact": "Summarizing product impact…",
+  "runtime-decision": "Planning runtime inspection…",
+  "impact-synthesis": "Summarizing product impact…",
+  "documentation-planning": "Identifying documentation updates…",
   "documentation-transformation": "Preparing the documentation updates…",
   "propose-documentation": "Preparing the documentation updates…",
 };
@@ -36,9 +36,9 @@ export function StageActivity({ runId, stage, label, response, summary }: {
   const deterministicResult = response?.preview ?? (stage.key === "runtime-decision" ? "Runtime inspection requirements have been checked." : stage.key === "source-analysis" ? "Source evidence has been checked." : summary);
   let text = summary;
   if (stage.status === "waiting") text = "Waiting for earlier steps to finish.";
-  else if (stage.status === "skipped") text = "This step was skipped.";
+  else if (stage.status === "skipped") text = summary || "This step was skipped.";
   else if (stage.status === "cancelled") text = "This step was cancelled.";
-  else if (browser) text = "Exploring the app and capturing visual evidence…";
+  else if (browser) text = "Running the configured workflow and capturing evidence…";
   else if (thinking) text = thinkingSteps[stage.key];
   else if (running && code) text = code.running;
   else if (stage.status === "completed") {

@@ -29,3 +29,6 @@ export type { RuntimeInspectionContext } from "./runtime-inspection-context";
 export { previewSourceComparison } from "./prepare-comparison";
 
 export { ProductEvidenceBudgetError } from "./product-change-evidence";
+
+export { inspectionCapabilitySchema, inspectionSupportSchema } from "./inspection-capabilities";
+export { readInspectionContext } from "./read-inspection-context";

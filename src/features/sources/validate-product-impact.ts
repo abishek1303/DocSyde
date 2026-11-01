@@ -1,3 +1,4 @@
+import { supportsImpactClaim } from "./impact-claim-support";
 import { productImpactSchema } from "./product-impact";
 import { RUNTIME_REVISION_WARNING } from "./runtime-visual-evidence";
 
@@ -50,14 +51,12 @@ export function validateProductImpact(raw: unknown) {
     const visual = references.some(id => visuals.has(id)); visualUsed ||= visual;
     return { staticRefs, visual };
   }
-  const productKinds = new Set(["workflow-changed", "field-requirement-changed", "capability-added", "behavior-modified", "behavior-removed"]);
   for (const claim of impact.claims) {
     const refs = resolve(claim.references);
     if (claim.kind === "visual-observation") {
       if (!refs.visual || claim.before !== null || claim.after !== null) reject();
     } else {
-      const compatible = refs.staticRefs.filter(({ finding }) => claim.kind === "internal-change" ? finding.kind === "internal-change"
-        : claim.kind === "workflow-change" ? finding.kind === "workflow-changed" : productKinds.has(finding.kind));
+      const compatible = refs.staticRefs.filter(({ finding }) => supportsImpactClaim(claim.kind, finding.kind));
       if (!compatible.length || ((claim.before !== null || claim.after !== null) && !compatible.some(({ finding }) =>
         (claim.before === null || claim.before === finding.before) && (claim.after === null || claim.after === finding.after)))) reject();
     }

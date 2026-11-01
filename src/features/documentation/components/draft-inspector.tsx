@@ -1,4 +1,4 @@
-import { BookOpen, ChevronDown, FileText } from "lucide-react";
+import { BookOpen, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { badgeVariants } from "@/components/ui/badge";
 import type { DocumentationDocument } from "../document";
@@ -7,7 +7,7 @@ import { DraftMarkdown } from "./draft-markdown";
 const disclosureStyle = "group rounded-xl border bg-card p-4 text-sm";
 const summaryStyle = "flex cursor-pointer list-none items-center justify-between gap-3 font-medium focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden";
 
-export function DraftInspector({ document, savedAt, published = false, appearance = "card", showMetadata = true }: { document: DocumentationDocument; showMetadata?: boolean; savedAt?: string; published?: boolean; appearance?: "card" | "help" }) {
+export function DraftInspector({ document, savedAt, published = false, appearance = "card", showMetadata = true, preview = false }: { document: DocumentationDocument; showMetadata?: boolean; preview?: boolean; savedAt?: string; published?: boolean; appearance?: "card" | "help" }) {
   const contexts = document.associations.flatMap(id => document.context.filter(choice => choice.id === id));
   const date = savedAt ? new Date(savedAt) : null;
   const savedLabel = date && Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Los_Angeles" }).format(date) + " PT" : null;
@@ -17,11 +17,11 @@ export function DraftInspector({ document, savedAt, published = false, appearanc
     <Card className={appearance === "help" ? "gap-6 rounded-none bg-transparent py-0 ring-0" : "gap-6 py-7 sm:py-9"}>
       <CardHeader className={appearance === "help" ? "gap-5 px-0" : "gap-5 px-6 sm:px-9"}>
         {showMetadata && <div className="flex flex-wrap items-center gap-2">
-          <span className={badgeVariants({ variant: "secondary" })}>{published ? "Published" : savedAt ? "Saved document" : "Draft · review needed"}</span>
-          {!savedAt && <span className={badgeVariants({ variant: "outline" })}>Not saved</span>}
+          <span className={badgeVariants({ variant: "secondary" })}>{published ? "Published" : savedAt ? "Saved document" : preview ? "Proposed content" : "Draft · review needed"}</span>
+          {!savedAt && !preview && <span className={badgeVariants({ variant: "outline" })}>Not saved</span>}
         </div>}
         <Title className={showMetadata ? "max-w-3xl text-3xl font-semibold tracking-tight text-balance sm:text-4xl" : "max-w-3xl text-3xl font-semibold tracking-tight text-balance"}>{document.title}</Title>
-        {showMetadata && <p className="text-sm leading-6 text-muted-foreground">{published ? "Published documentation for your app." : savedAt ? "Saved documentation. Publication is managed separately." : "Generated from source code. Review this draft before sharing it."}{savedLabel && <> Saved {savedLabel}.</>}</p>}
+        {showMetadata && <p className="text-sm leading-6 text-muted-foreground">{published ? "Published documentation for your app." : savedAt ? "Saved documentation. Publication is managed separately." : preview ? "Preview of the proposal. Saved documents are linked in the review receipt." : "Generated from source code. Review this draft before sharing it."}{savedLabel && <> Saved {savedLabel}.</>}</p>}
         {showMetadata && contexts.length > 0 && <div className="flex flex-wrap gap-2" aria-label="Related product context">{contexts.map(context => <span key={context.id} className="rounded-md bg-muted px-2.5 py-1 font-mono text-xs text-muted-foreground">{context.value}</span>)}</div>}
       </CardHeader>
       {showMetadata && <CardContent className={appearance === "help" ? "border-t px-0 pt-6 lg:hidden" : "border-t px-6 pt-6 sm:px-9"}>
@@ -53,13 +53,13 @@ export function DraftInspector({ document, savedAt, published = false, appearanc
             <summary className={summaryStyle}>Sources and confidence<ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" />
             </summary>
             <div className="mt-5 space-y-5 border-t pt-5 text-sm leading-6 text-muted-foreground">
-              <h4 className="font-semibold text-foreground">Preserved qualifications</h4>
+              <h4 className="font-semibold text-foreground">Support and limitations</h4>
               {section.qualifications.map(q => <div key={q.findingRef}>
                 <p className="font-medium text-foreground">{q.support === "directly-supported" ? "Supported by the source" : "Inferred from the source"} · {q.confidence} confidence</p>
                 <p>{q.confidenceReason}</p>
               </div>)}
               {section.content.map((block, index) => <div key={index} className="space-y-4">
-                <h4 className="font-semibold text-foreground">Block provenance · paragraph {index + 1}</h4>{block.factRefs.map(id => {
+                <h4 className="font-semibold text-foreground">Evidence for paragraph {index + 1}</h4>{block.factRefs.map(id => {
                   const fact = document.provenance.facts.find(f => f.id === id)!;
                   const finding = document.provenance.findings.find(f => f.id === fact.findingRef)!;
                   return <div key={id} className="space-y-3 border-l-2 pl-4">
@@ -86,14 +86,7 @@ export function DraftInspector({ document, savedAt, published = false, appearanc
           <p>{document.schemaVersion === 2 ? "Revision generated with" : "Generated with"} {document.generation.model}</p>
         </div>
       </details>
-      {showMetadata && <details className={disclosureStyle}>
-        <summary className={summaryStyle}>
-          <span className="flex items-center gap-2">
-            <FileText className="size-4 text-muted-foreground" aria-hidden="true" /> Developer details · canonical JSON</span>
-          <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" />
-        </summary>
-        <pre className="mt-4 max-h-96 overflow-auto rounded-lg bg-muted p-4 font-mono text-xs leading-5 whitespace-pre-wrap">{JSON.stringify(document, null, 2)}</pre>
-      </details>}
+
     </footer>
   </article>;
 }

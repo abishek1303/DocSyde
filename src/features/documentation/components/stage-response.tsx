@@ -1,5 +1,6 @@
 "use client";
 
+import { StageResponseContent } from "./stage-response-content";
 import { useEffect, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { MotionReveal } from "@/components/application/motion-reveal";
@@ -34,6 +35,6 @@ export function StageResponse({ runId, stage, label, response }: {
   </div>;
   if (state.response.status !== "available") return <p role="status" className="p-6 text-sm text-muted-foreground">{state.response.message}</p>;
   return <MotionReveal className="min-w-0 p-5">
-    <pre className="max-h-[65dvh] overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-6" tabIndex={0} aria-label={`Saved response for ${label}`}>{state.response.text}</pre>
+    <StageResponseContent text={state.response.text} preview={response.preview} stage={stage} label={label} />
   </MotionReveal>;
 }

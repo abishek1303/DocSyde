@@ -1,6 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { analyzeProductChanges, captureGenerationContext, decideRuntimeInspection, synthesizeProductImpact, analyzeRuntimeVisuals, validateProductResult, type RuntimeInspectionContext } from "@/features/sources/product-analysis";
+import { readInspectionContext, analyzeProductChanges, captureGenerationContext, decideRuntimeInspection, synthesizeProductImpact, analyzeRuntimeVisuals, validateProductResult, type RuntimeInspectionContext } from "@/features/sources/product-analysis";
 import { captureWorkflowWithRuntime } from "@/runner/runtime/capture-workflow";
 import { documentationHash } from "./document-identity";
 import { loadRunRuntimeConfig } from "./run-runtime-config";
@@ -54,7 +54,7 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
     // Error results are useful diagnostics but are not accepted as downstream evidence.
     return { analysis: source, analysisSha256: documentationHash(source), models: [...record.models, ...model("source-analysis", source)] };
   });
-  if (source!.status === "error") { await finish("failed", "source-analysis-failed", { stage: "source-analysis", code: source!.rejection?.stage === "model-output" ? modelFailureCode(source!.rejection.code) : source!.rejection ? "evidence-validation" : "stage-failed" }); return; }
+  if (source!.status === "error") { await finish("failed", "source-analysis-failed", { stage: "source-analysis", ...(source!.diagnostic ? { diagnostic: source!.diagnostic } : {}), code: source!.rejection?.stage === "model-output" ? modelFailureCode(source!.rejection.code) : source!.rejection ? "evidence-validation" : "stage-failed" }); return; }
   const validatedSource = validateProductResult(source!);
   if (validatedSource.status === "no-change") {
     await checkpoint(r => ({ ...r, runtime: { decision: "not-needed", outcome: "not-needed", reason: "no-source-differences", requestedTargets: [], uncoveredTargets: [], unresolvedQuestions: [], limitations: [] } }));
@@ -62,7 +62,9 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
   }
   await stage("runtime-decision", async () => {
     if (!configuration!.available) return {};
-    const result = await decideRuntimeInspection(validatedSource, { signal });
+    const supportingContext = await readInspectionContext(record.input, configuration.config.supportingSourcePaths, signal);
+    const result = await decideRuntimeInspection(validatedSource, { signal, supportingContext,
+      operatorCapabilities: { workflow: configuration.descriptor, capabilities: configuration.config.capabilities } });
     await check();
     const decision = result.decision;
     const requestedTargets = decision.targets.flatMap(t => t.pathname ? [t.pathname] : []);
@@ -70,8 +72,11 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
     const outcome = decision.status === "not-needed" ? "not-needed" : decision.status === "unresolved" || uncoveredTargets.length ? "requested-but-uncovered" : "unavailable";
     const reason = decision.status === "inspect" && !uncoveredTargets.length ? "inspection-requested-and-covered" : decision.reason;
     const limitations = decision.status === "not-needed" ? [] : outcome === "requested-but-uncovered" ? ["Useful runtime inspection could not be covered by the trusted workflow; requested rendered state remains unobserved.", ...decision.uncertainties] : [];
-    return { decision, runtime: { ...record.runtime!, decision: decision.status, outcome, reason, requestedTargets, uncoveredTargets,
-      unresolvedQuestions: decision.uncertainties, limitations }, models: [...record.models, ...model("runtime-decision", result)] };
+    // Declared capability scope is authority metadata, never proof that all desired observations were captured.
+    const scopeLimitations = configuration.config.capabilities.filter(c => decision.targets.some(t => t.capabilityId === c.id))
+      .map(c => `Configured inspection scope (${c.id}): ${c.description}`.slice(0, 500));
+    return { decision, inspectionContext: supportingContext, runtime: { ...record.runtime!, decision: decision.status, outcome, reason, requestedTargets, uncoveredTargets,
+      unresolvedQuestions: decision.uncertainties, limitations: [...limitations, ...scopeLimitations].slice(0, 8) }, models: [...record.models, ...model("runtime-decision", result)] };
   });
   let runtime: Awaited<ReturnType<typeof analyzeRuntimeVisuals>>["runtime"] = [];
   if (configuration!.available && record!.decision?.status === "inspect" && record!.runtime?.reason === "inspection-requested-and-covered") {

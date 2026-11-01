@@ -813,3 +813,31 @@ headline. Technical metadata, redundant summary/status blocks, breadcrumbs and
 secondary action lists are omitted from this screen. Failure recovery stays with
 the failed stage output, and a completed update exposes one review/open action
 in that panel. The existing endpoints, history and other detail routes are unchanged.
+
+## Runtime planning authority and proposal review UI
+
+Runtime planning now consumes two separate inputs: source evidence explaining the
+change, and optional operator-declared capabilities describing the existing trusted
+workflow's executable scope. Sources validates selected capability IDs and routes;
+Documentation supplies the repository-bound workflow descriptor/hash. Capability
+metadata and selection are planning/authority, never evidence of product behavior.
+Runner still executes only the trusted local script. Capture/vision observes current
+runtime state; it does not prove historical behavior or every interaction.
+
+Optional operator-selected supporting source files use Sources' existing pinned reader:
+maximum three files, immutable head only, 16 KiB combined content, whole-file exclusion
+with explicit missing/unsupported/oversized states. This is explicit context, not
+retrieval, repository scanning or a new service. Legacy configurations use source-derived
+routes without implicitly promoting supported pathnames into interaction coverage.
+
+The existing retained-proposal page now exposes per-decision human review through a
+validated Server Action. Browsers submit proposal/hash references and choices only;
+`applyDocumentationReview` retains authorization, frozen selections, materialization,
+immutable saves and receipts. Publishing stays a separate explicit saved-document action.
+No inference is used by review, save, publication or result reopening.
+
+Model errors carry small optional sanitized diagnostics through existing run JSON:
+kind, model, completion reason, timing, returned usage and known schema issue paths.
+No general telemetry service or raw rejected output storage is introduced. Historical
+rows remain readable. Unsupported Baseten Management API billing tooling is removed;
+inference billing failures remain classified.

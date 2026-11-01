@@ -238,3 +238,57 @@ overflow stops before inference and yields an incomplete run. Existing source-su
 and no-change/unresolved rules remain unchanged. Broad fallback preserves prior
 loading/integrity behavior. No canonical metadata enrichment or SDK retrieval change
 is included. See SETUP for exact scoring/bounds and the PostgreSQL/mocked-provider proof.
+
+## Bounded diagnostics, capabilities and human review
+
+New model-output failures preserve safe diagnostic subtypes, model/timing/completion
+metadata, returned token usage and known schema issue paths when available. Invalid
+outputs remain rejected; no raw rejected response, automatic retry or repair call is
+introduced. Failed historical runs cannot recover discarded response detail. Baseten
+Management API billing tooling is removed because the supplied inference key does
+not support it. Returned usage is not a dollar-cost estimate.
+
+Trusted runtime capabilities and explicitly pinned supporting context improve the
+existing inspection-decision input without adding inference calls. Capabilities are
+operator authority, not evidence. Supporting context is at most three files / 16 KiB
+from immutable head. Selected screenshot budget still governs vision; the priority
+live-demo configuration is limited to one image, intended to show resulting priority,
+not prove both form defaults and post-creation state.
+
+Proposal review/save is available through UI controls backed by the existing review
+operation. Save and Publish remain separate, model-free actions. Refreshing retained
+results and contextual help does not regenerate documentation.
+
+### Priority vertical-slice verification (October 31, 2026 PDT)
+
+The bounded live run reached real trusted capture and Meta vision using exactly one
+selected image of `Priority: Urgent` on request details. Product-impact synthesis
+then failed `unsupported-change-claim`; planning/transformation/retention were not
+reached. The model input now advertises per-finding allowed claim kinds using the
+same compatibility function as both validators. Validation is unchanged; mismatched
+references remain rejected. Regression tests cover the contract; its live efficacy
+has not been retested because the paid-attempt budget was exhausted.
+
+The separate isolated synthesis diagnostic failed provider-envelope validation.
+No raw response was retained, so its precise cause and the original historical
+failure cannot be recovered. Optional usage metadata is parsed independently from
+content; unavailable usage never invalidates otherwise valid output.
+
+Review/save/reopen and identical retry passed a desktop-browser proof using an
+existing deterministic test fixture, followed by fixture cleanup. That is independent
+UI validation, not proof that the live run produced publishable documentation.
+
+### Frozen-scope offline priority verification
+
+The retained priority source/vision inputs now have a deterministic regression proof
+through corrected synthesis, planning against a frozen existing Request Desk snapshot,
+transformation/support, proposal validation, review-component rendering and approved
+save materialization. Provider outputs are controlled fixtures; database transports are
+mocked and all writes are prohibited. The source-kind compatibility matrix is unchanged.
+Negative cases reject incompatible kinds, visual-only behavior, invented history and
+visual-only documentation updates. The original rejected claim wording was not retained;
+the proof reproduces its known rejection class, not an unavailable historical response.
+
+The vertical slice is implemented and awaiting final live verification. Corrected
+synthesis has not been proven live; downstream live documentation stages remain
+unreached. No additional paid inference was used for these checks or presentation polish.

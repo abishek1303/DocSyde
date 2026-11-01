@@ -251,3 +251,22 @@ test("retained ProductImpact graph validation accepts synthesis output and rejec
   ];
   for (const mutation of mutations) { const input = structuredClone(impact); mutation(input); assert.throws(() => validateProductImpact(input)); }
 });
+
+test("synthesis advertises the exact claim-kind permissions enforced for capability findings", async t => {
+  const input = source(); input.analysis!.findings[0].kind = "capability-added"; input.analysis!.findings[0].reachabilityEvidenceIds = ["p1"];
+  const response = output(); response.claims[0].kind = "ui-change";
+  const p = provider(t, response);
+  await synthesizeProductImpact({ source: input });
+  assert.deepEqual(p.payload().source.findings[0].allowedClaimKinds, ["behavior-change", "ui-change"]);
+  response.claims[0].kind = "workflow-change";
+  t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(response) } }] }));
+  await assert.rejects(synthesizeProductImpact({ source: input }), (error: unknown) => {
+    assert.ok(error instanceof Error && "diagnostic" in error);
+    const diagnostic = error.diagnostic as { kind: string; model: string; issues: { code: string; path: string }[] };
+    assert.equal(diagnostic.kind, "grounding-rejection");
+    assert.equal(diagnostic.issues[0].path, "claims.0.references");
+    assert.equal(diagnostic.issues[0].code, "unsupported-change-claim");
+    assert.equal(typeof diagnostic.model, "string");
+    return true;
+  });
+});

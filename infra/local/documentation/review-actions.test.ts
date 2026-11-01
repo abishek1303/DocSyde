@@ -1,0 +1,40 @@
+import "dotenv/config";
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { eq, inArray } from "drizzle-orm";
+import { createRequire } from "node:module";
+const cache: typeof import("next/cache") = createRequire(`${process.cwd()}/package.json`)("next/cache");
+import { reviewProposalFixture } from "./review-fixtures";
+import { draftFixture } from "./draft-fixture";
+import { getDatabase, closeDatabase } from "@/integrations/database/client";
+import { documentationReviews, documentationDrafts } from "@/integrations/database/schema";
+import { retainDocumentationProposal } from "@/features/documentation/review-proposal-operations";
+import { saveDocumentationDraft } from "@/features/documentation/operations";
+import { saveReviewedChanges } from "@/features/documentation/review-actions";
+
+test("review action accepts only authority references and explicit decisions; saves/replays without inference", async t => {
+  const owner = `review-ui-${randomUUID()}`, repository = `https://github.com/${owner}/product`;
+  const previous = process.env.DOCSYDE_ANALYSIS_REPOSITORIES; process.env.DOCSYDE_ANALYSIS_REPOSITORIES = `${owner}/product`;
+  t.mock.method(cache, "revalidatePath", () => {});
+  const fetch = t.mock.method(globalThis, "fetch", () => { throw new Error("Review cannot use inference"); });
+  const doc = draftFixture(); doc.provenance.repository = repository;
+  const proposal = reviewProposalFixture(doc, true); const ids = [doc.id];
+  t.after(async () => {
+    await getDatabase().delete(documentationReviews).where(eq(documentationReviews.id, proposal.proposalId));
+    await getDatabase().delete(documentationDrafts).where(inArray(documentationDrafts.id, ids));
+    await closeDatabase();
+    if (previous === undefined) delete process.env.DOCSYDE_ANALYSIS_REPOSITORIES; else process.env.DOCSYDE_ANALYSIS_REPOSITORIES = previous;
+  });
+  await saveDocumentationDraft(doc); const retained = await retainDocumentationProposal(proposal);
+  const selection = { proposalId: proposal.proposalId, expectedProposalHash: retained.proposalHash, decisions: proposal.results.map((r, i) => ({ decisionId: r.decisionId, choice: i === 0 ? "approve" : "reject" })) };
+  assert.equal((await saveReviewedChanges({ ...selection, document: doc })).status, "invalid-selection");
+  assert.equal((await saveReviewedChanges({ ...selection, decisions: [] })).status, "invalid-selection");
+  assert.equal((await saveReviewedChanges({ ...selection, expectedProposalHash: "0".repeat(64) })).status, "hash-mismatch");
+  const result = await saveReviewedChanges(selection);
+  result.review?.saves.forEach(s => { if (s.documentId) ids.push(s.documentId); });
+  assert.equal(result.status, "complete"); assert.equal(result.review?.saves[0].status, "saved");
+  assert.deepEqual((await saveReviewedChanges(selection)).review?.saves, result.review?.saves);
+  assert.equal((await saveReviewedChanges({ ...selection, decisions: selection.decisions.map(d => ({ ...d, choice: "reject" })) })).status, "selection-conflict");
+  assert.equal(fetch.mock.callCount(), 0);
+});

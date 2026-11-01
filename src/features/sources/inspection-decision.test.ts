@@ -286,3 +286,15 @@ test("insufficient source evidence can produce unresolved without inventing rout
   assert.deepEqual((await decideRuntimeInspection(input)).decision, output);
   assert.equal(p.fetch.mock.callCount(), 1);
 });
+
+test("trusted capability permits a patch-only route but never invented IDs or expanded routes", async t => {
+  const input = source(); input.bundle.evidence = input.bundle.evidence.slice(0, 1);
+  const authority = { workflow: { id: "request-result", version: "1", sha256: "c".repeat(64) }, capabilities: [{ id: "request-result", pathname: "/requests/new", description: "Create an urgent request and observe its resulting priority." }] };
+  const decision = { ...inspect, targets: [{ ...inspect.targets[0], capabilityId: "request-result", citations: [changeCitation] }] };
+  const p = provider(t, decision);
+  assert.equal((await decideRuntimeInspection(input, { operatorCapabilities: authority })).decision.status, "inspect");
+  assert.deepEqual(JSON.parse(p.payload()).operatorCapabilities, authority);
+  assert.deepEqual(JSON.parse(p.payload()).routeCandidates, []);
+  await assert.rejects(decideRuntimeInspection(input), /unsupported-capability/);
+  await assert.rejects(decideRuntimeInspection(input, { operatorCapabilities: { ...authority, capabilities: [{ ...authority.capabilities[0], pathname: "/other" }] } }), /unsupported-capability/);
+});

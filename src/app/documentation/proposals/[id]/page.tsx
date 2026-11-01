@@ -1,3 +1,5 @@
+import { ProposalReviewForm } from "@/features/documentation/components/proposal-review-form";
+import { intrinsicReviewReady } from "@/features/documentation/materialize-approved-changes";
 import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
@@ -27,15 +29,15 @@ async function Proposal({ params, searchParams }: { params: Promise<{ id: string
       <h1 className="text-3xl font-semibold tracking-tight">Proposed documentation</h1>
       <p className="max-w-3xl leading-7 text-muted-foreground">{review.proposal.impact.summary}</p>
     </header>
-    <p role="status" className="rounded-lg border bg-card p-5 text-sm leading-7">{expired ? "This proposal has expired. Start a new analysis to prepare a fresh proposal." : review.review ? "A review selection has been accepted. Saved documents and publication results are recorded separately." : "Ready for human review. Approval and saving currently use the review CLI documented in SETUP.md. Publishing is a separate action."}</p>
-    <section className="space-y-4">
-      <h2 className="text-lg font-semibold">What needs attention</h2>
-      <ul className="divide-y rounded-xl border bg-card px-6">{review.proposal.results.map(result => <li key={result.decisionId} className="space-y-2 py-5">
-        <p className="text-sm font-medium">{result.decision.action.replaceAll("-", " ")} · {result.reviewReady ? "Ready for review" : "Not ready"}</p>
-        <p className="text-sm leading-7">{result.decision.reason}</p>{result.decision.updateIntent && <p className="text-sm leading-7 text-muted-foreground">{result.decision.updateIntent}</p>}{result.issues.map(issue => <p key={issue} className="text-sm text-muted-foreground">{issue}</p>)}</li>)}</ul>
-    </section>{review.proposal.candidates.map(candidate => <section key={candidate.document.id} className="space-y-4">
+    <p className="text-sm text-muted-foreground">Review the proposed changes below. Saving creates immutable documentation; publication is a separate action.</p>
+    <ProposalReviewForm proposalId={id} proposalHash={review.proposalHash} accepted={review.review} expired={expired}
+      items={review.proposal.results.map(result => ({ id: result.decisionId, action: result.decision.action,
+        reason: [result.decision.reason, result.decision.updateIntent].filter(Boolean).join(" "),
+        ready: (() => { try { return intrinsicReviewReady(review.proposal, result); } catch { return false; } })(),
+        issues: [...result.issues, ...result.limitations] }))} />
+{review.proposal.candidates.map(candidate => <section key={candidate.document.id} className="space-y-4">
       <h2 className="text-lg font-semibold">Preview: {candidate.document.title}</h2>
-      <DraftInspector document={candidate.document} />
+      <DraftInspector document={candidate.document} preview />
     </section>)}<details className="rounded-lg border p-4">
       <summary className="cursor-pointer text-sm">Review reference</summary>
       <p className="mt-3 break-all font-mono text-xs">Proposal {id}<br />Hash {review.proposalHash}</p>

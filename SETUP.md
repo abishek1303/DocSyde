@@ -210,23 +210,7 @@ npm run ai:verify
 Expect `data.receiptId` to be `proof-123`, plus model and elapsed-time fields.
 This uses API credit; it does not analyze Git changes yet.
 
-Baseten billing (read-only; no inference call): `npm run ai:billing` prints
-organization-wide month-to-date gross cost, credits applied, and cost after credits
-in USD using `BASETEN_API_KEY`. The server-only API is `getBasetenBilling` in
-`src/integrations/ai/baseten/billing.ts`; no public HTTP endpoint is exposed.
-Optional start/end ISO timestamps select a range of at most 31 days, starting no
-earlier than January 1, 2026. Null categories mean unavailable usage, not a confirmed
-zero. Remaining credits are explicitly unavailable: the public API reports credits
-used, not the account balance; check the workspace Billing page for that balance.
-Usage may lag and is not a finalized invoice. Provider reference:
-[Baseten Management API specification](https://api.baseten.co/v1/spec).
-Run `npm run ai:billing:test` for mocked validation and failure checks.
-An optional third argument supplies starting credits for a clearly labeled estimate:
-`npm run ai:billing -- 2026-10-01T00:00:00Z 2026-10-30T00:00:00Z 100`.
-The estimate subtracts gross usage in the range from the grant; choose dates that
-cover all grant usage. It cannot account for expired credits or unreported charges.
-If Baseten returns HTTP 403, the configured key is denied billing access. Use a
-key with access to the organization's Management API billing data, then rerun.
+Baseten Management API billing tooling is not included; the supplied inference key does not support it. Inference billing errors are still reported. Check credits in the provider dashboard.
 
 Other independent checks:
 
@@ -430,8 +414,7 @@ New runs perform source → optional runtime → impact → plan → conditional
 → retained proposal. They never generate a legacy direct v1 draft or automatically
 approve/save/publish. Historical runs and standalone `/documentation/draft` remain
 readable/available. New retained proposals cannot enter the legacy signed-save form.
-The current review page is read-only; use the [review CLI](#proposal-review-proof)
-with the retained UUID/hash for explicit human review. Initial expiry remains 24 hours.
+Open the retained proposal to explicitly approve/reject each change and save reviewed changes. Saving does not publish; open a saved document for explicit Publish/Replace. The [review CLI](#proposal-review-proof) remains available for operator use. Initial expiry remains 24 hours.
 
 Optional runtime configuration: set server-only `DOCSYDE_RUN_RUNTIME_CONFIG` to an
 operator-managed JSON file. Use the existing visual-workflow example shape and add:
@@ -583,8 +566,7 @@ acknowledgment creates review metadata only, no document/publication writes.
 no inference, isolated rows and cleanup; it exercises subset rejection, V1/V2 saves,
 replacement/contextual retrieval, save-only, publication conflicts, replay and rollback.
 `npm run documentation:review:test` also runs admission/subset/dependency-boundary tests.
-Polished review UI, HTTP mutation handlers, run orchestration, editing/rebase and changing
-an accepted final selection remain deferred.
+The proposal UI now submits explicit review choices through a Server Action. Editing/rebase and changing an accepted selection remain deferred.
 
 ## Schema-v2 slice verification
 
@@ -648,7 +630,7 @@ model calls, migrations or browser UI changes were introduced.
   Latest and archived readers include searchable document navigation, section links,
   a fixed breadcrumb and independent article scrolling, with compact mobile navigation.
   Proposal previews are at `/documentation/proposals/<proposal-id>`; schema-v2
-  approval/save still uses the [retained-review instructions above](#proposal-review-proof).
+  approval/save uses the proposal review form, with [CLI instructions above](#proposal-review-proof) available for operators.
 - `/ai`: the implemented contextual retrieval endpoint/SDK and planned MCP support.
 
 Repository/branch selection is preserved by primary navigation. Existing source
@@ -721,3 +703,54 @@ short entrance sequence; document content, branch summaries, form errors and loa
 response content use brief reveals. Motion respects the system reduced-motion
 preference, including changes while the page is open. Animations clean up on
 unmount; execution, inference and publication behavior are unchanged.
+
+## Trusted runtime capabilities and UI review
+
+The operator-managed run workflow may additionally declare `capabilities` and
+`supportingSourcePaths`. Existing configurations remain valid with empty lists.
+A capability selects the scope of the **existing single workflow**, not a new
+browser script. Every declared capability route must be in `supportedPathnames`.
+For Request Desk, add these fields to the complete runtime configuration:
+
+```json
+{
+  "capabilities": [{
+    "id": "urgent-request-result",
+    "pathname": "/requests/new",
+    "description": "Create an urgent request using the configured workflow and observe the displayed priority in the resulting request details. Does not visually verify initial form defaults, close/reopen, or refresh."
+  }],
+  "supportingSourcePaths": ["test-app/src/public/app.ts", "test-app/src/server.ts"],
+  "maxSelectedScreenshots": 1
+}
+```
+
+The example extends the existing launch/attach + workflow JSON; it is not a
+standalone executable configuration. The model can select supplied capability IDs
+but never commands, selectors or actions. Supporting source is read from the pinned
+run head, at most three explicitly named files and 16 KiB combined whole content.
+Missing, unsupported and oversized files are recorded explicitly. Capability metadata
+and selection are not evidence that the product works. Captures establish only
+observed runtime state; a current screenshot does not establish prior behavior.
+
+Open a run's retained proposal or **Documentation → Pending**. Choose approve/reject
+(or acknowledge/reject) for every decision; there are no default approvals. Inspect
+previews and qualifications, then **Save reviewed changes**. Unready changes cannot
+be approved. Saved-document receipts link to the immutable document and its separate
+Publish/Replace controls. Accepted review choices are frozen; retry uses the identical
+selection. Refresh/reopen and review/save/publication make no inference calls.
+
+Failed runs retain bounded failure kind, model, completion reason, elapsed time,
+returned token usage and known schema issue paths when available. **Failure details**
+expands these safe fields. No raw rejected response is stored, and older failures
+cannot recover details. There are no automatic retries or repair calls.
+
+### Offline priority contract check
+
+`node --conditions=react-server --import tsx --test infra/local/documentation/priority-contract.test.ts`
+replays retained priority inputs with mocked provider outputs and a frozen Request Desk
+snapshot through synthesis, planning, transformation, proposal rendering and save
+materialization. It requires no credentials or database writes and makes no live
+inference calls. This is deterministic contract verification, not final live verification.
+Run-stage panels now show readable saved findings and evidence limitations, with the
+technical response collapsed. Proposal previews are labelled as proposed content;
+saved-document receipts remain the authority for save state.

@@ -1,4 +1,5 @@
 import "server-only";
+import type { InspectionCapabilities, InspectionSupport } from "./inspection-capabilities";
 import { generateStructured } from "@/integrations/ai/generate-structured";
 import type { ProductResult } from "./product-change-analysis";
 import { validateProductCitation } from "./product-change-evidence";
@@ -16,7 +17,8 @@ Static sufficiency does not force not-needed: checking rendered UI state may sti
 Limited coverage cannot justify not-needed. Missing information must remain explicit uncertainty.
 not-needed has no targets. inspect needs 1-3 targets, all with concrete evidenced pathnames.
 Use unresolved if any desired target lacks a justified concrete route; include uncertainties and use pathname null.
-Choose a pathname only from routeCandidates and copy its complete supporting citation exactly.
+Choose a pathname from routeCandidates with its supporting citation, OR select a supplied operatorCapabilities capabilityId with its exact pathname. Operator capabilities declare what the trusted workflow is allowed/configured to inspect, not product truth. Cite source evidence explaining why inspection is useful even when selecting operator authority. Never expand a capability's scope. Prefer the capability that observes the resulting changed product state. Questions outside its scope remain uncertainties; do not claim them verified. Capability selection is planning only. For a trusted capability, use its ID rather than requiring a source citation to prove route authority.
+Supporting context is pinned at head; missing/oversized files are explicitly unavailable. Existing source citations still establish the reason for inspection.
 Copy other citations from supplied evidenceId and lines tuples, with exact excerpt and tuple coordinates.
 Never infer routes from filenames or surface descriptions. Do not invent IDs, slugs, parameters or query values.
 Never generate selectors, actions, runtime URLs, commands, capture configuration or documentation decisions.
@@ -26,11 +28,11 @@ Return only the decision DATA INSTANCE, not a schema.`;
 function reject(code: string): never { throw new Error(`Inspection decision rejected: ${code}`); }
 
 export async function decideRuntimeInspection(
-  source: ProductResult, options: { signal?: AbortSignal } = {},
+  source: ProductResult, options: { signal?: AbortSignal; operatorCapabilities?: InspectionCapabilities; supportingContext?: InspectionSupport } = {},
 ): Promise<{ decision: InspectionDecision; model?: string; elapsedMs?: number }> {
   options.signal?.throwIfAborted();
   const input = validateProductResult(source);
-  const bundle = input.bundle;
+  const bundle = { ...input.bundle, evidence: [...input.bundle.evidence, ...(options.supportingContext ?? []).map((file, index) => ({ id: `inspection-${index}`, path: file.path, side: "head" as const, commitId: file.commitId, text: file.text, status: file.status, changed: false }))] };
   if (input.status === "no-change") {
     return { decision: inspectionDecisionSchema.parse({ status: "not-needed",
       reason: "The supplied comparison contains no net source changes.", staticEvidence: "sufficient", targets: [], uncertainties: [] }) };
@@ -38,7 +40,7 @@ export async function decideRuntimeInspection(
   const routeCandidates = inspectionRouteCandidates(bundle);
   const payload = JSON.stringify({ bundle: { ...bundle, evidence: bundle.evidence.map(({ id, text, ...entry }) => ({
     ...entry, evidenceId: id, lines: text === null ? null : text.split("\n").map((line, index) => [index + 1, line]),
-  })) }, analysis: input.analysis, routeCandidates });
+  })) }, analysis: input.analysis, routeCandidates, operatorCapabilities: options.operatorCapabilities });
   if (Buffer.byteLength(payload, "utf8") > PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES) reject("request-over-budget");
   options.signal?.throwIfAborted();
   const generated = await generateStructured({ instructions, input: payload, schema: inspectionDecisionSchema,
@@ -47,7 +49,8 @@ export async function decideRuntimeInspection(
   if (bundle.limited && decision.status === "not-needed") reject("limited-evidence-not-needed");
   for (const target of decision.targets) {
     for (const citation of target.citations) validateProductCitation(citation, bundle);
-    if (target.pathname !== null && !routeCandidates.some(candidate => candidate.pathname === target.pathname
+    if (target.capabilityId && !options.operatorCapabilities?.capabilities.some(c => c.id === target.capabilityId && c.pathname === target.pathname)) reject("unsupported-capability");
+    if (target.pathname !== null && !target.capabilityId && !routeCandidates.some(candidate => candidate.pathname === target.pathname
       && target.citations.some(citation => citation.evidenceId === candidate.citation.evidenceId
         && citation.startLine === candidate.citation.startLine && citation.endLine === candidate.citation.endLine
         && citation.excerpt === candidate.citation.excerpt))) reject("unsupported-route");

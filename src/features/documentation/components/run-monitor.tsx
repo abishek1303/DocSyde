@@ -104,6 +104,7 @@ export function RunMonitor({ initial }: { initial: RunView }) {
           <Button variant="ghost" size="sm" onClick={() => setSelectedStage(null)}>Follow pipeline</Button>
         </div>}
         {selected && <StageActivity key={`${id}:${selected.key}`} runId={id} stage={selected} label={labelFor(selected.key)} response={selectedResponse} summary={summaryFor(selected)} />}
+        {failure?.diagnostic && selected?.key === failure.stage && <details className="px-6 pb-4 text-sm"><summary>Failure details</summary><pre className="whitespace-pre-wrap">{JSON.stringify(failure.diagnostic, null, 2)}</pre></details>}
         {failureDescription && selected?.key === failure?.stage && <p className="px-6 pb-6 text-sm leading-6 text-muted-foreground">{failureDescription.nextStep}</p>}
         {following && !["pending", "running"].includes(run.status) && (run.retainedProposal || run.hasDraft || (run.savedAt && run.documentId)) && <div className="px-5 pb-5">
           {run.savedAt && run.documentId ? <Link href={`/documentation/drafts/${run.documentId}?${new URLSearchParams({ repository: `https://github.com/${run.input.owner}/${run.input.repo}` })}`} className={buttonVariants()}>Open saved draft</Link>

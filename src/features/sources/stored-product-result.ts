@@ -1,3 +1,4 @@
+import { modelDiagnosticSchema } from "@/integrations/ai/model-diagnostic";
 import "server-only";
 import { z } from "zod";
 import { productChangeOutput } from "./product-change-analysis";
@@ -10,6 +11,7 @@ export const storedProductResult = z.object({
     limited: z.boolean(), notice: z.string(),
   }), bytes: z.number().nonnegative().max(64 * 1024), status: z.enum(["no-change", "analyzed", "insufficient-evidence", "error"]),
   analysis: productChangeOutput.nullable(), model: z.string().optional(), elapsedMs: z.number().optional(), error: z.string().optional(),
+  diagnostic: modelDiagnosticSchema.optional(),
   rejection: z.object({ stage: z.enum(["model-output", "evidence-validation"]), code: z.string(), findingIndex: z.number().optional(), citationIndex: z.number().optional() }).optional(),
 }).superRefine((result, ctx) => {
   try { serializeProductEvidence(result.bundle); }

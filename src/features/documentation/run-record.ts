@@ -1,4 +1,6 @@
 import "server-only";
+import { inspectionSupportSchema } from "@/features/sources/product-analysis";
+import { modelDiagnosticSchema } from "@/integrations/ai/model-diagnostic";
 import { z } from "zod";
 import { productChangeInput, storedProductResult, generationContextSnapshot } from "@/features/sources/product-analysis";
 import { WORKFLOW_STEPS, workflowStage, runDisposition } from "./run-workflow-state";
@@ -32,12 +34,13 @@ export type LegacyRunRecord = z.infer<typeof legacyRunRecord>;
 export const runRecordV2 = z.object({
   schemaVersion: z.literal(2), input: runInput, title: z.string().max(500),
   status: z.enum(["pending", "running", "finished"]), disposition: runDisposition.nullable(),
-  failure: z.object({ stage: z.enum([...WORKFLOW_STEPS, "execution"]), code: z.enum(RUN_FAILURE_CODES) }).strict().optional(),
+  failure: z.object({ stage: z.enum([...WORKFLOW_STEPS, "execution"]), code: z.enum(RUN_FAILURE_CODES), diagnostic: modelDiagnosticSchema.optional() }).strict().optional(),
   activeStage: z.enum(WORKFLOW_STEPS).nullable(), reason: z.string().max(500).nullable(), summary: z.string().max(2000),
   startedAt: z.iso.datetime().nullable(), finishedAt: z.iso.datetime().nullable(),
   stages: z.array(workflowStage).length(WORKFLOW_STEPS.length),
   execution: z.object({ token: z.uuid(), heartbeatAt: z.iso.datetime(), cancelRequestedAt: z.iso.datetime().nullable() }).strict().nullable(),
   contextSnapshot: generationContextSnapshot.optional(),
+  inspectionContext: inspectionSupportSchema.optional(),
   runtimeResponsePreview: z.string().max(241).optional(),
   runtime: runtimeInspectionContextSchema.optional(), decision: inspectionDecisionSchema.optional(),
   artifacts: z.array(z.object({ kind: z.enum(["runtime-trace", "runtime-analysis"]), key: z.uuid(), sha256: z.string().regex(/^[a-f0-9]{64}$/) }).strict()).max(2).default([]),

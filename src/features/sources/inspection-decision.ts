@@ -1,3 +1,4 @@
+import { modelDiagnosticSchema } from "@/integrations/ai/model-diagnostic";
 import { z } from "zod";
 import { productChangeOutput, productCitation } from "./product-change-analysis";
 
@@ -11,6 +12,7 @@ export const inspectionDecisionSchema = z.object({
   reason: nonblank(500),
   staticEvidence: z.enum(["sufficient", "insufficient", "uncertain"]),
   targets: z.array(z.object({
+    capabilityId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/).optional(),
     pathname: z.string().refine(isConcreteInspectionPath).nullable(),
     description: nonblank(300),
     visibleEvidence: z.array(nonblank(300)).min(1).max(4),
@@ -45,6 +47,7 @@ export const inspectionSourceSchema = z.object({
   analysis: productChangeOutput.nullable(),
   model: z.string().max(300).optional(), elapsedMs: z.number().finite().nonnegative().optional(),
   error: z.string().max(2000).optional(),
+  diagnostic: modelDiagnosticSchema.optional(),
   rejection: z.object({
     stage: z.enum(["model-output", "evidence-validation"]), code: z.string().max(100),
     findingIndex: z.number().int().nonnegative().optional(), citationIndex: z.number().int().nonnegative().optional(),

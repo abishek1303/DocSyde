@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { z } from "zod";
-import { generateStructured } from "@/integrations/ai/generate-structured";
+import { generateStructured, ModelError } from "@/integrations/ai/generate-structured";
 const options = { instructions: "Extract", input: "value", schema: z.object({ value: z.string() }).strict() };
 for (const [content, reason, code] of [[ '{"value":"yes"}', "stop", null ], ["oops", "stop", "invalid-json"], ['{"value":3}', "stop", "schema-mismatch"], ['{"value":"yes"}', "length", "incomplete-output"]] as const) {
   test(`model response ${code ?? "success"}`, async (t) => {
@@ -32,4 +32,35 @@ test("missing credentials and unsupported schemas fail before network access", a
   await assert.rejects(generateStructured(options), /missing-credentials/);
   await assert.rejects(generateStructured({ ...options, schema: z.date() }), /unsupported-schema/);
   assert.equal(fetch.mock.callCount(), 0);
+});
+
+test("failed validation keeps bounded diagnostics and usage without output values or unknown keys", async t => {
+  const previous = process.env.BASETEN_API_KEY; process.env.BASETEN_API_KEY = "test";
+  t.after(() => { if (previous === undefined) delete process.env.BASETEN_API_KEY; else process.env.BASETEN_API_KEY = previous; });
+  t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify({ value: 123, "private-key-name": "private-value" }) } }], usage: { prompt_tokens: 12, completion_tokens: 8, total_tokens: 20 } }));
+  await assert.rejects(generateStructured({ ...options, schema: z.object({ value: z.string() }).strict() }), (error: unknown) => {
+    assert.ok(error instanceof ModelError);
+    assert.equal(error.diagnostic?.kind, "schema-mismatch");
+    assert.equal(error.diagnostic?.completionReason, "stop");
+    assert.equal(error.diagnostic?.usage?.total_tokens, 20);
+    assert.ok(error.diagnostic?.issues?.some(issue => issue.path === "value"));
+    assert.ok(!JSON.stringify(error.diagnostic).includes("private"));
+    return true;
+  });
+});
+
+test("provider usage extensions do not invalidate an otherwise valid inference response", async t => {
+  const previous = process.env.BASETEN_API_KEY; process.env.BASETEN_API_KEY = "test";
+  t.after(() => { if (previous === undefined) delete process.env.BASETEN_API_KEY; else process.env.BASETEN_API_KEY = previous; });
+  t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: '{"value":"yes"}' } }], usage: { prompt_tokens: 12, completion_tokens: 8, total_tokens: 20, completion_tokens_details: { reasoning_tokens: 4 } } }));
+  assert.deepEqual((await generateStructured(options)).data, { value: "yes" });
+});
+
+test("unavailable or malformed optional usage never rejects valid generated content", async t => {
+  const previous = process.env.BASETEN_API_KEY; process.env.BASETEN_API_KEY = "test";
+  t.after(() => { if (previous === undefined) delete process.env.BASETEN_API_KEY; else process.env.BASETEN_API_KEY = previous; });
+  for (const usage of [null, { total_tokens: "unavailable" }]) {
+    t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: '{"value":"yes"}' } }], usage }));
+    assert.deepEqual((await generateStructured(options)).data, {value:"yes"});
+  }
 });

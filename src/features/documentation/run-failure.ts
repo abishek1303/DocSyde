@@ -1,3 +1,4 @@
+import type { ModelDiagnostic } from "@/integrations/ai/model-diagnostic";
 // Public failure descriptions are fixed application text, never provider messages.
 export const RUN_FAILURE_CODES = [
   "source-credentials", "source-access", "source-not-found", "source-rate-limit", "source-timeout", "source-history", "source-incomplete", "source-input", "source-unavailable", "evidence-budget", "evidence-validation",
@@ -5,7 +6,7 @@ export const RUN_FAILURE_CODES = [
   "database-unavailable", "database-schema", "invalid-data", "runtime-failed", "candidates-incomplete", "transformation-failed", "deadline", "heartbeat", "stage-failed", "details-unavailable",
 ] as const;
 export type RunFailureCode = typeof RUN_FAILURE_CODES[number];
-export type RunFailure = { stage: string; code: RunFailureCode };
+export type RunFailure = { stage: string; code: RunFailureCode; diagnostic?: ModelDiagnostic };
 const descriptions: Record<RunFailureCode, { message: string; nextStep: string }> = {
   "source-credentials": { message: "GitHub access is not configured.", nextStep: "Configure GITHUB_TOKEN on the server, then rerun this comparison." },
   "source-access": { message: "GitHub denied access to this repository.", nextStep: "Check the token’s repository permissions and organization access, then rerun." },
