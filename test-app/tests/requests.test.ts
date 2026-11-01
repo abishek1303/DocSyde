@@ -1,7 +1,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { initialRequests, createRequest, closeRequest, reopenRequest } from "../src/public/requests.js";
+import { initialRequests, createRequest, closeRequest, reopenRequest, requestPriority } from "../src/public/requests.js";
 test("deterministic independent initial data", () => { const first = initialRequests(); first[0].title = "changed"; assert.equal(initialRequests()[0].title, "Update team contact"); assert.deepEqual(initialRequests().map(r => r.id), ["r-001", "r-002"]); });
-test("creation requires a nonblank title and permits optional description", () => { for (const title of ["", "   "]) assert.throws(() => createRequest(initialRequests(), title, ""), /title/); const initial = initialRequests(); const next = createRequest(initial, "  Help  ", ""); assert.equal(initial.length, 2); assert.deepEqual(next[2], { id: "r-003", title: "Help", description: "", status: "open" }); assert.equal(createRequest(next, "Next", "Details")[3].id, "r-004"); });
+test("creation requires a nonblank title and permits optional description", () => { for (const title of ["", "   "]) assert.throws(() => createRequest(initialRequests(), title, ""), /title/); const initial = initialRequests(); const next = createRequest(initial, "  Help  ", ""); assert.equal(initial.length, 2); assert.deepEqual(next[2], { id: "r-003", title: "Help", description: "", status: "open", priority: "normal" }); assert.equal(createRequest(next, "Next", "Details")[3].id, "r-004"); });
 test("closing is immutable, idempotent, and rejects missing requests", () => { const initial = initialRequests(); const next = closeRequest(initial, "r-001"); assert.equal(initial[0].status, "open"); assert.equal(next[0].status, "closed"); assert.deepEqual(closeRequest(next, "r-001"), next); assert.throws(() => closeRequest(initial, "missing"), /not found/); });
 test("reopening is immutable, idempotent, preserves other requests and rejects missing ids", () => { const initial = initialRequests(); const next = reopenRequest(initial, "r-002"); assert.equal(initial[1].status, "closed"); assert.equal(next[1].status, "open"); assert.deepEqual(next[0], initial[0]); assert.deepEqual(reopenRequest(next, "r-002"), next); assert.throws(() => reopenRequest(initial, "missing"), /not found/); });
+
+test("priority defaults, validates, and survives close/reopen", () => {
+  assert.equal(requestPriority(undefined), "normal");
+  assert.equal(createRequest(initialRequests(), "Default", "")[2].priority, "normal");
+  const next = createRequest(initialRequests(), "Urgent issue", "Details", "urgent");
+  assert.equal(next[2].priority, "urgent");
+  assert.equal(reopenRequest(closeRequest(next, "r-003"), "r-003")[2].priority, "urgent");
+  assert.throws(() => createRequest(initialRequests(), "Invalid", "", "high"), /Normal or Urgent/);
+  assert.throws(() => requestPriority(null), /Normal or Urgent/);
+});

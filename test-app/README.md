@@ -32,7 +32,8 @@ and nonzero exit. No fallback port is selected. Stop with Ctrl-C.
   `/requests/:id`. Unknown IDs show Request not found. Other paths return HTTP 404.
 - Data lives in this tab's sessionStorage. Fresh browser contexts start identically;
   full page navigation and refresh retain session data. IDs increment deterministically.
-- No priority, stricter validation, confirmation workflow, or route migration yet.
+- Choose Normal (default) or Urgent priority when creating a request. Lists and details display priority; closing/reopening and refresh preserve it. Older session data without priority reads as Normal.
+- No stricter title/description validation, confirmation workflow, or route migration yet.
 
 ## Runner and capture
 
