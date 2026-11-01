@@ -93,7 +93,11 @@ Muse slug accepts explicitly requested controls. Provider wire names stay in tra
 The operation policy supplies explicit ceilings/revisions for debug snapshots; no
 provider-default values are inferred. There is no arbitrary provider-options passthrough.
 
-The shared logger allows only approved exact input strings and accepted typed response
-projections, each <=128 KiB. Static instructions, source bundles, provider envelopes,
-images and reasoning never enter logs. See root MODEL_USAGE.md for the operation matrix.
-Payloads remain SQL-only and cannot become model inputs, evidence or authority.
+The shared logger uses an explicit operation retention policy. Runtime decision, planning
+and product impact retain sanitized bounded model-facing instructions/input/schema plus
+schema-valid output before post-validation. Transformation retains requests/diagnostics,
+not unknown entries. Vision, selection, support and receipt keep their strict projections.
+No raw malformed/provider output, images, credentials, headers or reasoning are captured.
+See root MODEL_USAGE.md for the operation matrix and byte budgets. Authorized invocation
+details expose only validated debug representations. Logs cannot become model inputs,
+evidence or authority. Historical missing content is not reconstructed.

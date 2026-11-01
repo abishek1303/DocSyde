@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { selectedRepository } from "@/features/sources/product-analysis";
 import { findAiModelInvocation, selectRepositoryAiInvocations } from "@/integrations/database/ai-model-invocations";
+import { invocationDebugView } from "./invocation-debug-view";
 import { modelDiagnosticSchema } from "@/integrations/ai/model-diagnostic";
 import { getDocumentationRun, runView } from "./run-operations";
 import { runFailureForView } from "./run-failure";
@@ -38,7 +39,7 @@ export async function getModelUsage(rawId: unknown) {
     stage: row.stage, operation: row.operation, provider: row.provider, model: row.model, status: row.status,
     failureKind: row.failureKind, completionReason: row.completionReason, inputTokens: row.inputTokens,
     outputTokens: row.outputTokens, elapsedMs: row.elapsedMs, createdAt: row.createdAt.toISOString(),
-    diagnostic: diagnostic.success ? diagnostic.data : null };
+    diagnostic: diagnostic.success ? diagnostic.data : null, debug: invocationDebugView(row) };
 }
 
 export async function getModelFailure(runId: unknown, rawStage: unknown) {

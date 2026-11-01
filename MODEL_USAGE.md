@@ -303,7 +303,7 @@ run/stage/operation context, including separate visual selection, per-image visi
 transformation batches, and support checks. Standalone calls have nullable run IDs.
 
 Invocation metadata, sanitized failure diagnostics and requested-configuration snapshots
-are persisted. Approved debug payloads are described below; static prompts, provider
+are persisted. Approved sanitized prompt snapshots are described below; raw provider
 bodies, images and reasoning are never retained. Grounding/correspondence rejection is separate from provider/schema
 failure and preserves original completion metadata. Logging failures never replace
 model results/errors. Logs must never feed evidence, authority, or model input.
@@ -344,29 +344,43 @@ plus reference overhead; support can return 128 reasons. No character-to-token e
 or inferred reasoning split is recorded. Smaller budgets, numeric evidence reductions,
 and active reasoning/sampling changes require a separate controlled comparison.
 
-| Operation | Request | Accepted response |
-| --- | --- | --- |
-| Source analysis/summary, runtime decision | Omitted: source-bearing | Omitted: source-bearing |
-| Visual selection | Exact final existing redacted/compacted input string | Decision and selected checkpoint/source IDs only |
-| Runtime vision | Omitted: image/mixed context | Element index, bounds/certainty and observation/limitation counts only |
-| Product impact, planning, legacy draft, transformation | Omitted: source/document-derived text | Omitted: prose or complex batches |
-| Transformation support | Omitted: wording/authority catalogs | Unit IDs and verdict enums only, after all correspondence checks |
-| Fixed receipt verifier | Exact fixed input | Validated fixed literal only |
-| Unknown operations | Omitted | Omitted |
+| Operation | Instructions / input / schema | Output | Post-validation diagnostic |
+| --- | --- | --- | --- |
+| Runtime decision | Sanitized bounded snapshots | Schema-valid response, including rejected decisions | Exact fixed rule, field path and correspondence hashes |
+| Product-impact synthesis | Sanitized bounded snapshots | Schema-valid response before grounding checks | Fixed recognized invariant code; generic fallback |
+| Documentation planning | Sanitized bounded snapshots | Schema-valid response before grounding checks | Fixed targeting/support invariant code; generic fallback |
+| Documentation transformation | Sanitized bounded snapshots | Denied: envelope entries remain unvalidated unknown values | First failed entry protocol invariant |
+| Runtime vision | Denied | Existing validated bounds/certainty/count projection | Generic fixed diagnostic only |
+| Visual selection | Existing exact redacted/compacted input only | Accepted decision and selected checkpoint/source IDs | Generic fixed diagnostic only |
+| Transformation support | Denied | Accepted unit IDs/verdict enums | Generic fixed diagnostic only |
+| Fixed receipt verifier | Existing exact fixed input only | Validated fixed literal | Generic fixed diagnostic only |
+| Source analysis/summary, legacy draft, unknown/new operations | Denied | Denied | Generic fixed diagnostic only |
 
-This is an explicit operation allowlist, not a general secret scrubber. The selection
-input uses existing redaction of configured secrets and known credential patterns; it
-does not guarantee removal of arbitrary unrecognized application secrets. No raw source
-patches, citation bundles, executable workflows or trace/image artifacts are reconstructed
-for logging. Response projections deliberately exclude free-text reasons/questions,
-visible text and authored prose. Mixed or invalid transformation/support entries never
-enter retained payloads. Malformed, incomplete, refused, schema-invalid and rejected
-outputs retain no response. Responses awaiting feature validation remain null.
+The version-1 debug snapshot policy is centralized in `invocation-debug.ts`; existing
+strict projections remain in `invocation-payload.ts`. Only final actual model inputs
+are captured, without collecting files, environment variables, transport headers or
+process state. Credential-keyed values, recognized credential patterns, authentication
+strings and private keys are redacted before truncation. This does not claim detection
+of arbitrary unrecognized secrets. Model-facing prose remains untrusted data.
 
-Payloads are limited independently to 128 KiB of serialized UTF-8 JSON, omitted whole
-when oversized, and inspected only through SQL. A small `inference_config` records the
-contract revision, requested ceiling, and explicit options; null means omitted, not an
-inferred provider default. Logging/serialization failures preserve original results/errors.
+Instructions/schema are each bounded to 8 KiB, input/output to 32 KiB of sanitized UTF-8.
+Every section includes SHA-256 and byte length of the original, retained byte length,
+redaction and truncation flags. Prefixes end on complete UTF-8 codepoints. Budgets are
+halved when JSON escaping would exceed 128 KiB per stored request/response. Truncated
+sections are explicitly incomplete, even if the prefix happens to parse. Fixed semantic
+diagnostics are schema-bounded below 4 KiB and never persist arbitrary exception messages.
+
+New schema-valid response snapshots survive post-validation rejection. Malformed,
+incomplete, refused and schema-invalid outputs retain only sanitized structured failure
+diagnostics/metadata. Transformation's unknown entries are never retained as validated
+output. Existing accepted projections continue to wait for feature acceptance. A small
+`inference_config` records contract revision, requested ceiling and explicit options;
+null means omitted, not an inferred provider default. Provider request IDs, attempt ordinals
+and retry linkage are not currently stored; transports perform no automatic retry.
+
+Authorized detail pages validate persisted snapshot/projection shapes and preserve
+repository checks. Historical missing content is unavailable; existing projections are
+labeled as projections. Logging failures preserve original results/errors.
 Logs must never feed evidence, authority, later model calls, retries, or automatic training.
 No paid inference was used for this implementation. Subsequent authorized comparisons
 must vary one operation/independent variable at a time, identified by saved configuration.

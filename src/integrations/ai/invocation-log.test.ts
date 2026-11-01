@@ -139,7 +139,7 @@ test("post-validation rejection and interrupted validation never persist accepte
   let projected=false;
   const error=new Error("PRIVATE_REJECTED_OUTPUT");
   await assert.rejects(s.validateInvocation(generated.invocationId,()=>{throw error;},"correspondence-rejection",()=>{projected=true;return {operation:"transformation-support",payload:{verdicts:[]}};}),e=>e===error);
-  assert.equal(projected,false); assert.equal(s.rows.get(generated.invocationId!)?.responseOmissionReason,"validation-rejected");
+  assert.equal(projected,false); assert.equal(s.rows.get(generated.invocationId!)?.responseOmissionReason,"pending-validation");
 });
 
 test("approved operation omits failed outputs, including malformed, incomplete and refused results", async t => {
@@ -159,4 +159,35 @@ test("oversized request and projection failure do not change successful model re
   const row=s.rows.get(result.invocationId!)!;
   assert.equal(row.requestPayload,null);assert.equal(row.requestOmissionReason,"oversized");
   assert.equal(row.status,"succeeded");assert.equal(row.responseOmissionReason,"logging-data-invalid");
+});
+
+test("runtime-decision regression retains schema-valid output and exact correspondence diagnostic after rejection", async t => {
+  const s = setup(t);
+  const { inspectionDecisionSchema } = await import("@/features/sources/runtime/inspection-decision");
+  const { validateRuntimeDecision } = await import("@/features/sources/runtime/decide-runtime-inspection");
+  const { invocationDebugView } = await import("@/features/documentation/runs/invocation-debug-view");
+  const output = { status: "inspect", reason: "Inspect the changed UI", staticEvidence: "sufficient", targets: [{ pathname: "/unsupported", description: "UI", visibleEvidence: ["label"], citations: [{ evidenceId: "e1", startLine: 1, endLine: 1, excerpt: "label" }] }], uncertainties: [] };
+  t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(output), reasoning_content: "UNSAFE_REASONING" } }], usage: { prompt_tokens: 12, completion_tokens: 8 }, unsafe: "UNSAFE_PROVIDER_METADATA" }));
+  const result = await s.generateStructured({ instructions: "Decide", input: '{"evidence":"label","api_key":"UNSAFE_SECRET"}', schema: inspectionDecisionSchema,
+    invocation: { ...invocation, stage: "runtime-decision", operation: "runtime-decision" }, postValidation: true });
+  const bundle = { repository: "fixture", base: "a".repeat(40), head: "b".repeat(40), inventory: [], limited: false, notice: "", evidence: [{ id: "e1", path: "ui.tsx", side: "head" as const, commitId: "b".repeat(40), text: "label", status: "available", changed: true }] };
+  await assert.rejects(s.validateInvocation(result.invocationId, () => validateRuntimeDecision(result.data, bundle, []), "correspondence-rejection"), /unsupported-route/);
+  const row = s.rows.get(result.invocationId!)!;
+  const view = invocationDebugView({ ...row, failureKind: row.failureKind ?? null });
+  assert.equal(row.status, "failed"); assert.equal(row.completionReason, "stop");
+  assert.equal(view.diagnostic?.code, "unsupported-route"); assert.equal(view.diagnostic?.path, "targets[0].pathname");
+  assert.equal(view.diagnostic?.expectedSha256?.length, 64);
+  assert.deepEqual(JSON.parse(view.response!.output.content), output);
+  assert.ok(view.request); assert.ok(!JSON.stringify(row).includes("UNSAFE"));
+});
+
+test("allowlisted malformed and schema-invalid output is never retained", async t => {
+  const s = setup(t);
+  for (const content of ["UNSAFE_MALFORMED", '{"value":23,"unsafe":"UNSAFE_OUTPUT"}']) {
+    t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content } }] }));
+    await assert.rejects(s.generateStructured({ ...options, invocation: { ...invocation, operation: "runtime-decision" } }));
+    const row = [...s.rows.values()].at(-1)!;
+    assert.equal(row.responsePayload, null); assert.equal(row.responseOmissionReason, "model-failure");
+    assert.ok(!JSON.stringify(row).includes("UNSAFE"));
+  }
 });

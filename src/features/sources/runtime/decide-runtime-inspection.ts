@@ -1,10 +1,11 @@
 import "server-only";
 import type { InvocationContext } from "@/integrations/ai/invocation-context";
+import { debugHash, withValidationDiagnostic } from "@/integrations/ai/invocation-debug";
 import { validateInvocation } from "@/integrations/ai/invocation-log";
 import type { InspectionCapabilities, InspectionSupport } from "./inspection-capabilities";
 import { generateStructured } from "@/integrations/ai/generate-structured";
-import type { ProductResult } from "../analysis/product-change-analysis";
-import { validateProductCitation } from "../analysis/product-change-evidence";
+import type { ProductBundle, ProductResult } from "../analysis/product-change-analysis";
+import { ProductAnalysisValidationError, validateProductCitation } from "../analysis/product-change-evidence";
 import { PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES } from "../analysis/product-change-limits";
 import { inspectionDecisionSchema, type InspectionDecision } from "./inspection-decision";
 import { inspectionRouteCandidates } from "./inspection-routes";
@@ -50,15 +51,33 @@ export async function decideRuntimeInspection(
     maxOutputTokens: 4096, signal: options.signal });
   const decision = generated.data;
   await validateInvocation(generated.invocationId, () => {
-    if (bundle.limited && decision.status === "not-needed") reject("limited-evidence-not-needed");
-    for (const target of decision.targets) {
-      for (const citation of target.citations) validateProductCitation(citation, bundle);
-      if (target.capabilityId && !options.operatorCapabilities?.capabilities.some(c => c.id === target.capabilityId && c.pathname === target.pathname)) reject("unsupported-capability");
-      if (target.pathname !== null && !target.capabilityId && !routeCandidates.some(candidate => candidate.pathname === target.pathname
-        && target.citations.some(citation => citation.evidenceId === candidate.citation.evidenceId
-          && citation.startLine === candidate.citation.startLine && citation.endLine === candidate.citation.endLine
-          && citation.excerpt === candidate.citation.excerpt))) reject("unsupported-route");
-    }
+    validateRuntimeDecision(decision, bundle, routeCandidates, options.operatorCapabilities);
   }, "correspondence-rejection");
   return { decision, model: generated.model, elapsedMs: generated.elapsedMs };
+}
+
+/** Same correspondence checks as generation; exported for deterministic regressions. */
+export function validateRuntimeDecision(decision: InspectionDecision, bundle: ProductBundle,
+  routeCandidates: ReturnType<typeof inspectionRouteCandidates>, operatorCapabilities?: InspectionCapabilities) {
+  const fail = (code: "limited-evidence-not-needed" | "unsupported-capability" | "unsupported-route" | "unknown-evidence" | "unavailable-evidence" | "invalid-line-range" | "citation-range-mismatch", path: string, expected: unknown, rejected: unknown, original?: Error): never => {
+    throw withValidationDiagnostic(original ?? new Error(`Inspection decision rejected: ${code}`), { validator: "runtime-decision", code, path,
+      expectedSha256: debugHash(JSON.stringify(expected)), rejectedSha256: debugHash(JSON.stringify(rejected)) });
+  };
+  if (bundle.limited && decision.status === "not-needed") fail("limited-evidence-not-needed", "status", bundle.limited, decision.status);
+  for (const [targetIndex, target] of decision.targets.entries()) {
+    for (const [citationIndex, citation] of target.citations.entries()) {
+      try { validateProductCitation(citation, bundle); }
+      catch (error) {
+        if (!(error instanceof ProductAnalysisValidationError)) throw error;
+        const code = error.rejection.code;
+        if (code !== "unknown-evidence" && code !== "unavailable-evidence" && code !== "invalid-line-range" && code !== "citation-range-mismatch") throw error;
+        fail(code, `targets[${targetIndex}].citations[${citationIndex}]`, bundle.evidence.map(e => ({ id: e.id, textHash: e.text === null ? null : debugHash(e.text) })), citation, error);
+      }
+    }
+    if (target.capabilityId && !operatorCapabilities?.capabilities.some(c => c.id === target.capabilityId && c.pathname === target.pathname)) fail("unsupported-capability", `targets[${targetIndex}].capabilityId`, operatorCapabilities?.capabilities ?? [], { id: target.capabilityId, pathname: target.pathname });
+    if (target.pathname !== null && !target.capabilityId && !routeCandidates.some(candidate => candidate.pathname === target.pathname
+      && target.citations.some(citation => citation.evidenceId === candidate.citation.evidenceId
+        && citation.startLine === candidate.citation.startLine && citation.endLine === candidate.citation.endLine
+        && citation.excerpt === candidate.citation.excerpt))) fail("unsupported-route", `targets[${targetIndex}].pathname`, routeCandidates, { pathname: target.pathname, citations: target.citations });
+  }
 }

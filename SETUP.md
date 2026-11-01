@@ -775,7 +775,15 @@ only logging configuration. Text and vision calls retain best-effort metadata;
 missing PostgreSQL/log writes do not fail model calls. Apply migration **0009** for
 nullable approved payloads, fixed omission reasons and requested-configuration snapshots.
 Open the **Logs** tab for the **AI model usage log** table. Select a row to view
-all retained invocation metadata and sanitized diagnostics. The table has 25 rows per
+retained metadata and separate instruction/input/output/diagnostic/schema sections.
+Runtime decision, planning and product impact now retain sanitized, bounded snapshots
+and schema-valid output even when semantic validation rejects it. Transformation retains
+requests/protocol diagnostics, and vision retains only its approved projection. Unknown
+operations retain no prompt/output. Hashes, byte lengths, truncation and redactions are
+explicit. Historical missing payloads cannot be recovered. No new migration or configuration
+is needed beyond **0009**. See [the investigation report](RUNTIME_DECISION_INVESTIGATION.md)
+for retention limits and the unrecoverable historical rejection.
+The table has 25 rows per
 page and status, provider, and exact-stage filters. Run pages link to their
 filtered logs; model failures link to a detail page instead of showing diagnostics
 inline. Historical failures without logs show saved failure details where available.

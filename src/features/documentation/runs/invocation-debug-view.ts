@@ -1,0 +1,26 @@
+import { storedRequestInput, storedResponsePayload } from "@/integrations/ai/invocation-payload";
+import { debugSection, validationMessage, debugPolicy, debugRequestSchema, debugOutputSchema, validationDiagnosticSchema, DEBUG_LIMITS } from "@/integrations/ai/invocation-debug";
+import { z } from "zod";
+const configSchema = z.object({ contractVersion: z.string().max(100).nullable(), maxOutputTokens: z.number().int().positive(),
+  reasoningEffort: z.enum(["low", "medium", "high", "xhigh"]).nullable(), temperature: z.number().nullable(), topP: z.number().nullable() }).strict();
+function boundedParse<S extends z.ZodType>(schema: S, value: unknown): z.output<S> | null {
+  try { const json = JSON.stringify(value); if (!json || Buffer.byteLength(json) > DEBUG_LIMITS.column) return null;
+    const result = schema.safeParse(value); return result.success ? result.data : null; } catch { return null; }
+}
+export function invocationDebugView(row: { operation: string; failureKind: string | null; requestPayload?: unknown; responsePayload?: unknown;
+  diagnostic?: unknown; inferenceConfig?: unknown; requestOmissionReason?: string | null; responseOmissionReason?: string | null }) {
+  const policy = debugPolicy(row.operation);
+  const semantic = row.failureKind === "correspondence-rejection" || row.failureKind === "grounding-rejection";
+  const request = policy.input ? boundedParse(debugRequestSchema, row.requestPayload) : null;
+  const response = policy.output ? boundedParse(debugOutputSchema, row.responsePayload) : null;
+  const projection = storedResponsePayload(row.operation, row.responsePayload);
+  const legacyInput = storedRequestInput(row.operation, row.requestPayload);
+  const diagnostic = boundedParse(validationDiagnosticSchema, row.diagnostic);
+  return { request, input: request?.input ?? (legacyInput === undefined ? undefined : debugSection(legacyInput, DEBUG_LIMITS.input)),
+    response: response ?? (projection === undefined ? null : { version: 1, validation: "schema-valid", output: debugSection(JSON.stringify(projection), DEBUG_LIMITS.output) }), diagnostic, diagnosticMessage: diagnostic ? validationMessage(diagnostic.code) : null, config: boundedParse(configSchema, row.inferenceConfig),
+    requestAvailability: request ? "Retained sanitized snapshot" : "Unavailable — no approved snapshot retained",
+    responseAvailability: response ? "Retained schema-valid output" : projection !== undefined ? "Retained validated projection; full response unavailable" : "Unavailable — no approved schema-valid output retained",
+    validation: semantic ? "Semantic / post-validation rejection after schema-valid generation"
+      : row.failureKind === "schema-mismatch" || row.failureKind === "invalid-json" ? "Generation / schema-validation failure"
+      : row.failureKind ? "Generation / provider failure" : "No rejection recorded" };
+}

@@ -857,14 +857,29 @@ workflow failures do not become model failures; interrupted rows remain intermed
 All writes are best effort, bounded, and never retried. Failures preserve the original
 model result/error and emit only a fixed warning with an invocation UUID.
 
-Invocation payloads are default-denied. The allowlist retains the exact already-redacted,
-compacted visual-selection input and fixed receipt-verifier input. Responses are limited
-to accepted selection IDs/decision, vision bounds/certainty/counts, support IDs/verdicts,
-and the fixed receipt literal. Source-bearing requests, prose, complex transformation
-batches, static prompts, image bytes, provider bodies, credentials, and reasoning remain
-omitted. Each payload is bounded to 128 KiB without truncation, with fixed omission
-reasons. Post-validation responses remain null until acceptance. Payloads are SQL-only;
-UI readers explicitly select metadata/diagnostics. Logs are debugging artifacts only,
+Invocation payloads are default-denied. The operation retention policy and UTF-8 limits
+live in `integrations/ai/invocation-debug.ts`. Runtime decision, product-impact synthesis
+and documentation planning retain sanitized model-facing instructions, input, JSON schema
+and schema-valid output before semantic validation. Rejection preserves that output.
+Documentation transformation retains sanitized requests and protocol diagnostics, but
+not envelope entries: those are `unknown` until independent per-entry validation.
+Vision keeps its existing bounds/certainty/count projection without pixels/context/prose.
+Existing selection/support/receipt projections remain strict and bounded.
+
+Sections carry original SHA-256/byte length, retained byte length, explicit truncation
+and redaction flags. Instructions/schema are each capped at 8 KiB, input/output at
+32 KiB; serialized request/response columns remain <=128 KiB, including escaping.
+Known credential forms/credential-keyed values are redacted; no transport headers,
+environment dumps, unrelated files, raw provider bodies or reasoning are captured.
+Only actual model-facing content is considered; no source is reconstructed for logging.
+This is bounded diagnostic retention, not a universal secret-detection guarantee.
+
+Runtime semantic failures retain fixed invariant codes, target/citation paths and hashes
+of expected/rejected correspondence data, preserving original error identity. Planning
+and transformation use bounded fixed protocol codes; unknown validator errors retain
+only a generic fixed diagnostic. The authorized detail reader validates snapshots before
+rendering separate instruction/input/output/diagnostic/schema sections. Historical missing
+content remains unavailable; no backfill or inference is attempted. Logs are debugging artifacts only,
 never evidence, authorization, future model/retry input, or automatic training data. The Logs navigation tab
 opens the repository-scoped AI model usage log, with 25 rows per page and optional
 status, provider, and exact-stage filters. URL-backed filters carry across pagination;

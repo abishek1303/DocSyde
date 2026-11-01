@@ -1,3 +1,4 @@
+import { rejectionDiagnostic as entryRejectionDiagnostic, type ValidationDiagnostic } from "@/integrations/ai/invocation-debug";
 import "server-only";
 import { assertPlannedGenerationBatches, stopInferenceBudget } from "@/integrations/ai/inference-budget";
 import type { InvocationContext } from "@/integrations/ai/invocation-context";
@@ -120,11 +121,13 @@ export async function transformDocumentation(input: TransformationInput,
       signal?.throwIfAborted();
       record.status = "completed"; record.model = { model: generated.model, elapsedMs: generated.elapsedMs };
       let rejected = false;
+      let rejectionDiagnostic: ValidationDiagnostic | undefined;
+      const diagnose = (code: ValidationDiagnostic["code"]) => { rejectionDiagnostic ??= { kind: "correspondence-rejection", validator: "documentation-transformation", code }; };
       const entries = new Map<string, unknown[]>(), expected = new Set(record.decisionIds);
       for (const raw of generated.data.entries) {
         const id = raw !== null && typeof raw === "object" && "decisionId" in raw ? raw.decisionId : null;
         if (typeof id !== "string" || !expected.has(id)) {
-          rejected = true;
+          rejected = true; diagnose("unknown-generation-entry");
           if (!proposal.protocolIssues.includes("Unknown or malformed generation entry.")) proposal.protocolIssues.push("Unknown or malformed generation entry.");
           continue;
         }
@@ -134,7 +137,7 @@ export async function transformDocumentation(input: TransformationInput,
         const result = results.find(result => result.decisionId === auth.decisionId)!;
         const raw = entries.get(auth.decisionId);
         result.model = record.model;
-        if (raw?.length !== 1) { rejected = true; fail(result, "missing-or-duplicate-generation-entry"); continue; }
+        if (raw?.length !== 1) { rejected = true; diagnose("missing-or-duplicate-generation-entry"); fail(result, "missing-or-duplicate-generation-entry"); continue; }
         try {
           const change = validateTransformationEntry(raw[0], auth, auth.target.documentId ? baselines.get(auth.target.documentId) : undefined);
           result.change = change;
@@ -143,9 +146,14 @@ export async function transformDocumentation(input: TransformationInput,
             result.generation = "generated"; result.support = "pending";
             if (change.kind === "add-section" && change.placement.position === "undetermined") result.issues.push("placement-ambiguous");
           }
-        } catch { rejected = true; fail(result, "invalid-generation-entry"); }
+        } catch (error) {
+          rejected = true;
+          const diagnostic = entryRejectionDiagnostic(error, "correspondence-rejection");
+          diagnose(diagnostic.code === "validator-rejected" ? "invalid-generation-entry" : diagnostic.code);
+          fail(result, "invalid-generation-entry");
+        }
       }
-      await finishInvocationValidation(generated.invocationId, rejected ? "correspondence-rejection" : undefined);
+      await finishInvocationValidation(generated.invocationId, rejected ? "correspondence-rejection" : undefined, undefined, rejectionDiagnostic);
     } catch {
       record.status = "failed";
       batch.items.forEach(auth => fail(results.find(result => result.decisionId === auth.decisionId)!, signal?.aborted ? "cancelled-during-generation" : "generation-provider-or-output-failure", "failed"));

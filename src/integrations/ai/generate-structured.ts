@@ -19,7 +19,8 @@ export async function generateStructured<S extends z.ZodType>(options: {
   if (!instructions.trim() || !input.trim() || !Number.isInteger(maxOutputTokens) || maxOutputTokens < 1) throw new ModelError("invalid-input");
   let format: string;
   try { format = JSON.stringify(z.toJSONSchema(schema)); } catch { throw new ModelError("unsupported-schema"); }
-  return logStructuredInvocation({ invocation: options.invocation, postValidation: options.postValidation, provider: "baseten", input, settings,
+  return logStructuredInvocation({ invocation: options.invocation, postValidation: options.postValidation, provider: "baseten", input, settings, instructions: `${instructions}\nReturn only JSON matching this schema: ${format}`, schema: format,
+    validatedOutput: result => result.data,
     acceptedResponse: result => operation === "receipt-verification" ? receiptResponse(result.data) : undefined,
   }, async () => {
     const started = Date.now();

@@ -59,3 +59,20 @@ export function receiptResponse(data: unknown): ApprovedInvocationResponse | und
   const parsed = receipt.safeParse(data);
   return parsed.success ? { operation: "receipt-verification", payload: parsed.data } : undefined;
 }
+
+/** Read historical projections through the same strict allowlist; never expose arbitrary JSONB. */
+export function storedResponsePayload(operation: string, value: unknown): unknown | undefined {
+  if (!responseAllowed(operation)) return undefined;
+  const schema = operation === "visual-selection" ? selection : operation === "runtime-vision" ? vision : operation === "transformation-support" ? support : receipt;
+  const size = bounded(value);
+  if (size.reason) return undefined;
+  const parsed = schema.safeParse(size.payload);
+  return parsed.success ? parsed.data : undefined;
+}
+export function storedRequestInput(operation: string, value: unknown): string | undefined {
+  if (operation !== "visual-selection" && operation !== "receipt-verification") return undefined;
+  const size = bounded(value);
+  if (size.reason) return undefined;
+  const parsed = z.object({ input: z.string() }).strict().safeParse(size.payload);
+  return parsed.success && !requestPayload(operation, parsed.data.input).reason ? parsed.data.input : undefined;
+}

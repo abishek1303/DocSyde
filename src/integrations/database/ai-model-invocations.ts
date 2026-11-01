@@ -44,13 +44,15 @@ export async function selectRepositoryAiInvocations(repository: string, runId?: 
 }
 
 export async function findAiModelInvocation(id: string) {
-  // Keep payload columns SQL-only, including on the detail reader.
+  // Detail payloads are projected only after repository authorization in the feature reader.
   const [row] = await getDatabase().select({ id: aiModelInvocations.id, runId: aiModelInvocations.runId,
     stage: aiModelInvocations.stage, operation: aiModelInvocations.operation, provider: aiModelInvocations.provider,
     model: aiModelInvocations.model, status: aiModelInvocations.status, failureKind: aiModelInvocations.failureKind,
     completionReason: aiModelInvocations.completionReason, inputTokens: aiModelInvocations.inputTokens,
     outputTokens: aiModelInvocations.outputTokens, elapsedMs: aiModelInvocations.elapsedMs,
-    diagnostic: aiModelInvocations.diagnostic, createdAt: aiModelInvocations.createdAt,
+    requestPayload: aiModelInvocations.requestPayload, responsePayload: aiModelInvocations.responsePayload,
+    requestOmissionReason: aiModelInvocations.requestOmissionReason, responseOmissionReason: aiModelInvocations.responseOmissionReason,
+    inferenceConfig: aiModelInvocations.inferenceConfig, diagnostic: aiModelInvocations.diagnostic, createdAt: aiModelInvocations.createdAt,
   }).from(aiModelInvocations).where(eq(aiModelInvocations.id, id)).limit(1);
   return row ?? null;
 }
