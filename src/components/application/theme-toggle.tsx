@@ -14,11 +14,9 @@ export function ThemeToggle() {
   }
 
   return (
-    <Button variant="outline" onClick={toggleTheme} aria-label="Toggle light and dark mode">
-      <Moon aria-hidden="true" className="dark:hidden" />
-      <Sun aria-hidden="true" className="hidden dark:block" />
-      <span className="dark:hidden">Dark mode</span>
-      <span className="hidden dark:inline">Light mode</span>
+    <Button type="button" variant="ghost" size="icon-lg" onClick={toggleTheme} aria-label="Toggle light and dark mode" title="Toggle light and dark mode" className="text-muted-foreground hover:text-foreground">
+      <Moon aria-hidden="true" className="size-5 dark:hidden" />
+      <Sun aria-hidden="true" className="hidden size-5 dark:block" />
     </Button>
   );
 }

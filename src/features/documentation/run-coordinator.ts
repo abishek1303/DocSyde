@@ -8,6 +8,8 @@ import { RUN_CONTROL_MS, RUN_DEADLINE_MS, RUN_HEARTBEAT_FAILURE_MS, RUN_HEARTBEA
 import { CandidateSelectionIncompleteError } from "./select-documentation-candidates";
 import { executeRunWorkflow, RunStageError } from "./execute-run-workflow";
 
+import { classifyRunFailure } from "./classify-run-failure";
+
 type ActiveRun = {
   id: string; token: string; controller: AbortController; task: Promise<void>;
   heartbeatTimer?: ReturnType<typeof setInterval>; controlTimer?: ReturnType<typeof setInterval>;
@@ -94,7 +96,11 @@ export async function startDocumentationRun(rawId: unknown) {
           const cancelled = Boolean(r.execution?.cancelRequestedAt);
           const selectionIncomplete = error instanceof RunStageError && error.cause instanceof CandidateSelectionIncompleteError;
           const reason = cancelled ? "user-cancelled" : selectionIncomplete ? "documentation-candidates-incomplete" : active.controller.signal.aborted ? String(active.controller.signal.reason) : `stage-failed:${error instanceof RunStageError ? error.stage : r.activeStage ?? "execution"}`;
-          return finishRun(error instanceof RunStageError ? { ...r, activeStage: error.stage } : r, cancelled ? "cancelled" : selectionIncomplete ? "incomplete" : "failed", reason);
+          const stage = error instanceof RunStageError ? error.stage : r.activeStage ?? "execution";
+          const failure = cancelled ? undefined : selectionIncomplete ? { stage, code: "candidates-incomplete" as const }
+            : active.controller.signal.aborted ? { stage, code: active.controller.signal.reason === "application-deadline" ? "deadline" as const : active.controller.signal.reason === "heartbeat-renewal-failed" ? "heartbeat" as const : "stage-failed" as const }
+            : classifyRunFailure(stage, error instanceof RunStageError ? error.cause : error);
+          return finishRun(error instanceof RunStageError ? { ...r, activeStage: error.stage } : r, cancelled ? "cancelled" : selectionIncomplete ? "incomplete" : "failed", reason, failure);
         }, true);
       } catch { /* Lost ownership/DB failure: preserved checkpoints are reconciled after heartbeat expiry. */ }
     }).finally(async () => {

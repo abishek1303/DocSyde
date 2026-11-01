@@ -634,3 +634,73 @@ providers, PostgreSQL and existing Chromium fixtures. Focused checks also prove
 selected snapshot-hash mismatch blocks transformation before generation. Lint,
 route type generation, TypeScript and webpack production build passed. No live
 model calls, migrations or browser UI changes were introduced.
+
+## Application layout and run preparation
+
+- `/`: a short introduction and **Start a run**. It renders without provider calls.
+- `/runs`: repository run history, **Start a new run**, and **Rerun**.
+- `/runs/new`: choose a branch, see its **Latest change**, optionally add **Context**,
+  and select **Start run**. It defaults to the branch with the newest tip commit.
+  Changing branches updates the commit headline without inference. Reruns retain
+  the original comparison and context in a separate attempt.
+- `/docs`: **Latest** renders the newest saved draft; **Pending** lists proposals
+  awaiting approval; **Archive** contains previous published versions with read-only previews.
+  Latest and archived readers include searchable document navigation, section links,
+  a fixed breadcrumb and independent article scrolling, with compact mobile navigation.
+  Proposal previews are at `/documentation/proposals/<proposal-id>`; schema-v2
+  approval/save still uses the [retained-review instructions above](#proposal-review-proof).
+- `/ai`: the implemented contextual retrieval endpoint/SDK and planned MCP support.
+
+Repository/branch selection is preserved by primary navigation. Existing source
+and commit tools remain accessible through secondary links and their original URLs.
+Run preparation requires configured GitHub access; history and documentation require
+PostgreSQL with migrations applied (`npm run db:migrate`). Migration 0007 adds
+publication history for replacements and unpublishing from this point forward;
+earlier retired publication links cannot be reconstructed. No new environment variables.
+
+The demo action resolves the selected branch on submission and compares its latest
+commit with its first parent. Comparison checks and commit pinning happen on the
+server. Earlier-base controls remain in the technical source tools. Whole-project
+initial analysis and automatic “since last handled run” baselines remain planned;
+the first root commit cannot be analyzed by the comparison-only workflow.
+
+`npm run documentation:library:test` checks repository authorization, canonical
+identity validation, library projection and pinned comparison previews with mocked
+transports. Live PostgreSQL and browser checks are separate integration checks.
+
+### Runs: branch selection, navigation and failures
+
+On `/runs/new`, the **Branch** field automatically selects the branch with the
+newest tip commit (ties prefer the default branch). Its commit headline appears
+below as **Latest change**. Override the branch directly in the form; no preview
+button is needed. Automatic selection reads up to 1000 branches; if selection is
+unavailable, enter a branch explicitly. This does not start analysis. Run history
+includes all branches and has no branch switch; choose a branch only in run setup.
+Breadcrumbs return to setup or the previous run page.
+
+New failed runs show an allowlisted explanation, recovery suggestion and failure
+code. Detailed provider errors and source bodies are never copied into this
+public diagnostic. Older failures cannot recover a cause that was not retained;
+start a new attempt to capture one. No database migration is required.
+
+Focused checks: `npm run documentation:runs:unit:test`. The existing
+`npm run documentation:runs:test` additionally requires PostgreSQL and Chromium.
+
+### AI responses during a run
+
+Each AI stage shows a shortened response once its result is saved. Select the
+preview to open the full validated result in a scrollable popup. Long previews end
+with an ellipsis. The popup supports keyboard focus, Escape and a close button.
+Full responses load on demand without rerunning a model. Stages without an AI call,
+skipped stages and unavailable/rejected outputs have explicit labels.
+
+Existing validated source/decision/impact/planning results can be viewed on older
+runs. Runtime output requires the original artifact in `DOCSYDE_STORAGE_DIRECTORY`;
+generated changes require the retained proposal. Missing output is not regenerated.
+No new credentials or migrations are needed. `npm run documentation:runs:unit:test`
+includes authorization, integrity, display bounds and no-inference response checks
+using mocked database transport and temporary local artifacts.
+
+The application header and navigation remain fixed while the page content scrolls.
+The document reader keeps navigation and article scrolling separate. Keyboard focus,
+section links and reduced-motion preferences work within the content viewport.

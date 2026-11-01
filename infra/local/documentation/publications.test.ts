@@ -5,9 +5,10 @@ import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { eq, inArray } from "drizzle-orm";
 import { getDatabase, closeDatabase } from "@/integrations/database/client";
-import { documentationDrafts, documentationPublications } from "@/integrations/database/schema";
+import { documentationDrafts, documentationPublications, documentationPublicationHistory } from "@/integrations/database/schema";
 import { getDocumentationDraft, saveDocumentationDraft } from "@/features/documentation/operations";
 import { getContextualDocumentation, getPublication, publishDocumentation, unpublishDocumentation } from "@/features/documentation/publication-operations";
+import { replacePublication } from "@/integrations/database/documentation-publications";
 import { GET } from "@/app/api/documentation/context/route";
 import { draftFixture } from "./draft-fixture";
 
@@ -25,6 +26,7 @@ test("PostgreSQL publication lifecycle: immutable saved docs, scoped determinist
   t.after(async () => {
     try {
       await getDatabase().delete(documentationPublications).where(inArray(documentationPublications.draftId, [first.id, second.id]));
+      await getDatabase().delete(documentationPublicationHistory).where(inArray(documentationPublicationHistory.draftId, [first.id, second.id]));
       await getDatabase().delete(documentationDrafts).where(inArray(documentationDrafts.id, [first.id, second.id]));
     } finally {
       await closeDatabase();
@@ -60,10 +62,23 @@ test("PostgreSQL publication lifecycle: immutable saved docs, scoped determinist
   const serialized = JSON.stringify(delivery);
   for (const field of ["provenance", "evidence", "generation", "findingRef", "factRefs", "context", "excerpt", "analysisId", "model"]) assert.ok(!serialized.includes(`"${field}"`), field);
   await assert.rejects(() => getDatabase().delete(documentationDrafts).where(eq(documentationDrafts.id, first.id)));
+  assert.equal((await getDatabase().select().from(documentationPublicationHistory).where(eq(documentationPublicationHistory.repository, first.provenance.repository))).length, 0);
+  await assert.rejects(() => getDatabase().transaction(async tx => {
+    const changed = await replacePublication(first.provenance.repository, target.route, second.id, originalId, tx);
+    assert.ok(changed);
+    throw new Error("Fixture transaction rollback");
+  }), /Fixture transaction rollback/);
+  assert.equal((await getPublication(target))?.id, originalId);
+  assert.equal((await getDatabase().select().from(documentationPublicationHistory).where(eq(documentationPublicationHistory.repository, first.provenance.repository))).length, 0);
   const replaced = await publishDocumentation({ ...target, draftId: second.id, observedId: originalId });
   assert.equal(replaced.status, "published");
   if (replaced.status !== "published") throw new Error("not replaced");
   assert.notEqual(replaced.publication.id, originalId);
+  const archived = await getDatabase().select().from(documentationPublicationHistory).where(eq(documentationPublicationHistory.repository, first.provenance.repository));
+  assert.equal(archived.length, 1);
+  assert.equal(archived[0].id, originalId);
+  assert.equal(archived[0].draftId, first.id);
+  await assert.rejects(() => getDatabase().delete(documentationDrafts).where(eq(documentationDrafts.id, first.id)));
   assert.equal((await getContextualDocumentation(target)).publication?.documentId, second.id);
   // Simulate storage corruption only in this isolated fixture. Delivery must
   // fail closed instead of exposing another saved draft or repairing content.
@@ -74,6 +89,9 @@ test("PostgreSQL publication lifecycle: immutable saved docs, scoped determinist
   assert.deepEqual(await unpublishDocumentation({ ...target, observedId: originalId }), { status: "conflict" });
   assert.deepEqual(await publishDocumentation({ ...target, draftId: first.id, observedId: originalId }), { status: "conflict" });
   assert.deepEqual(await unpublishDocumentation({ ...target, observedId: replaced.publication.id }), { status: "unpublished" });
+  const history = await getDatabase().select().from(documentationPublicationHistory).where(eq(documentationPublicationHistory.repository, first.provenance.repository));
+  assert.equal(history.length, 2);
+  assert.deepEqual(history.map(row => row.draftId).sort(), [first.id, second.id].sort());
   assert.equal(await getPublication(target), null);
   assert.equal((await getContextualDocumentation(target)).publication, null);
   assert.deepEqual(await getDocumentationDraft(first.id), before);

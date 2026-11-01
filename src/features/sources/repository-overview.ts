@@ -1,6 +1,7 @@
 import "server-only";
 import { repositoryCoordinates, repositoryLocation } from "@/integrations/github/repository-identity";
 import { readRecentCommits, readRepositoryMetadata, readBranches } from "@/integrations/github/browse";
+import { readRecentBranchSelection } from "@/integrations/github/recent-branch";
 import { revisionInput } from "@/integrations/github/source-reader";
 import { assertAllowedRepository } from "./local-source-access";
 export type RepositorySearch = { repository?: string; branch?: string; before?: string; id?: string; page?: string };
@@ -27,4 +28,10 @@ export async function defaultBranch(repository: ReturnType<typeof selectedReposi
 export async function repositoryBranches(repository: ReturnType<typeof selectedRepository>) {
   assertAllowedRepository(repository.owner, repository.repo);
   return readBranches(repository);
+}
+
+export async function runBranchSelection(repository: ReturnType<typeof selectedRepository>) {
+  assertAllowedRepository(repository.owner, repository.repo);
+  const branches = await readRecentBranchSelection(repository.owner, repository.repo);
+  return { selected: repository.branch ?? branches.selected, names: branches.names, changes: branches.changes };
 }

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { RunBreadcrumbs } from "@/features/documentation/components/run-breadcrumbs";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { getDocumentationRun } from "@/features/documentation/run-operations";
 import { SaveDraftForm } from "@/features/documentation/components/save-draft-form";
@@ -8,8 +10,25 @@ async function ReviewContent({ params }: { params: Promise<{ id: string }> }) {
   const run = await getDocumentationRun((await params).id).catch(() => null);
   const legacy = run && !("schemaVersion" in run.record) ? run.record : null;
   const retained = run && "schemaVersion" in run.record ? run.record.retainedProposal : null;
+  if (retained && run) redirect(`/documentation/proposals/${retained.proposalId}?${new URLSearchParams({ repository: `${run.record.input.owner}/${run.record.input.repo}`, fromRun: run.id, ...(run.record.input.branch ? { branch: run.record.input.branch } : {}) })}`);
   const document = legacy?.result?.document;
   const result = legacy?.result;
-  return <main className="mx-auto w-full max-w-4xl space-y-6 px-5 py-8 sm:px-8"><nav aria-label="Review navigation" className="flex flex-wrap gap-4 text-sm underline"><Link href={run ? `/runs/${run.id}?${new URLSearchParams({ repository: `${run.record.input.owner}/${run.record.input.repo}`, ...(run.record.input.branch ? { branch: run.record.input.branch } : {}) })}` : "/runs"}>← Back to run</Link>{run?.record.analysis && <Link href={`/runs/${run.id}/evidence?${new URLSearchParams({ repository: `${run.record.input.owner}/${run.record.input.repo}` })}`}>View findings & evidence</Link>}</nav><header className="space-y-2"><h1 className="text-2xl font-semibold">Review proposed documentation</h1><p className="text-sm text-muted-foreground">Nothing is published. Review the proposed sections, assumptions and source evidence before saving.</p></header>{document && result ? <><details className="rounded-lg border p-4"><summary className="cursor-pointer text-sm font-medium">Proposed sections ({document.sections.length})</summary><ul className="mt-3 space-y-2">{document.sections.map(section => <li key={section.id}><a className="text-sm underline" href={`#section-${section.id}`}>{section.title}</a></li>)}</ul></details>{result.saveUnavailable && <p role="status" className="text-sm text-muted-foreground">{result.saveUnavailable}</p>}{result.preview ? <SaveDraftForm document={document} preview={result.preview} savedAt={run?.savedAt} /> : <DraftInspector document={document} />}</> : <p role="status">{retained ? `Proposal ${retained.proposalId} is retained for human review. Use the documented review CLI; approval, save and publication are separate actions.` : "No proposal is available for review. Open the run to inspect its status or outcome."}</p>}</main>;
+  return <main className="mx-auto w-full max-w-4xl space-y-6 px-5 py-8 sm:px-8">
+    <RunBreadcrumbs repository={run ? `${run.record.input.owner}/${run.record.input.repo}` : undefined} branch={run?.record.input.branch} runId={run?.id} current="Review" />
+    <nav aria-label="Review navigation" className="flex flex-wrap gap-4 text-sm underline">{run?.record.analysis && <Link href={`/runs/${run.id}/evidence?${new URLSearchParams({ repository: `${run.record.input.owner}/${run.record.input.repo}`, ...(run.record.input.branch ? { branch: run.record.input.branch } : {}) })}`}>View findings & evidence</Link>}</nav>
+    <header className="space-y-2">
+      <h1 className="text-2xl font-semibold">Review proposed documentation</h1>
+      <p className="text-sm text-muted-foreground">Nothing is published. Review the proposed sections, assumptions and source evidence before saving.</p>
+    </header>{document && result ? <>
+      <details className="rounded-lg border p-4">
+        <summary className="cursor-pointer text-sm font-medium">Proposed sections ({document.sections.length})</summary>
+        <ul className="mt-3 space-y-2">{document.sections.map(section => <li key={section.id}>
+          <a className="text-sm underline" href={`#section-${section.id}`}>{section.title}</a>
+        </li>)}</ul>
+      </details>{result.saveUnavailable && <p role="status" className="text-sm text-muted-foreground">{result.saveUnavailable}</p>}{result.preview ? <SaveDraftForm document={document} preview={result.preview} savedAt={run?.savedAt} /> : <DraftInspector document={document} />}</> : <p role="status">{"No proposal is available for review. Open the run to inspect its status or outcome."}</p>}</main>;
 }
-export default function ReviewPage(props: { params: Promise<{ id: string }> }) { return <Suspense fallback={<LoadingList />}><ReviewContent {...props} /></Suspense>; }
+export default function ReviewPage(props: { params: Promise<{ id: string }> }) {
+  return <Suspense fallback={<LoadingList />}>
+    <ReviewContent {...props} />
+  </Suspense>;
+}

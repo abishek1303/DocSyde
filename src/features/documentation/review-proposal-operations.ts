@@ -68,3 +68,9 @@ export async function getDocumentationReview(proposalId: string) {
   const row = await findDocumentationReview(z.uuid().parse(proposalId));
   return row ? { status: "found" as const, proposalId: row.id, ...readRetainedReview(row) } : { status: "missing" as const };
 }
+
+/** Read-only presentation state; expiry never changes retained authority. */
+export async function getDocumentationReviewPresentation(proposalId: string) {
+  const review = await getDocumentationReview(proposalId);
+  return review.status === "found" ? { ...review, expired: !review.review && Date.now() >= Date.parse(review.expiresAt) } : review;
+}

@@ -50,6 +50,13 @@
       "when": 1793466658870,
       "tag": "0006_fantastic_rocket_raccoon",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793489630186,
+      "tag": "0007_publication-archive",
+      "breakpoints": true
     }
   ]
 }

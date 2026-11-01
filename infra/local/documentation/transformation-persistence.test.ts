@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import { draftFixture } from "./draft-fixture";
 import { v2CandidateFixture } from "./v2-fixture";
 import { getDatabase, closeDatabase } from "@/integrations/database/client";
-import { documentationDrafts, documentationPublications } from "@/integrations/database/schema";
+import { documentationDrafts, documentationPublications, documentationPublicationHistory } from "@/integrations/database/schema";
 import { saveDocumentationDraft, getDocumentationDraft } from "@/features/documentation/operations";
 import { publishDocumentation, getContextualDocumentation, unpublishDocumentation } from "@/features/documentation/publication-operations";
 
@@ -18,6 +18,7 @@ test("PostgreSQL v1/v2 compatibility: existing save/publication boundaries accep
   const before = structuredClone(baseline), ids = [baseline.id, candidate.id];
   t.after(async () => {
     try { await getDatabase().delete(documentationPublications).where(inArray(documentationPublications.draftId, ids));
+      await getDatabase().delete(documentationPublicationHistory).where(inArray(documentationPublicationHistory.draftId, ids));
       await getDatabase().delete(documentationDrafts).where(inArray(documentationDrafts.id, ids));
     } finally { await closeDatabase(); if (beforeAllow === undefined) delete process.env.DOCSYDE_ANALYSIS_REPOSITORIES; else process.env.DOCSYDE_ANALYSIS_REPOSITORIES = beforeAllow; }
   });

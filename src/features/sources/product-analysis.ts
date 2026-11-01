@@ -25,3 +25,7 @@ export { analyzeRuntimeVisuals } from "./analyze-runtime-visuals";
 export { validateProductResult } from "./validate-product-result";
 export { runtimeInspectionContextSchema } from "./runtime-inspection-context";
 export type { RuntimeInspectionContext } from "./runtime-inspection-context";
+
+export { previewSourceComparison } from "./prepare-comparison";
+
+export { ProductEvidenceBudgetError } from "./product-change-evidence";

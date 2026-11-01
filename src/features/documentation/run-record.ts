@@ -7,6 +7,8 @@ import { documentationHash } from "./document-identity";
 import { validateDocumentationImpactPlan } from "./validate-documentation-impact-plan";
 import { documentationImpactPlanSchema } from "./documentation-impact";
 import { documentationChangeProposalSchema } from "./documentation-change-proposal";
+import type { StageResponsePreview } from "./run-stage-response";
+import { RUN_FAILURE_CODES, type RunFailure } from "./run-failure";
 const modelTiming = z.object({ model: z.string(), elapsedMs: z.number().nonnegative() });
 const decisionSummary = documentationChangeProposalSchema.shape.results.element.omit({ decision: true, change: true, limitations: true });
 const batchSummary = documentationChangeProposalSchema.shape.batches.element;
@@ -30,22 +32,25 @@ export type LegacyRunRecord = z.infer<typeof legacyRunRecord>;
 export const runRecordV2 = z.object({
   schemaVersion: z.literal(2), input: runInput, title: z.string().max(500),
   status: z.enum(["pending", "running", "finished"]), disposition: runDisposition.nullable(),
+  failure: z.object({ stage: z.enum([...WORKFLOW_STEPS, "execution"]), code: z.enum(RUN_FAILURE_CODES) }).strict().optional(),
   activeStage: z.enum(WORKFLOW_STEPS).nullable(), reason: z.string().max(500).nullable(), summary: z.string().max(2000),
   startedAt: z.iso.datetime().nullable(), finishedAt: z.iso.datetime().nullable(),
   stages: z.array(workflowStage).length(WORKFLOW_STEPS.length),
   execution: z.object({ token: z.uuid(), heartbeatAt: z.iso.datetime(), cancelRequestedAt: z.iso.datetime().nullable() }).strict().nullable(),
   contextSnapshot: generationContextSnapshot.optional(),
+  runtimeResponsePreview: z.string().max(241).optional(),
   runtime: runtimeInspectionContextSchema.optional(), decision: inspectionDecisionSchema.optional(),
   artifacts: z.array(z.object({ kind: z.enum(["runtime-trace", "runtime-analysis"]), key: z.uuid(), sha256: z.string().regex(/^[a-f0-9]{64}$/) }).strict()).max(2).default([]),
   analysis: storedProductResult.optional(), analysisSha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   impact: productImpactSchema.optional(), plan: documentationImpactPlanSchema.optional(),
-  transformation: z.object({ proposalId: z.uuid(), sha256: z.string().regex(/^[a-f0-9]{64}$/), status: z.enum(["complete", "partial", "failed"]),
+  transformation: z.object({ responsePreview: z.string().max(241).optional(), proposalId: z.uuid(), sha256: z.string().regex(/^[a-f0-9]{64}$/), status: z.enum(["complete", "partial", "failed"]),
     results: z.array(decisionSummary).max(8), batches: z.array(batchSummary).max(8), supportAttempted: z.boolean(), supportModel: modelTiming.nullable(),
   }).strict().optional(),
   retainedProposal: z.object({ proposalId: z.uuid(), proposalHash: z.string().regex(/^[a-f0-9]{64}$/), registeredAt: z.iso.datetime(), expiresAt: z.iso.datetime() }).strict().optional(),
   models: z.array(z.object({ stage: z.enum(WORKFLOW_STEPS), model: z.string().max(300), elapsedMs: z.number().nonnegative() }).strict()).max(20).default([]),
   warnings: z.array(z.string().max(2000)).max(100).default([]),
 }).strict().superRefine((r, ctx) => {
+  if (r.failure && (r.status !== "finished" || !["failed", "incomplete", "interrupted"].includes(r.disposition ?? ""))) ctx.addIssue({ code: "custom", message: "Failure details require an unsuccessful terminal run." });
   try {
     const repository = `https://github.com/${r.input.owner.toLowerCase()}/${r.input.repo.toLowerCase()}`;
     if (r.analysis && (documentationHash(r.analysis) !== r.analysisSha256 || r.analysis.bundle.repository.toLowerCase() !== repository || r.analysis.bundle.base !== r.input.base || r.analysis.bundle.head !== r.input.head)) throw new Error("Source identity mismatch");
@@ -68,6 +73,8 @@ export type RunView = {
   contextSnapshot?: z.infer<typeof generationContextSnapshot>; runtime?: z.infer<typeof runtimeInspectionContextSchema>;
   retainedProposal?: RunRecordV2["retainedProposal"];
   outputs?: { analysisSha256?: string; impactAssessment?: string; plan?: { actionable: number; noChange: number; unresolved: number }; transformation?: { status: string; reviewReadyActions: number }; models: RunRecordV2["models"] };
+  responses?: StageResponsePreview[];
+  failure?: RunFailure;
   reason?: string | null;
   id: string; createdAt: string; hasDraft: boolean; hasEvidence: boolean; savedAt: string | null; documentId: string | null;
 };

@@ -1,11 +1,30 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { selectedRepository, type RepositorySearch } from "@/features/sources/repository-overview";
 import { RunHistory } from "@/features/documentation/components/run-history";
 import { LoadingList } from "@/components/application/loading-list";
+import { AppShell } from "@/components/application/shell";
+import { buttonVariants } from "@/components/ui/button";
 async function RunsContent({ searchParams }: { searchParams: Promise<RepositorySearch> }) {
   const search = await searchParams;
   let repository;
-  try { repository = selectedRepository(search); } catch { return <main className="p-8" role="alert">Invalid repository selection.</main>; }
-  return <main className="mx-auto w-full max-w-5xl space-y-6 px-5 py-8 sm:px-8"><header className="space-y-2"><h1 className="text-2xl font-semibold">Runs</h1><p className="break-words text-sm text-muted-foreground">{repository.name} · Analysis attempts and documentation proposals</p></header><Suspense fallback={<LoadingList />}><RunHistory owner={repository.owner} repo={repository.repo} before={search.before || search.id ? { createdAt: search.before ?? "", id: search.id ?? "" } : undefined} /></Suspense></main>;
+  try { repository = selectedRepository({ repository: search.repository }); } catch { return <main className="p-8" role="alert">Invalid repository selection.</main>; }
+  const query = new URLSearchParams({ repository: repository.name });
+  return <AppShell repository={repository.name} showBranch={false} active="Runs">
+    <header className="flex flex-wrap items-start justify-between gap-4">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-semibold tracking-tight">Your runs</h1>
+      </div>
+      <Link href={`/runs/new?${new URLSearchParams({ repository: repository.name })}`} className={buttonVariants()}>Start a new run</Link>
+    </header>
+    <Suspense fallback={<LoadingList />}>
+      <RunHistory owner={repository.owner} repo={repository.repo} before={search.before || search.id ? { createdAt: search.before ?? "", id: search.id ?? "" } : undefined} />
+    </Suspense>
+    <Link href={`/changes?${query}`} className="text-sm text-muted-foreground underline underline-offset-4">Browse individual commits</Link>
+  </AppShell>;
 }
-export default function RunsPage(props: { searchParams: Promise<RepositorySearch> }) { return <Suspense fallback={<LoadingList />}><RunsContent {...props} /></Suspense>; }
+export default function RunsPage(props: { searchParams: Promise<RepositorySearch> }) {
+  return <Suspense fallback={<LoadingList />}>
+    <RunsContent {...props} />
+  </Suspense>;
+}

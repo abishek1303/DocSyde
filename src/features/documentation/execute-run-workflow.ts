@@ -11,6 +11,10 @@ import { planDocumentationImpact } from "./plan-documentation-impact";
 import { transformDocumentation } from "./transform-documentation";
 import { retainDocumentationProposal } from "./review-proposal-operations";
 
+import { modelFailureCode } from "./classify-run-failure";
+import { shortResponse } from "./run-stage-response";
+import type { RunFailure } from "./run-failure";
+
 export class RunStageError extends Error {
   constructor(public readonly stage: WorkflowStage["key"], public readonly cause: unknown) { super(`Run stage failed: ${stage}`); }
 }
@@ -30,7 +34,7 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
     } catch (error) { if (error instanceof RunOwnershipLost || signal.aborted) throw error; throw new RunStageError(key, error); }
   };
   const skip = async (key: WorkflowStage["key"], reason: string) => checkpoint(r => ({ ...r, stages: changeWorkflowStage(r.stages, key, "skipped", reason) }));
-  const finish = async (disposition: "no-change" | "incomplete" | "failed", reason: string) => checkpoint(r => finishRun(r, disposition, reason));
+  const finish = async (disposition: "no-change" | "incomplete" | "failed", reason: string, failure?: RunFailure) => checkpoint(r => finishRun(r, disposition, reason, failure));
   const model = (stage: WorkflowStage["key"], value: { model?: string; elapsedMs?: number }) => value.model && value.elapsedMs !== undefined ? [{ stage, model: value.model, elapsedMs: value.elapsedMs }] : [];
   let configuration: Awaited<ReturnType<typeof loadRunRuntimeConfig>>;
   await stage("prepare-context", async () => {
@@ -50,7 +54,7 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
     // Error results are useful diagnostics but are not accepted as downstream evidence.
     return { analysis: source, analysisSha256: documentationHash(source), models: [...record.models, ...model("source-analysis", source)] };
   });
-  if (source!.status === "error") { await finish("failed", source!.error ?? "source-analysis-failed"); return; }
+  if (source!.status === "error") { await finish("failed", "source-analysis-failed", { stage: "source-analysis", code: source!.rejection?.stage === "model-output" ? modelFailureCode(source!.rejection.code) : source!.rejection ? "evidence-validation" : "stage-failed" }); return; }
   const validatedSource = validateProductResult(source!);
   if (validatedSource.status === "no-change") {
     await checkpoint(r => ({ ...r, runtime: { decision: "not-needed", outcome: "not-needed", reason: "no-source-differences", requestedTargets: [], uncoveredTargets: [], unresolvedQuestions: [], limitations: [] } }));
@@ -89,6 +93,8 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
         maxSelectedScreenshots: configured.config.maxSelectedScreenshots }, configured.storage, signal);
       await check();
       await storeManifest("runtime-analysis", visual);
+      const responsePreview = visual.selection?.selection.reason ?? visual.runtime[0]?.vision.data.observations[0];
+      if (responsePreview) await checkpoint(r => ({ ...r, runtimeResponsePreview: shortResponse(responsePreview) }));
       if (visual.status === "incomplete" || visual.status === "disabled") {
         await checkpoint(r => ({ ...r, runtime: { ...r.runtime!, outcome: "attempted-and-failed", reason: visual.reason } }));
         throw new Error("Runtime visual evidence incomplete.");
@@ -117,13 +123,19 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
     proposal = await transformDocumentation({ impact: record.impact!, plan, context: record.input.associations }, { signal });
     await check();
     const { proposalId, status, batches, supportAttempted, supportModel } = proposal;
-    return { transformation: { proposalId, status, sha256: documentationHash(proposal), batches, supportAttempted, supportModel,
+    const authored = proposal.results.flatMap(result => {
+      const change = result.change;
+      if (!change || change.kind === "incomplete") return [];
+      if (change.kind === "add-document" || change.kind === "replace-document") return [change.title];
+      return [change.section.content.map(block => block.markdown).join(" ")];
+    }).join(" ");
+    return { transformation: { responsePreview: shortResponse(authored), proposalId, status, sha256: documentationHash(proposal), batches, supportAttempted, supportModel,
       results: proposal.results.map(r => ({ decisionId: r.decisionId, generation: r.generation, support: r.support, reviewReady: r.reviewReady, materialization: r.materialization, approval: r.approval, saveCompatible: r.saveCompatible, issues: r.issues, model: r.model, candidateId: r.candidateId })) },
       models: [...record.models, ...batches.flatMap(b => model("documentation-transformation", b.model ?? {})), ...model("documentation-transformation", supportModel ?? {})] };
   });
   if (!proposal!.results.some(r => (r.decision.action === "revise" || r.decision.action === "add") && r.reviewReady)) {
     const technical = proposal!.batches.some(b => b.status === "failed") || proposal!.results.some(r => r.support === "failed" || r.generation === "failed");
-    await finish(technical ? "failed" : "incomplete", technical ? "transformation-provider-or-support-failure" : "transformation-not-review-ready"); return;
+    await finish(technical ? "failed" : "incomplete", technical ? "transformation-provider-or-support-failure" : "transformation-not-review-ready", technical ? { stage: "documentation-transformation", code: "transformation-failed" } : undefined); return;
   }
   await checkpoint(r => ({ ...r, activeStage: "proposal-retention", stages: changeWorkflowStage(r.stages, "proposal-retention", "running", "Retaining trusted proposal.") }));
   await check();

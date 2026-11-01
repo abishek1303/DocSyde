@@ -51,6 +51,18 @@ export const documentationPublications = docsydeSchema.table("documentation_publ
 }, table => [uniqueIndex("documentation_publications_repository_route_idx").on(table.repository, table.route)]);
 
 
+// Retired publication associations retain immutable document references. Active
+// publication identity remains in documentation_publications for existing CAS.
+export const documentationPublicationHistory = docsydeSchema.table("documentation_publication_history", {
+  id: uuid("id").primaryKey(),
+  repository: varchar("repository", { length: 512 }).notNull(),
+  route: varchar("route", { length: 300 }).notNull(),
+  draftId: uuid("draft_id").notNull().references(() => documentationDrafts.id, { onDelete: "restrict" }),
+  publishedAt: timestamp("published_at", { withTimezone: true }).notNull(),
+  archivedAt: timestamp("archived_at", { withTimezone: true }).defaultNow().notNull(),
+}, table => [index("documentation_publication_history_repository_archived_idx").on(table.repository, table.archivedAt, table.id)]);
+
+
 export const documentationReviews = docsydeSchema.table("documentation_proposal_reviews", {
   id: uuid("id").primaryKey(),
   repository: varchar("repository", { length: 512 }).notNull(),

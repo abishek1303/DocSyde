@@ -1,6 +1,9 @@
 "use server";
 import { redirect } from "next/navigation";
 import { createDocumentationRun, getDocumentationRun } from "@/features/documentation/run-operations";
+import { createBranchDocumentationRun } from "@/features/documentation/prepare-run";
+import { classifyRunFailure } from "@/features/documentation/classify-run-failure";
+import { runFailureDescription } from "@/features/documentation/run-failure";
 import { associationChoice } from "@/features/documentation/document";
 import { z } from "zod";
 export async function startRun(_previous: { error?: string }, form: FormData): Promise<{ error?: string }> {
@@ -9,7 +12,8 @@ export async function startRun(_previous: { error?: string }, form: FormData): P
   try {
     const paths = form.get("paths");
     const catalog = form.get("associations");
-    id = await createDocumentationRun({ owner: form.get("owner"), repo: form.get("repo"), base: form.get("base"), head: form.get("head"), branch: form.get("branch") || undefined, runContext: form.get("runContext") || null,
+    id = await createDocumentationRun({
+      owner: form.get("owner"), repo: form.get("repo"), base: form.get("base"), head: form.get("head"), branch: form.get("branch") || undefined, runContext: form.get("runContext") || null,
       paths: typeof paths === "string" ? paths.split(/\r?\n/).map(path => path.trim()).filter(Boolean) : [],
       associations: z.array(associationChoice).max(20).parse(typeof catalog === "string" && catalog.trim() ? JSON.parse(catalog) : []),
     });
@@ -27,4 +31,17 @@ export async function retryRun(_previous: { error?: string }, form: FormData): P
     query = new URLSearchParams({ repository: `${run.record.input.owner}/${run.record.input.repo}`, ...(run.record.input.branch ? { branch: run.record.input.branch } : {}) });
   } catch { return { error: "Could not create a new attempt. Check access and PostgreSQL, then retry." }; }
   redirect(`/runs/${id}?${query}`);
+}
+
+export async function startBranchRun(_previous: { error?: string }, form: FormData): Promise<{ error?: string }> {
+  let result;
+  try {
+    result = await createBranchDocumentationRun({ repository: form.get("repository"), branch: form.get("branch"), runContext: form.get("runContext") || null });
+    if (result.status === "blocked") return { error: result.message };
+  } catch (error) {
+    if (error instanceof z.ZodError) return { error: "Choose a valid branch and keep context within 300 characters." };
+    const detail = runFailureDescription(classifyRunFailure("source-analysis", error).code);
+    return { error: `${detail.message} ${detail.nextStep}` };
+  }
+  redirect(`/runs/${result.id}?${new URLSearchParams({ repository: result.repository, ...(result.branch ? { branch: result.branch } : {}) })}`);
 }

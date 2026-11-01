@@ -3,17 +3,20 @@ import { mutateDocumentationRun, runningDocumentationRuns, type DocumentationRun
 import { runRecord, runRecordV2, type RunRecordV2 } from "./run-record";
 import { RUN_STALE_MS, type RunDisposition } from "./run-workflow-state";
 
+import { runFailureDescription, type RunFailure } from "./run-failure";
+
 export class RunOwnershipLost extends Error {}
 export function ownedRun(row: DocumentationRunRow, token: string): RunRecordV2 {
   const r = runRecordV2.parse(row.payload);
   if (row.status !== "running" || r.status !== "running" || r.execution?.token !== token) throw new RunOwnershipLost("Run ownership lost.");
   return r;
 }
-export function finishRun(record: RunRecordV2, disposition: RunDisposition, reason: string): RunRecordV2 {
+export function finishRun(record: RunRecordV2, disposition: RunDisposition, reason: string, failure?: RunFailure): RunRecordV2 {
   const now = new Date().toISOString();
-  return runRecordV2.parse({ ...record, status: "finished", disposition, reason, summary: reason, activeStage: null, finishedAt: now,
-    stages: record.stages.map(s => s.status === "running" || (disposition === "failed" && s.key === record.activeStage) ? { ...s, status: disposition === "cancelled" ? "cancelled" : disposition === "failed" || disposition === "interrupted" ? "failed" : "incomplete", summary: reason, finishedAt: now }
-      : s.status === "waiting" ? { ...s, status: "skipped", summary: `Not executed: ${reason}`, finishedAt: now } : s),
+  const summary = failure ? runFailureDescription(failure.code).message : reason;
+  return runRecordV2.parse({ ...record, ...(failure ? { failure } : {}), status: "finished", disposition, reason, summary, activeStage: null, finishedAt: now,
+    stages: record.stages.map(s => s.status === "running" || (disposition === "failed" && s.key === record.activeStage) ? { ...s, status: disposition === "cancelled" ? "cancelled" : disposition === "failed" || disposition === "interrupted" ? "failed" : "incomplete", summary, finishedAt: now }
+      : s.status === "waiting" ? { ...s, status: "skipped", summary: failure ? "Not run because an earlier stage stopped." : `Not executed: ${reason}`, finishedAt: now } : s),
   });
 }
 export async function writeRunCheckpoint(id: string, token: string, change: (record: RunRecordV2) => RunRecordV2, allowCancellation = false) {

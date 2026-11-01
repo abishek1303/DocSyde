@@ -1,4 +1,5 @@
 "use server";
+import { revalidatePath } from "next/cache";
 import { getPublication, publishDocumentation, unpublishDocumentation } from "./publication-operations";
 
 export type PublicationState = {
@@ -20,6 +21,10 @@ export async function changePublication(_previous: PublicationState, form: FormD
       const result = await unpublishDocumentation({ ...target, observedId: form.get("observedId") });
       message = result.status === "unpublished" ? "Unpublished. Saved documents are unchanged." : "Publication changed. Review the current target before retrying.";
     } else if (intent !== "inspect") throw new Error("Invalid intent");
+    if (intent !== "inspect") {
+      revalidatePath("/docs");
+      revalidatePath("/documentation/drafts/[id]", "page");
+    }
     const publication = await getPublication(target);
     return { route, publication: publication ? { id: publication.id, draftId: publication.draftId } : null, message, available: true };
   } catch {

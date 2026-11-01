@@ -1,19 +1,34 @@
-import { RunHistory } from "@/features/documentation/components/run-history";
-import { RepositoryBranch } from "@/features/sources/components/repository-branch";
 import Link from "next/link";
 import { Suspense } from "react";
+import { ArrowRight, FileCheck2, GitCompareArrows, Send } from "lucide-react";
 import { AppShell } from "@/components/application/shell";
 import { LoadingList } from "@/components/application/loading-list";
-import { DocumentationList } from "@/features/documentation/components/draft-library";
-import { CommitList } from "@/features/sources/components/recent-commits";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { selectedRepository, type RepositorySearch } from "@/features/sources/repository-overview";
-async function HomeContent({ searchParams }: { searchParams: Promise<RepositorySearch> }) {
+
+async function Overview({ searchParams }: { searchParams: Promise<RepositorySearch> }) {
   let repository;
   try { repository = selectedRepository(await searchParams); } catch { return <main className="p-8" role="alert">Repository selection is unavailable. Check the configured repository allowlist.</main>; }
-  const query = new URLSearchParams({ repository: repository.name, ...(repository.branch ? { branch: repository.branch } : {}) });
-  return <AppShell repository={repository.name} branch={repository.branch} branchContext={<RepositoryBranch repository={repository} />} active="Overview"><header className="space-y-3"><h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Your product, documented.</h1><p className="max-w-xl leading-7 text-muted-foreground">Explore saved documentation or catch up on recent source changes.</p></header><div className="grid min-w-0 gap-6 md:grid-cols-2">{[{ title: "Documentation", description: "Your latest saved drafts. Unreviewed and ready to read.", href: "/docs", action: "View documentation", content: <DocumentationList repository={repository.location} limit={4} /> }, { title: "Recent changes", description: "The latest commits from your selected GitHub branch.", href: "/changes", action: "View changes", content: <CommitList repository={repository} limit={4} /> }].map(panel => <Card key={panel.title} className="min-w-0"><CardHeader><h2 className="text-xl font-semibold">{panel.title}</h2><p className="text-sm leading-6 text-muted-foreground">{panel.description}</p><Link className={buttonVariants({ variant: "outline" })} href={`${panel.href}?${query}`}>{panel.action}</Link></CardHeader><CardContent className="min-w-0"><Suspense fallback={<LoadingList />}>{panel.content}</Suspense></CardContent></Card>)}</div><section className="space-y-4"><div className="flex items-center justify-between gap-4"><h2 className="text-xl font-semibold">Recent runs</h2><Link href={`/runs?${query}`} className="text-sm underline">View all runs</Link></div><Suspense fallback={<LoadingList />}><RunHistory owner={repository.owner} repo={repository.repo} limit={3} /></Suspense></section></AppShell>;
+  return <AppShell repository={repository.name} branch={repository.branch} active="Overview">
+    <section className="max-w-3xl space-y-7 py-10 sm:py-16">
+      <p className="text-sm font-medium text-primary">Your documentation, by your side.</p>
+      <h1 className="text-4xl font-semibold leading-tight tracking-tight sm:text-6xl">Your product changes.<br />Your docs should keep up.</h1>
+      <p className="max-w-xl text-lg leading-8 text-muted-foreground">DocSyde looks at your code, identifies what changed, and prepares documentation updates for you to review.</p>
+      <Link href={`/runs/new?${new URLSearchParams({ repository: repository.name })}`} className={buttonVariants({ size: "lg" })}>Start a run <ArrowRight className="size-4" aria-hidden="true" />
+      </Link>
+      <p className="text-sm text-muted-foreground">You review the changes and decide when to publish.</p>
+    </section>
+    <section aria-label="How DocSyde works" className="grid gap-8 border-t py-9 md:grid-cols-3">
+      {[{ Icon: GitCompareArrows, title: "Understand the change", text: "Start with your source changes and a little context about your product." }, { Icon: FileCheck2, title: "Review the update", text: "See which documentation needs attention, with the source evidence close at hand." }, { Icon: Send, title: "Publish when ready", text: "Keep proposed updates separate from the documentation people use in your app." }].map(({ Icon, title, text }) => <div key={title} className="space-y-3">
+        <Icon className="size-5 text-primary" aria-hidden="true" />
+        <h2 className="font-semibold">{title}</h2>
+        <p className="max-w-sm text-sm leading-7 text-muted-foreground">{text}</p>
+      </div>)}
+    </section>
+  </AppShell>;
 }
-
-export default function Home(props: { searchParams: Promise<RepositorySearch> }) { return <Suspense fallback={<LoadingList />}><HomeContent {...props} /></Suspense>; }
+export default function Home(props: { searchParams: Promise<RepositorySearch> }) {
+  return <Suspense fallback={<LoadingList />}>
+    <Overview {...props} />
+  </Suspense>;
+}

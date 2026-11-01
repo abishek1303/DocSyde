@@ -6,7 +6,7 @@ import { eq, inArray, sql } from "drizzle-orm";
 import { reviewProposalFixture, independentReviewProposalFixture } from "./review-fixtures";
 import { draftFixture } from "./draft-fixture";
 import { getDatabase, closeDatabase } from "@/integrations/database/client";
-import { documentationReviews, documentationDrafts, documentationPublications } from "@/integrations/database/schema";
+import { documentationReviews, documentationDrafts, documentationPublications, documentationPublicationHistory } from "@/integrations/database/schema";
 import { documentationReviewTransaction } from "@/integrations/database/documentation-reviews";
 import { retainDocumentationProposal, getDocumentationReview } from "@/features/documentation/review-proposal-operations";
 import { applyDocumentationReview } from "@/features/documentation/apply-documentation-review";
@@ -37,6 +37,7 @@ test("model-free retained approval/save/publication integration proof", async t 
     try {
       await getDatabase().delete(documentationReviews).where(inArray(documentationReviews.id, proposalIds));
       await getDatabase().delete(documentationPublications).where(eq(documentationPublications.repository, repository));
+      await getDatabase().delete(documentationPublicationHistory).where(eq(documentationPublicationHistory.repository, repository));
       await getDatabase().delete(documentationDrafts).where(inArray(documentationDrafts.id, [...docIds]));
     } finally { await closeDatabase(); if (oldAllow === undefined) delete process.env.DOCSYDE_ANALYSIS_REPOSITORIES; else process.env.DOCSYDE_ANALYSIS_REPOSITORIES = oldAllow; }
   });

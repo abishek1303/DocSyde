@@ -32,7 +32,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* Apply the saved theme before paint; only the root class is changed. */}
         <script dangerouslySetInnerHTML={{ __html: `try { document.documentElement.classList.toggle("dark", localStorage.getItem("docsyde-theme") === "dark"); } catch {}` }} />
       </head>
-      <body className="min-h-full flex flex-col"><ScrollPace /><ApplicationHeader />{children}</body>
+      <body className="flex h-dvh flex-col overflow-hidden"><ScrollPace /><ApplicationHeader /><div data-scroll-viewport className="min-h-0 min-w-0 flex-1 overflow-y-auto motion-safe:scroll-smooth md:pl-20">{children}</div></body>
     </html>
   );
 }

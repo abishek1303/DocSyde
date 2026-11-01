@@ -597,7 +597,12 @@ Saving stays separate. Same-document publication is idempotent, explicit replace
 atomically changes the reference and publication identity/time, and unpublish deletes
 only the association. Observed publication UUIDs protect replace/unpublish against
 stale writes without a general concurrency layer. Canonical draft JSON/status and
-saved timestamps remain unchanged; no history or content copy is introduced.
+saved timestamps remain unchanged. A publication-history association now retains the
+retired publication UUID, route, draft reference, original publication time and archive
+time. Replacement and unpublish archive the observed association in the same
+transaction as the active-link mutation. No canonical content is copied; stale and
+idempotent requests do not create history. Earlier retired associations cannot be
+reconstructed from saved snapshots.
 
 Feature operations enforce the existing repository allowlist through Sources' narrow
 repository-access entry, validate saved documents and derive a versioned host-only
@@ -686,3 +691,100 @@ human review remain intact. Server-owned selection is optional on retained plans
 legacy compatibility; selected target hashes are rechecked by transformation/retention.
 No migration, materialized index, taxonomy service, navigation restructure, new model
 call or SDK retrieval change is introduced. Physical indexing can follow measured need.
+
+## Application navigation and run preparation
+
+The application now uses an icon sidebar for Overview, Your runs, Documentation,
+and AI/MCP. Overview is explanatory and performs no provider/data reads. Existing
+source tools and commit pages remain secondary destinations. Shared presentation
+lives in `components/application`; routes compose feature-owned operations.
+
+`/runs/new` is a compact demo form: branch, latest-change headline, optional run
+context and Start run. Sources owns automatic selection of the branch with the
+newest tip commit, using a GitHub-owned paginated GraphQL read (up to 1000 heads;
+ties prefer the repository default branch). Explicit branch choices override it.
+The selected branch’s latest commit headline supplies the short change summary;
+changing branches updates that text locally without inference or another button.
+
+Submission, rather than page rendering, resolves the selected branch and performs
+the existing bounded comparison checks. It pins the current tip and its first
+parent before creating the schema-v2 run. Client input cannot supply comparison
+revisions, source paths or association catalogs through this demo action. Technical
+source tools retain their existing explicit controls. Saved product context is still
+captured by the workflow; the visible Context field supplies the optional run note.
+Reruns retain their original pinned comparison/context and cannot execute while
+active. Whole-project initial analysis, automatic baseline advancement and full
+reanalysis remain unimplemented; this UI change does not change the evidence model.
+
+Documentation has fixed-header Latest, Pending and Archive segments. Latest renders
+the newest persisted draft in the selected repository. Pending includes only
+unaccepted, unexpired retained proposals with actionable review-ready changes.
+Archive lists recorded retired publications and renders their immutable snapshots.
+Latest and archived readers share a feature-owned three-column workspace: a
+searchable document navigation derived from actual document titles, a bounded
+article viewport beneath its breadcrumb, and section jump navigation. Mobile uses
+the existing dialog primitive for documents and a compact section disclosure. No
+synthetic categories or document splitting are introduced; canonical content and
+publication semantics are unchanged. The application shell supplies a generic
+workspace layout slot while feature UI owns article scrolling and navigation.
+Documentation-owned operations authorize repository scope and validate canonical
+identity; database integration owns ordered queries and pagination. Proposal previews
+are readable in the browser; acceptance/save continues through the existing CLI.
+Existing publication controls remain available through saved document readers.
+AI/MCP documents the implemented read-only endpoint/SDK and identifies the MCP server
+as planned. No inference, publication, SDK, runner, or coordinator boundary changed.
+
+## Run navigation and public failure diagnostics
+
+Run history uses a repository-wide table with branch, pinned comparison, outcome,
+start time and duration. History is repository-wide, with no branch selector or
+branch label in its page header. Fresh Start run links choose the latest branch
+automatically and the setup form permits manual override. Breadcrumbs connect setup,
+comparison, execution, evidence, source details and review. Active comparisons can
+be inspected without permitting another execution; the retry action still rejects
+active attempts. Proposal breadcrumbs verify their originating run association.
+
+Schema-v2 payloads optionally retain `failure: { stage, code }` from a fixed enum.
+Documentation classifies known source/model/validation/database failures without
+copying exception messages, SQL, stacks, credentials or provider bodies. Terminal
+summaries and the failed stage use fixed public text; machine-readable `reason`
+codes remain separate. The status projection includes the diagnostic, and the UI
+adds a fixed recovery suggestion. Existing rows remain readable without migration;
+older failed records explicitly report that no detailed cause was retained.
+Source-returned model rejections and evidence-budget failures are classified too.
+Execution admission, checkpoints, cancellation and review authority are unchanged.
+
+## Read-only AI responses in the run timeline
+
+The run status projection supplies bounded response previews and availability per
+stage. Source analysis, inspection decisions, product impact and documentation
+planning are projected from their existing validated run outputs. Runtime analysis
+loads the saved manifest through its trusted artifact UUID and verifies its SHA-256
+before projecting selection and vision results. Documentation generation loads the
+retained proposal, checks repository/identity/hash correspondence, and projects
+its authored changes and support verdicts without exposing complete canonical
+candidates, baseline documents or authorization catalogs.
+
+`GET /runs/<id>/responses/<stage>` is an authorized, no-store read of existing data.
+It performs no inference, generation, acceptance, save or publication operation.
+Full responses are bounded to 256 KiB and fetched only when the stage popup opens;
+normal status polling carries only the short previews. Two optional bounded display
+fields retain runtime/generation excerpts for inexpensive previews. These excerpts
+are presentation metadata and never model input, evidence or authority. Existing
+rows require no migration and can show unavailable output where nothing was retained.
+
+The popup renders validated task results as escaped text. Provider transport bodies,
+prompts, source bundles, executable workflow settings and rejected model output are
+not displayed. Deterministic results are distinguished from AI responses. Results
+appear after their checkpoint is saved; token streaming is not introduced.
+
+## Application viewport scrolling
+
+The root layout fills the dynamic viewport and prevents body scrolling. AppShell
+keeps its repository header outside an independently scrollable main region; the
+application sidebar/mobile navigation remain stationary. Legacy standalone routes
+use the root content viewport as their scroll fallback. The document reader uses a
+fixed grid with separate article/navigation scroll regions and content-relative
+anchor offsets. Page scroll pacing targets the marked content viewport, leaving
+nested code blocks, dialogs and navigation scrollers native. Layout changes add no
+product, persistence, provider or execution responsibilities.

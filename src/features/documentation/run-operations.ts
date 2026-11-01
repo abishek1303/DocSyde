@@ -10,6 +10,8 @@ import { RUN_STEPS } from "./run-progress";
 import { getDocumentationDraft } from "./operations";
 import { validateDocumentationDocument } from "./document-validation";
 
+import { projectStageResponsePreviews } from "./run-response-projection";
+
 function repositoryIdentity(input: { owner: string; repo: string }) { return `https://github.com/${input.owner.toLowerCase()}/${input.repo.toLowerCase()}`; }
 export async function createDocumentationRun(raw: unknown) {
   await initializeRunCoordinator();
@@ -41,17 +43,17 @@ export async function getDocumentationRun(rawId: unknown) {
   }
   return { id, createdAt: row.createdAt.toISOString(), record, savedAt };
 }
-export function runView(run: NonNullable<Awaited<ReturnType<typeof getDocumentationRun>>>): RunView {
+export function runView(run: NonNullable<Awaited<ReturnType<typeof getDocumentationRun>>>, { includeResponses = true }: { includeResponses?: boolean } = {}): RunView {
   const record = run.record;
   const v2 = "schemaVersion" in record;
   const document = !v2 ? record.result?.document : null;
-  return { schemaVersion: v2 ? 2 : 1, input: record.input, title: record.title,
+  return { ...(includeResponses ? { responses: projectStageResponsePreviews(record) } : {}), schemaVersion: v2 ? 2 : 1, input: record.input, title: record.title,
     status: v2 ? record.disposition ?? record.status : record.status, summary: record.summary, startedAt: record.startedAt, finishedAt: record.finishedAt,
     stages: record.stages, contextSnapshot: record.contextSnapshot, ...(v2 ? { lifecycle: record.status, activeStage: record.activeStage, disposition: record.disposition,
       outputs: { analysisSha256: record.analysisSha256, impactAssessment: record.impact?.assessment, models: record.models,
         plan: record.plan ? { actionable: record.plan.decisions.filter(d => d.action === "revise" || d.action === "add").length, noChange: record.plan.decisions.filter(d => d.action === "no-change").length, unresolved: record.plan.decisions.filter(d => d.action === "unresolved").length } : undefined,
         transformation: record.transformation ? { status: record.transformation.status, reviewReadyActions: record.transformation.results.filter(r => r.reviewReady).length } : undefined },
-      runtime: record.runtime, retainedProposal: record.retainedProposal, reason: record.reason } : {}),
+      failure: record.failure, runtime: record.runtime, retainedProposal: record.retainedProposal, reason: record.reason } : {}),
     id: run.id, createdAt: run.createdAt, savedAt: run.savedAt, documentId: document?.id ?? null, hasDraft: Boolean(document), hasEvidence: Boolean(record.analysis) };
 }
 // Compatibility entry: execution now starts a coordinator-owned task and returns immediately.
@@ -62,7 +64,7 @@ export async function listDocumentationRuns(raw: unknown) {
   const rows = await selectDocumentationRuns(repositoryIdentity(input), input.limit + 1, input.before && { createdAt: new Date(input.before.createdAt), id: input.before.id });
   const runs: RunView[] = [];
   for (const row of rows.slice(0, input.limit)) {
-    try { const run = await getDocumentationRun(row.id); if (run) runs.push(runView(run)); } catch { /* Isolate corrupt records; never expose unvalidated content. */ }
+    try { const run = await getDocumentationRun(row.id); if (run) runs.push(runView(run, { includeResponses: false })); } catch { /* Isolate corrupt records; never expose unvalidated content. */ }
   }
   const last = rows.slice(0, input.limit).at(-1);
   return { runs, nextCursor: rows.length > input.limit && last ? { createdAt: last.createdAt.toISOString(), id: last.id } : null };
