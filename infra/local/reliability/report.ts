@@ -1,3 +1,11 @@
+import { join } from "node:path";
+import { requireReliabilityContext, assertScenarioContext, runtimeIdentitySchema } from "@/integrations/reliability/execution-context";
+import { assertOwnedRoot, ownedPath } from "@/integrations/reliability/owned-resources";
+import { assertRuntimeIdentity } from "@/integrations/reliability/runtime-identity";
+import { comparisonIdentitySchema, reliabilityComparisonIdentity } from "@/features/documentation/runs/reliability-comparison";
+import { bytesHash } from "@/features/documentation/runs/reliability-baseline";
+import { documentationHash } from "@/features/documentation/documents/document-identity";
+import { routes } from "./workflows";
 import { readFile, writeFile } from "node:fs/promises";
 import { z } from "zod";
 import { isDeepStrictEqual } from "node:util";
@@ -12,7 +20,14 @@ import { reliabilityManifestSchema, baselineInventory, databaseServerIdentity } 
 
 export async function reportScenario(manifestPath: string, rawRunId: string, publicationProofPath: string | null) {
   const manifest = reliabilityManifestSchema.parse(JSON.parse(await readFile(manifestPath, "utf8")));
+  const context = requireReliabilityContext(["report"]);
+  assertScenarioContext(context, manifest.scenario, manifest.head);
+  if (context.experimentId !== manifest.experimentId || context.docsydeSha !== manifest.baseline.docsydeSha) throw new Error("Report context mismatch.");
+  await assertOwnedRoot(context);
   const runId = z.uuid().parse(rawRunId);
+  const attempt = JSON.parse(await readFile(join(context.outputRoot, "execution.attempt.json"), "utf8"));
+  if (attempt.evidence.runId !== runId || attempt.evidence.manifestSha256 !== bytesHash(await readFile(manifestPath))) throw new Error("Report attempt mismatch.");
+  if (publicationProofPath) await ownedPath(context, publicationProofPath);
   const inventory = await baselineInventory(manifest.baseline.repository);
   if (inventory.databaseName !== manifest.databaseName || inventory.databaseName === manifest.baseline.sourceDatabase || databaseServerIdentity() !== manifest.baseline.serverIdentity) throw new Error("Report database mismatch.");
   const run = await findDocumentationRun(runId);
@@ -20,8 +35,9 @@ export async function reportScenario(manifestPath: string, rawRunId: string, pub
   const record = runRecordV2.parse(run.payload);
   if (record.input.base !== manifest.baseline.requestDeskBase || record.input.head !== manifest.head) throw new Error("Report run mismatch.");
   const invocations = await getDatabase().select().from(aiModelInvocations).where(eq(aiModelInvocations.runId, runId)).orderBy(asc(aiModelInvocations.createdAt), asc(aiModelInvocations.id));
-  const proof = publicationProofPath ? z.object({ runId: z.literal(runId), scenario: z.literal(manifest.scenario), completed: z.boolean(), restored: z.boolean(),
+  const proof = publicationProofPath ? z.object({ experimentId: z.literal(manifest.experimentId), runtimeIdentity: runtimeIdentitySchema, route: z.literal(routes[manifest.scenario]), runId: z.literal(runId), scenario: z.literal(manifest.scenario), completed: z.boolean(), restored: z.boolean(),
     savedDocumentId: z.uuid(), deliveredDocumentId: z.uuid().nullable(), publicationId: z.uuid().nullable(), proposalId: z.uuid(), proposalHash: z.string() }).passthrough().parse(JSON.parse(await readFile(publicationProofPath, "utf8"))) : null;
+  if (proof) assertRuntimeIdentity(manifest.runtimeIdentity, proof.runtimeIdentity);
   const retained = record.retainedProposal ? await findDocumentationReview(record.retainedProposal.proposalId) : null;
   const review = retained ? readRetainedReview(retained) : null;
   const humanRejected = review?.review?.selection.decisions.some(decision => decision.choice === "reject") ?? false;
@@ -31,7 +47,7 @@ export async function reportScenario(manifestPath: string, rawRunId: string, pub
   const pass = !humanRejected && review?.proposal.status === "complete" && observabilityComplete && invocations.length >= 6 && invocations.length <= 8 && proof?.completed && proof.restored && proof.savedDocumentId === proof.deliveredDocumentId
     && record.retainedProposal?.proposalId === proof.proposalId && record.retainedProposal?.proposalHash === proof.proposalHash
     && !invocations.some(invocation => invocation.status === "failed" || invocation.status === "started");
-  return { version: 1, scenario: manifest.scenario, semanticType: { A: "field-default", B: "workflow-confirmation", C: "presentation-terminology" }[manifest.scenario], runId,
+  return { version: 2, experimentId: manifest.experimentId, comparisonIdentity: reliabilityComparisonIdentity(manifest.baseline), manifestSha256: bytesHash(await readFile(manifestPath)), runtimeIdentity: manifest.runtimeIdentity, scenario: manifest.scenario, semanticType: { A: "field-default", B: "workflow-confirmation", C: "presentation-terminology" }[manifest.scenario], runId,
     frozenInference: manifest.baseline.inference, base: manifest.baseline.requestDeskBase, head: manifest.head, docsydeSha: manifest.baseline.docsydeSha,
     outcome: outsideScope ? "outside-single-batch-scope" : pass ? "pass" : humanRejected ? "did-not-complete" : record.retainedProposal ? "awaiting-review-or-publication" : "did-not-complete",
     stopReason: record.reason, sourceAssessment: record.analysis?.analysis?.assessment ?? record.analysis?.status ?? null,
@@ -58,6 +74,7 @@ function selectedImageCount(invocations: { operation: string; status: string; re
   return parsed.success ? parsed.data.selected.length : null;
 }
 const comparisonReportSchema = z.object({
+  experimentId: z.string(), comparisonIdentity: comparisonIdentitySchema,
   scenario: z.enum(["A", "B", "C"]), semanticType: z.string(), outcome: z.string(), sourceAssessment: z.string().nullable(),
   runtimeDecision: z.string().nullable(), capabilitySelected: z.array(z.string().nullable()), selectedImageCount: z.number().int().nonnegative().nullable(),
   firstFailingStage: z.string().nullable(), base: z.string(), docsydeSha: z.string(), frozenInference: z.record(z.string(), z.unknown()),
@@ -78,9 +95,14 @@ export function comparisonMarkdown(reports: z.infer<typeof comparisonReportSchem
     "|---|---|---|---|---|---|---|---:|---:|---:|---|---:|---|---|---|---|---|---|---|---|", ...rows.map(row => `| ${row.map(cell).join(" | ")} |`), "",
     "Missing metrics are unavailable. Compare operation-level token usage, length completions, latency outliers, and repeated grounding/correspondence failures; these observations do not establish causality or statistical reliability.", ""].join("\n");
 }
+export function assertComparableReports(reports: { scenario: string; experimentId: string; comparisonIdentity: z.infer<typeof comparisonIdentitySchema> }[]) {
+  if (reports.length !== 3 || reports.some(report => !["A", "B", "C"].includes(report.scenario)) || new Set(reports.map(report => report.scenario)).size !== 3 || new Set(reports.map(report => report.experimentId)).size !== 1
+    || reports.some(report => !isDeepStrictEqual(report.comparisonIdentity, reports[0].comparisonIdentity))) throw new Error("Reports require one frozen semantic baseline and experiment specification.");
+}
 export async function writeComparison(paths: string[], output: string) {
   const reports = await Promise.all(paths.map(async path => comparisonReportSchema.parse(JSON.parse(await readFile(path, "utf8")))));
-  if (reports.length !== 3 || new Set(reports.map(report => report.scenario)).size !== 3
-    || new Set(reports.map(report => report.docsydeSha)).size !== 1 || reports.some(report => report.base !== reports[0].base || !isDeepStrictEqual(report.frozenInference, reports[0].frozenInference))) throw new Error("Comparison requires A/B/C with one baseline and DocSyde revision.");
+  if (reports.some(report => report.docsydeSha !== report.comparisonIdentity.docsydeSha || report.base !== report.comparisonIdentity.requestDeskBase
+    || documentationHash(report.frozenInference) !== report.comparisonIdentity.contractConfigSha256)) throw new Error("Report fields disagree with frozen comparison identity.");
+  assertComparableReports(reports);
   await writeFile(output, comparisonMarkdown(reports), { flag: "wx", mode: 0o600 });
 }

@@ -1,4 +1,5 @@
 import "server-only";
+import { assertReliabilitySideEffect } from "@/integrations/reliability/execution-context";
 import { randomUUID } from "node:crypto";
 import { documentationReviewTransaction, findDocumentationReview, type ReviewTransaction } from "@/integrations/database/documentation-reviews";
 import { documentationHash } from "../documents/document-identity";
@@ -95,6 +96,7 @@ async function publishUnit(scope: ReviewTransaction, proposal: DocumentationChan
 
 /** Explicit approval + deterministic apply. No model capabilities are imported. */
 export async function applyDocumentationReview(raw: unknown, { signal }: { signal?: AbortSignal } = {}): Promise<ReviewOutcome> {
+  assertReliabilitySideEffect("product-mutation");
   let selection: ReviewSelection;
   try { selection = normalizeReviewSelection(raw); }
   catch { return { status: "invalid-selection", proposalId: "", reason: "Invalid, duplicate or unknown input fields." }; }

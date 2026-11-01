@@ -814,3 +814,24 @@ single-batch admission, manifest sealing, explicit live-run authorization,
 review/publication lineage, restoration and comparison reports. Set server-only
 `DOCSYDE_RELIABILITY_MANIFEST` only for an isolated experiment server; ordinary
 runs retain existing behavior. Offline checks are not live reliability results.
+
+
+Reliability specification 2 requires an immutable `DOCSYDE_RELIABILITY_CONTEXT`
+JSON file, scenario-owned output/storage roots, fresh evidence directories and the
+harness-owned Request Desk launcher. `npm run reliability:test` runs the isolated
+adversarial suite; `npm run reliability:offline:test` additionally checks all three
+local Chromium fixtures with mocked providers and no database credentials.
+Use `reliability host` and `reliability serve` for identity-checked owned processes;
+these commands never start an inference run. Follow the [specification-2 protocol](infra/local/reliability/README.md#non-database-isolation-protocol-specification-2)
+for context files, mode changes, ordering and new manifests. Database architecture,
+copy mechanics and schema fingerprints are unchanged. Old evidence is retained,
+and a clean committed implementation plus fresh manifests are required for another
+frozen baseline. No paid experiment is part of setup verification.
+
+Reliability schema fingerprints now declare `schemaFingerprintVersion: 2`. The
+catalog inventory includes migration hashes, table kinds, column types/modifiers,
+nullability/defaults, key/FK properties and standalone indexes. CHECK/default
+expressions use a bounded structural parser for current migrations, including the
+proven varchar-literal-array → text cast distribution equivalence. Unsupported
+expressions stop inventory explicitly; old unversioned fingerprints cannot admit
+new copies. Historical failed preparation artifacts remain unchanged.

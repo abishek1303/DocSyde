@@ -1,3 +1,5 @@
+import { reliabilityContext } from "@/integrations/reliability/execution-context";
+import { reliabilityEnvironment } from "@/integrations/reliability/subprocess-environment";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
@@ -102,7 +104,7 @@ test("retained priority inputs → corrected synthesis → planner → transform
   assert.equal(fetch.mock.callCount(),9); // six synthesis fixtures + planner, generation, support
   const rendered = execFileSync(process.execPath, ["--import", "tsx", "infra/local/documentation/render-priority-review.ts", "-"], {
     cwd: process.cwd(), input: JSON.stringify({proposal,saved}), encoding: "utf8",
-    env: { ...process.env, BASETEN_API_KEY: "", META_API_KEY: "", DATABASE_URL: "" },
+    env: reliabilityContext() ? reliabilityEnvironment(reliabilityContext()!, process.env.DOCSYDE_RELIABILITY_CONTEXT!, "contracts") : { ...process.env, BASETEN_API_KEY: "", META_API_KEY: "", DATABASE_URL: "" },
   });
   assert.match(rendered, /Representative priority proposal renders/);
   if (process.env.DOCSYDE_PRIORITY_PROOF_DIRECTORY) {

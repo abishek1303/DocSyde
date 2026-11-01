@@ -1,4 +1,9 @@
 import "server-only";
+import { reliabilityContext, ReliabilityIsolationError, type ReliabilityRuntimeIdentity } from "@/integrations/reliability/execution-context";
+import { verifyRuntimeIdentity } from "@/integrations/reliability/runtime-identity";
+import { reliabilityEnvironment } from "@/integrations/reliability/subprocess-environment";
+import { spawnOwned, stopOwned } from "@/integrations/reliability/process-ownership";
+import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
@@ -9,7 +14,7 @@ export function localUrl(value: string): URL {
   if (!['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) || !["http:", "https:"].includes(url.protocol) || url.username || url.password) throw new Error("Expected a loopback HTTP URL");
   return url;
 }
-type Options = { baseUrl: string; readinessPath?: string; startupTimeoutMs?: number; signal?: AbortSignal };
+type Options = { baseUrl: string; readinessPath?: string; startupTimeoutMs?: number; signal?: AbortSignal; fixtureIdentity?: ReliabilityRuntimeIdentity };
 async function ready(options: Options, failed: () => boolean) {
   const base = localUrl(options.baseUrl), url = new URL(options.readinessPath ?? "/", base);
   if (url.origin !== base.origin) throw new Error("Readiness must use the runtime origin");
@@ -25,10 +30,21 @@ async function ready(options: Options, failed: () => boolean) {
   throw new Error("Runtime readiness timed out");
 }
 export async function attachRuntime(options: Options): Promise<RuntimeSession> {
+  const context = reliabilityContext();
+  if (context) {
+    const identity = context.runtimeIdentity ?? options.fixtureIdentity;
+    if (process.env.DOCSYDE_RELIABILITY_CONTRACT_TEST === "1" || !["offline", "scenario"].includes(context.mode) || !identity
+      || identity.experimentId !== context.experimentId || identity.scenario !== context.scenario || identity.requestDeskSha !== context.requestDeskSha
+      || identity.docsydeSha !== context.docsydeSha) throw new ReliabilityIsolationError("runtime-attach");
+    await verifyRuntimeIdentity(options.baseUrl, identity);
+  }
   localUrl(options.baseUrl); await ready(options, () => false);
   return { description: { runtimeId: randomUUID(), mode: "attached", baseUrl: options.baseUrl, startedAt: new Date().toISOString() }, async stop() {} };
 }
 export async function launchRuntime(options: Options & { cwd: string; command: string; args: string[]; env?: Record<string, string> }): Promise<RuntimeSession> {
+  const context = reliabilityContext();
+  if (context && (context.mode !== "scenario" || options.command !== process.execPath
+    || !options.args.includes(join(context.repositoryRoot, "infra/local/reliability/request-desk-host.ts")))) throw new ReliabilityIsolationError("runtime-launch");
   const base = localUrl(options.baseUrl);
   if (!options.command || !Array.isArray(options.args)) throw new Error("Explicit executable and arguments required");
   let occupied = false;
@@ -42,12 +58,16 @@ export async function launchRuntime(options: Options & { cwd: string; command: s
   const env: NodeJS.ProcessEnv = { NODE_ENV: process.env.NODE_ENV ?? "development" };
   for (const key of ["PATH", "Path", "HOME", "USERPROFILE", "SystemRoot", "TEMP", "TMP", "TMPDIR", "LANG"]) if (process.env[key]) env[key] = process.env[key];
   Object.assign(env, options.env);
-  const child = spawn(options.command, options.args, { cwd: options.cwd, env, shell: false, stdio: "ignore" });
+  if (context && options.env && Object.keys(options.env).some(key => !["DOCSYDE_REPOSITORY_OWNER", "DOCSYDE_REPOSITORY_NAME", "DOCSYDE_DELIVERY_ENDPOINT"].includes(key))) throw new ReliabilityIsolationError("runtime-environment");
+  const child = context
+    ? spawnOwned(context, options.command, options.args, { cwd: options.cwd, env: reliabilityEnvironment(context, process.env.DOCSYDE_RELIABILITY_CONTEXT!, "host", options.env), shell: false, stdio: "ignore" })
+    : spawn(options.command, options.args, { cwd: options.cwd, env, shell: false, stdio: "ignore" });
   let failed = false;
   const exited = new Promise<void>((resolve) => { child.once("error", () => { failed = true; resolve(); }); child.once("exit", () => { failed = true; resolve(); }); });
   let stopping: Promise<void> | undefined;
   const stop = () => stopping ??= (async () => {
     if (failed) return;
+    if (context) return stopOwned(context, child);
     child.kill();
     let timer: ReturnType<typeof setTimeout> | undefined;
     await Promise.race([exited, new Promise<void>((resolve) => { timer = setTimeout(resolve, 2000); })]);

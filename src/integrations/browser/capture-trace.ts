@@ -1,4 +1,8 @@
 import "server-only";
+import { reliabilityContext, ReliabilityIsolationError, type ReliabilityRuntimeIdentity } from "@/integrations/reliability/execution-context";
+import { reliabilityBrowserOptions } from "@/integrations/reliability/subprocess-environment";
+import { closeBrowserWithin } from "@/integrations/reliability/process-ownership";
+import { verifyRuntimeIdentity } from "@/integrations/reliability/runtime-identity";
 import { access } from "node:fs/promises";
 import { constants } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
@@ -17,8 +21,16 @@ export async function runtimeCaptureAvailable() {
 }
 
 /** One caller-scripted session. No model or product interpretation lives here. */
-export async function captureRuntimeTrace(raw: RuntimeWorkflowInput, storage: ArtifactStorage, signal?: AbortSignal): Promise<RuntimeTrace> {
+export async function captureRuntimeTrace(raw: RuntimeWorkflowInput, storage: ArtifactStorage, signal?: AbortSignal, fixtureIdentity?: ReliabilityRuntimeIdentity): Promise<RuntimeTrace> {
   const options = runtimeWorkflowSchema.parse(raw);
+  const experiment = reliabilityContext();
+  if (experiment) {
+    if (process.env.DOCSYDE_RELIABILITY_CONTRACT_TEST === "1" || !["offline", "scenario"].includes(experiment.mode)) throw new ReliabilityIsolationError("offline-live-capture");
+    const identity = experiment.runtimeIdentity ?? fixtureIdentity;
+    if (!identity || identity.scenario !== experiment.scenario || identity.requestDeskSha !== experiment.requestDeskSha
+      || identity.docsydeSha !== experiment.docsydeSha || identity.experimentId !== experiment.experimentId) throw new ReliabilityIsolationError("capture-runtime");
+    await verifyRuntimeIdentity(options.baseUrl, identity);
+  }
   const base = captureOrigin(options.baseUrl), target = new URL(options.path, base);
   if (target.origin !== base.origin) throw new Error("Workflow must remain on the configured origin.");
   signal?.throwIfAborted();
@@ -32,7 +44,7 @@ export async function captureRuntimeTrace(raw: RuntimeWorkflowInput, storage: Ar
   const pending = new Map<string, Buffer>();
   let totalBytes = 0;
   const controller = AbortSignal.any([AbortSignal.timeout(options.limits.timeoutMs), ...(signal ? [signal] : [])]);
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(experiment ? await reliabilityBrowserOptions(experiment) : {});
   const abort = () => { void browser.close().catch(() => {}); };
   controller.addEventListener("abort", abort, { once: true });
   let page: Page;
@@ -40,7 +52,7 @@ export async function captureRuntimeTrace(raw: RuntimeWorkflowInput, storage: Ar
     controller.throwIfAborted();
     const context = await browser.newContext({ viewport: options.viewport, deviceScaleFactor: 1, reducedMotion: "reduce", serviceWorkers: "block" });
     await context.route("**/*", async route => {
-      if (route.request().isNavigationRequest() && new URL(route.request().url()).origin !== base.origin) await route.abort();
+      if ((route.request().isNavigationRequest() || experiment?.mode === "offline") && new URL(route.request().url()).origin !== base.origin) await route.abort();
       else await route.continue();
     });
     // Future presentation-only screencast observer attaches here and detaches in finally.
@@ -195,7 +207,7 @@ export async function captureRuntimeTrace(raw: RuntimeWorkflowInput, storage: Ar
     throw new Error(controller.aborted ? "Runtime workflow cancelled or timed out." : "Runtime workflow failed; check readiness, selectors and local application.");
   } finally {
     controller.removeEventListener("abort", abort);
-    await browser.close();
+    if (experiment) await closeBrowserWithin(browser); else await browser.close();
   }
   controller.throwIfAborted();
   // Match final-capture semantics: cleanup precedes storage; failures never infer.

@@ -1,3 +1,4 @@
+import { installOfflineNetworkBoundary } from "../reliability/offline-network";
 // Test-only static rendering of the real review/preview components. No application writes.
 import { createRequire, Module } from "node:module";
 import { join } from "node:path";
@@ -8,6 +9,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { DocumentationChangeProposal } from "@/features/documentation/transformation/documentation-change-proposal";
 import type { DocumentationDocument } from "@/features/documentation/documents/document";
 
+if (process.env.DOCSYDE_RELIABILITY_CONTRACT_TEST === "1") installOfflineNetworkBoundary(process.cwd());
 const load = createRequire(join(process.cwd(), "package.json"));
 Object.assign(globalThis, { React });
 globalThis.fetch = async () => { throw new Error("Rendering cannot call providers or application endpoints"); };

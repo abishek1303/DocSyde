@@ -1,4 +1,5 @@
 import "server-only";
+import { assertReliabilitySideEffect } from "@/integrations/reliability/execution-context";
 import { z } from "zod";
 import { repositoryCoordinates, repositoryLocation } from "@/integrations/github/repository-identity";
 import { assertAllowedRepository } from "@/features/sources/repository-access";
@@ -23,6 +24,7 @@ export function savedDocumentCoordinates(location: string) {
 }
 
 export async function publishDocumentation(raw: unknown) {
+  assertReliabilitySideEffect("product-mutation");
   const input = publishInput.parse(raw);
   const repository = allowedRepository(input);
   const saved = await getDocumentationDraft(input.draftId);
@@ -41,6 +43,7 @@ export async function publishDocumentation(raw: unknown) {
 }
 
 export async function unpublishDocumentation(raw: unknown) {
+  assertReliabilitySideEffect("product-mutation");
   const input = target.extend({ observedId: z.uuid() }).parse(raw);
   const removed = await deletePublication(allowedRepository(input), input.route, input.observedId);
   return { status: removed ? "unpublished" as const : "conflict" as const };

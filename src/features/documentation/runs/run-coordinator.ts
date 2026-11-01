@@ -1,5 +1,5 @@
 import "server-only";
-import { withReliabilityBaseline } from "./reliability-baseline";
+import { withReliabilityBaseline, preflightReliabilityProcess } from "./reliability-baseline";
 import { InferenceBudgetError } from "@/integrations/ai/inference-budget";
 import { randomUUID } from "node:crypto";
 import { admitDocumentationRun, findDocumentationRun, mutateDocumentationRun } from "@/integrations/database/documentation-runs";
@@ -17,15 +17,21 @@ type ActiveRun = {
   heartbeatTimer?: ReturnType<typeof setInterval>; controlTimer?: ReturnType<typeof setInterval>;
   lastHeartbeat: number; heartbeatBusy: boolean; controlBusy: boolean; heartbeatTask?: Promise<unknown>; controlTask?: Promise<unknown>;
 };
-type Coordinator = { active?: ActiveRun; initialization?: Promise<void>; maintenanceTimer?: ReturnType<typeof setInterval>; reconciling: boolean };
+type Coordinator = { active?: ActiveRun; initialization?: Promise<void>; maintenanceTimer?: ReturnType<typeof setInterval>; reconciling: boolean; admitted?: boolean };
 const processState = globalThis as typeof globalThis & { docsydeRunCoordinator?: Coordinator };
 function state() { return processState.docsydeRunCoordinator ??= { reconciling: false }; }
 export class RunBusyError extends Error {}
 
 export async function initializeRunCoordinator() {
   const coordinator = state();
+  // A read-only page visit cannot start experiment reconciliation before an
+  // identity-bound attempt exists. Recheck after a later explicit run creation.
+  if (coordinator.admitted === false) { coordinator.initialization = undefined; coordinator.admitted = undefined; }
   if (!coordinator.initialization) {
-    coordinator.initialization = reconcileDocumentationRuns(coordinator.active).then(() => {
+    coordinator.initialization = preflightReliabilityProcess().then(async allowed => {
+      if (!allowed) { coordinator.admitted = false; return; }
+      await reconcileDocumentationRuns(coordinator.active);
+      coordinator.admitted = true;
       coordinator.maintenanceTimer = setInterval(() => {
         if (coordinator.reconciling) return;
         coordinator.reconciling = true;

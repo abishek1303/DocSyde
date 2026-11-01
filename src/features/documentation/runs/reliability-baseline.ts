@@ -1,5 +1,10 @@
 import "server-only";
-import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { requireReliabilityContext, reliabilityContext, runtimeIdentitySchema, assertScenarioContext, ReliabilityIsolationError } from "@/integrations/reliability/execution-context";
+import { assertOwnedRoot, ownedPath, reserveAttempt } from "@/integrations/reliability/owned-resources";
+import { verifyRuntimeIdentity, assertRuntimeIdentity } from "@/integrations/reliability/runtime-identity";
+import { verifyOfflineReceipt } from "@/integrations/reliability/evidence";
+import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
@@ -21,15 +26,15 @@ const inference = z.object({ provider: z.enum(["baseten", "meta"]), model: z.str
   contractVersion: z.string().nullable(), maxOutputTokens: z.number().int().positive(), reasoningEffort: z.enum(["low", "medium", "high", "xhigh"]).nullable(), temperature: z.number().nullable(), topP: z.number().nullable(),
 }).strict() }).strict();
 export const reliabilityBaselineSchema = z.object({
-  version: z.literal(1), docsydeSha: sha, requestDeskBase: z.literal(RELIABILITY_BASE), repository: z.literal("https://github.com/abishek1303/docsyde"),
+  version: z.literal(1), specificationVersion: z.literal(2), experimentId: z.string(), runtimePolicySha256: hash, docsydeSha: sha, requestDeskBase: z.literal(RELIABILITY_BASE), repository: z.literal("https://github.com/abishek1303/docsyde"),
   sourceDatabase: z.string(), serverIdentity: hash, code: z.array(fileReceiptSchema).min(1),
   inference: z.record(z.string(), inference), environment: z.record(z.string(), z.string().nullable()),
   documents: z.array(z.object({ id: z.uuid(), sha256: hash, projectionSha256: hash }).strict()),
   publications: z.array(z.object({ id: z.uuid(), repository: z.string(), route: z.string(), documentId: z.uuid(), publishedAt: z.string() }).strict()),
-  contextSha256: hash, schemaSha256: hash, runContext: z.null(),
+  contextSha256: hash, schemaFingerprintVersion: z.literal(2), schemaSha256: hash, runContext: z.null(),
 }).strict();
 export const reliabilityManifestSchema = z.object({
-  version: z.literal(1), scenario: z.enum(["A", "B", "C"]), baseline: reliabilityBaselineSchema,
+  version: z.literal(2), experimentId: z.string(), runtimeIdentity: runtimeIdentitySchema, scenario: z.enum(["A", "B", "C"]), baseline: reliabilityBaselineSchema,
   databaseName: z.string().regex(/^docsyde_reliability_[a-z0-9_]+$/), head: sha, branch: z.string().min(1),
   runContext: z.string().max(300).nullable(), runtime: fileReceiptSchema,
   runtimeDescriptor: z.object({ id: z.string(), version: z.string(), sha256: hash, capabilitiesSha256: hash }).strict(),
@@ -48,7 +53,9 @@ export function baselineInference(): Record<string, FrozenInference> {
   }));
 }
 export function baselineEnvironment() {
-  return Object.fromEntries(["DOCSYDE_HOST_ORIGIN", "DOCSYDE_STORAGE_DIRECTORY", "DOCSYDE_REPOSITORY_OWNER", "DOCSYDE_REPOSITORY_NAME", "DOCSYDE_DELIVERY_ENDPOINT", "GITHUB_REPOSITORY", "DOCSYDE_ANALYSIS_REPOSITORIES"].map(key => [key, process.env[key] ?? null]).concat([["node", process.version], ["NODE_ENV", process.env.NODE_ENV ?? "development"], ["basetenCredentialConfigured", String(Boolean(process.env.BASETEN_API_KEY))], ["metaCredentialConfigured", String(Boolean(process.env.META_API_KEY))]]));
+  const environment = Object.fromEntries(["DOCSYDE_HOST_ORIGIN", "DOCSYDE_STORAGE_DIRECTORY", "DOCSYDE_REPOSITORY_OWNER", "DOCSYDE_REPOSITORY_NAME", "DOCSYDE_DELIVERY_ENDPOINT", "GITHUB_REPOSITORY", "DOCSYDE_ANALYSIS_REPOSITORIES"].map(key => [key, process.env[key] ?? null]).concat([["node", process.version], ["NODE_ENV", process.env.NODE_ENV ?? "development"], ["basetenCredentialConfigured", String(Boolean(process.env.BASETEN_API_KEY))], ["metaCredentialConfigured", String(Boolean(process.env.META_API_KEY))]]));
+  if (reliabilityContext()) environment.DOCSYDE_STORAGE_DIRECTORY = "$SCENARIO/artifacts";
+  return environment;
 }
 export function databaseServerIdentity() {
   const url = new URL(process.env.DATABASE_URL ?? "");
@@ -61,15 +68,33 @@ export async function baselineInventory(repository: string) {
     const canonical = validateDocumentationDocument(document);
     if (canonical.id !== id) throw new Error("Saved document identity mismatch.");
     return { id, sha256: documentationHash(canonical), projectionSha256: documentationHash(projectSectionContexts(canonical)) };
-  }), publications: inventory.publications, schemaSha256: documentationHash({ columns: inventory.schema, constraints: inventory.constraints }), contextSha256: documentationHash(inventory.context) };
+  }), publications: inventory.publications, schemaFingerprintVersion: inventory.schemaFingerprint.version, schemaSha256: inventory.schemaFingerprint.sha256, contextSha256: documentationHash(inventory.context) };
 }
 export function assertReliabilityInventory(manifest: ReliabilityManifest, current: Awaited<ReturnType<typeof baselineInventory>>) {
   const { baseline } = manifest;
   if (current.databaseName === baseline.sourceDatabase) throw new Error("Reliability database must be isolated.");
+  if (current.schemaFingerprintVersion !== baseline.schemaFingerprintVersion) throw new Error("Schema fingerprint version mismatch.");
   if (current.databaseName !== manifest.databaseName || !isDeepStrictEqual(current.documents, baseline.documents)
     || !isDeepStrictEqual(current.publications, baseline.publications) || current.contextSha256 !== baseline.contextSha256 || current.schemaSha256 !== baseline.schemaSha256) throw new Error("Reliability baseline corpus/publication/context mismatch.");
 }
+export async function assertReliabilityProcess(manifest: ReliabilityManifest) {
+  const context = requireReliabilityContext(["scenario"]), { baseline } = manifest;
+  assertScenarioContext(context, manifest.scenario, manifest.head);
+  if (context.experimentId !== manifest.experimentId || baseline.experimentId !== manifest.experimentId
+    || context.docsydeSha !== baseline.docsydeSha || !context.runtimeIdentity) throw new ReliabilityIsolationError("manifest-context");
+  assertRuntimeIdentity(context.runtimeIdentity, manifest.runtimeIdentity);
+  await assertOwnedRoot(context);
+  if ((await readCleanCheckoutIdentity(context.repositoryRoot)).sha !== context.docsydeSha || resolve(process.cwd()) !== context.repositoryRoot) throw new ReliabilityIsolationError("docsyde-checkout");
+  if (resolve(process.env.DOCSYDE_STORAGE_DIRECTORY ?? "") !== join(context.outputRoot, "artifacts")) throw new ReliabilityIsolationError("artifact-root");
+  for (const path of [manifest.runtime.path, manifest.representativeBatchCheck.path, manifest.offlineGate.path, manifest.githubGate.path]) await ownedPath(context, path);
+  const receipt = await verifyOfflineReceipt(context, manifest.offlineGate.path);
+  const runtime = runRuntimeConfigSchema.parse(JSON.parse(await readFile(manifest.runtime.path, "utf8")));
+  if (receipt.runtimeSha256 !== manifest.runtime.sha256 || receipt.workflowSha256 !== documentationHash(runtime)
+    || receipt.capabilitiesSha256 !== documentationHash(runtime.capabilities)) throw new ReliabilityIsolationError("offline-workflow");
+  await verifyRuntimeIdentity(runtime.runtime.options.baseUrl, manifest.runtimeIdentity);
+}
 export async function assertReliabilityBaseline(manifest: ReliabilityManifest) {
+  await assertReliabilityProcess(manifest);
   const { baseline } = manifest;
   if (manifest.runContext !== baseline.runContext) throw new Error("Reliability run-context drift.");
   if ((await readCleanCheckoutIdentity(process.cwd())).sha !== baseline.docsydeSha) throw new Error("Reliability DocSyde revision mismatch.");
@@ -95,8 +120,9 @@ export async function assertReliabilityBaseline(manifest: ReliabilityManifest) {
 
 /** Opt-in server entry. A manifest never authorizes inference; the operator starts a run separately. */
 export async function withReliabilityBaseline<T>(id: string, input: z.infer<typeof runInput>, action: () => Promise<T>) {
-  const path = process.env.DOCSYDE_RELIABILITY_MANIFEST;
-  if (!path) return action();
+  const context = reliabilityContext(), path = process.env.DOCSYDE_RELIABILITY_MANIFEST;
+  if (!context && !path) return action();
+  if (!context || context.mode !== "scenario" || !path || resolve(path) !== context.manifestPath) throw new ReliabilityIsolationError("execution-context");
   const manifestBytes = await readFile(path, "utf8");
   const manifestSha256 = bytesHash(manifestBytes);
   const manifest = reliabilityManifestSchema.parse(JSON.parse(manifestBytes));
@@ -104,11 +130,38 @@ export async function withReliabilityBaseline<T>(id: string, input: z.infer<type
     || input.base !== RELIABILITY_BASE || input.head !== manifest.head || input.branch !== manifest.branch
     || input.runContext !== manifest.runContext || input.paths.length || input.associations.length) throw new Error("Reliability pinned run input mismatch.");
   await assertReliabilityBaseline(manifest);
-  // One execution per sealed manifest. Preserve this receipt even after a failed attempt.
-  await writeFile(`${path}.attempt.json`, JSON.stringify({ runId: id, scenario: manifest.scenario, head: manifest.head,
-    startedAt: new Date().toISOString(), manifestSha256 }), { flag: "wx", mode: 0o600 });
+  const attempt = JSON.parse(await readFile(join(context.outputRoot, "execution.attempt.json"), "utf8"));
+  if (attempt.experimentId !== context.experimentId || attempt.scenario !== context.scenario || attempt.evidence.runId !== id || attempt.evidence.manifestSha256 !== manifestSha256) throw new ReliabilityIsolationError("attempt-owner");
   return withInferenceBudget(id, manifest.baseline.inference, action, async () => {
     if (bytesHash(await readFile(path)) !== manifestSha256) throw new Error("Sealed manifest changed during execution.");
     await assertReliabilityBaseline(manifest);
   });
+}
+
+/** Reserve by fixed experiment/scenario root before the run is inserted or claimed. */
+export async function prepareReliabilityRun(id: string, input: z.infer<typeof runInput>) {
+  if (!reliabilityContext() && !process.env.DOCSYDE_RELIABILITY_MANIFEST) return;
+  const context = requireReliabilityContext(["scenario"]);
+  if (!context.manifestPath || resolve(process.env.DOCSYDE_RELIABILITY_MANIFEST ?? "") !== context.manifestPath) throw new ReliabilityIsolationError("execution-manifest");
+  const bytes = await readFile(context.manifestPath);
+  const manifest = reliabilityManifestSchema.parse(JSON.parse(bytes.toString("utf8")));
+  if (input.base !== RELIABILITY_BASE || input.head !== manifest.head || input.branch !== manifest.branch || input.runContext !== manifest.runContext
+    || input.paths.length || input.associations.length || `https://github.com/${input.owner.toLowerCase()}/${input.repo.toLowerCase()}` !== manifest.baseline.repository) throw new ReliabilityIsolationError("run-input");
+  await assertReliabilityBaseline(manifest);
+  await reserveAttempt(context, "execution", { runId: id, manifestSha256: bytesHash(bytes) });
+}
+export async function preflightReliabilityProcess() {
+  const context = reliabilityContext();
+  if (!context) return true;
+  if (!context.manifestPath) throw new ReliabilityIsolationError("process-manifest");
+  await assertReliabilityProcess(reliabilityManifestSchema.parse(JSON.parse(await readFile(context.manifestPath, "utf8"))));
+  try {
+    const attempt = JSON.parse(await readFile(join(context.outputRoot, "execution.attempt.json"), "utf8"));
+    if (attempt.experimentId !== context.experimentId || attempt.scenario !== context.scenario
+      || attempt.evidence.manifestSha256 !== bytesHash(await readFile(context.manifestPath))) throw new ReliabilityIsolationError("process-attempt");
+    return true;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return false;
+    throw error;
+  }
 }

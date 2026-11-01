@@ -1,4 +1,6 @@
 import "server-only";
+import { prepareReliabilityRun } from "./reliability-baseline";
+import { assertReliabilitySideEffect } from "@/integrations/reliability/execution-context";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { insertDocumentationRun, findDocumentationRun, selectDocumentationRuns, selectLatestDocumentationRuns } from "@/integrations/database/documentation-runs";
@@ -14,14 +16,16 @@ import { projectStageResponsePreviews } from "./run-response-projection";
 
 function repositoryIdentity(input: { owner: string; repo: string }) { return `https://github.com/${input.owner.toLowerCase()}/${input.repo.toLowerCase()}`; }
 export async function createDocumentationRun(raw: unknown) {
-  await initializeRunCoordinator();
+  assertReliabilitySideEffect("product-mutation");
   const input = runInput.parse(raw);
+  const id = randomUUID();
+  await prepareReliabilityRun(id, input);
+  await initializeRunCoordinator();
   assertAllowedRepository(input.owner, input.repo);
   if (input.associations.some(choice => choice.origin !== "operator" || choice.findingRef)) throw new Error("Associations must be explicit operator context.");
   if (new Set(input.associations.map(choice => choice.id)).size !== input.associations.length || input.associations.some(choice => choice.kind === "route" && (!choice.value.startsWith("/") || choice.value.startsWith("//") || /[?#\x00-\x20]/.test(choice.value)))) throw new Error("Check association IDs and routes.");
   const pinned = await pinChangeInput({ owner: input.owner, repo: input.repo, base: input.base, head: input.head, paths: input.paths });
   const commit = await readSelectedChange(pinned, pinned.head);
-  const id = randomUUID();
   const record: RunRecord = { schemaVersion: 2, disposition: null, activeStage: null, reason: null, execution: null, artifacts: [], models: [], warnings: [], input: { ...input, ...pinned }, title: commit.message.split("\n")[0].slice(0, 500), status: "pending", startedAt: null, finishedAt: null, summary: "Ready to start.", stages: initialWorkflowStages() };
   await insertDocumentationRun(id, repositoryIdentity(pinned), runRecord.parse(record));
   return id;

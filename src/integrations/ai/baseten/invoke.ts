@@ -1,4 +1,6 @@
 import "server-only";
+import { assertReliabilityTransport } from "@/integrations/reliability/execution-context";
+import { assertInferenceTransport } from "../inference-budget";
 import { basetenInferenceFields, resolveInference, type ResolvedInference } from "../operation-policy";
 import { z } from "zod";
 
@@ -12,6 +14,8 @@ const responseSchema = z.object({ choices: z.array(z.object({
   finish_reason: z.string(), message: z.object({ content: z.string().nullable(), refusal: z.string().nullable().optional() }),
 })).length(1), usage: z.unknown().optional() });
 export async function invokeBaseten(options: { instructions: string; input: string; maxOutputTokens: number; signal?: AbortSignal; settings?: ResolvedInference }): Promise<{ text: string; model: string; metadata: ModelInvocationMetadata }> {
+  assertReliabilityTransport();
+  assertInferenceTransport();
   const key = process.env.BASETEN_API_KEY?.trim();
   if (!key) throw new BasetenError("missing-credentials");
   const settings = options.settings ?? resolveInference("baseten", "transport", options.maxOutputTokens);

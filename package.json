@@ -52,9 +52,10 @@
     "documentation:review:verify": "node --conditions=react-server --import tsx --test infra/local/documentation/review-workflow.test.ts",
     "documentation:library:test": "node --conditions=react-server --import tsx --test infra/local/documentation/library.test.ts src/features/sources/repository/prepare-comparison.test.ts",
     "documentation:runs:unit:test": "node --conditions=react-server --import tsx --test src/features/documentation/runs/run-failure.test.ts src/features/documentation/runs/prepare-run.test.ts src/features/documentation/runs/run-workflow-state.test.ts infra/local/documentation/run-stage-response.test.ts",
-    "reliability:test": "node --conditions=react-server --import tsx --test src/integrations/ai/inference-budget.test.ts infra/local/reliability/*.test.ts",
+    "reliability:test": "node --conditions=react-server --import tsx infra/local/reliability/test-suite.ts",
     "reliability": "node --conditions=react-server --import tsx infra/local/reliability/cli.ts",
-    "reliability:publication": "node --conditions=react-server --import tsx infra/local/reliability/publication-proof.ts"
+    "reliability:publication": "node --conditions=react-server --import tsx infra/local/reliability/publication-proof.ts",
+    "reliability:offline:test": "node --conditions=react-server --import tsx infra/local/reliability/test-suite.ts browser"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

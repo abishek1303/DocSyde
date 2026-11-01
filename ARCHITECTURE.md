@@ -909,3 +909,14 @@ Independent database copies on the existing PostgreSQL server preserve earlier
 scenario evidence without contaminating later candidate searches or deleting history.
 The complete operator protocol and separate authorization boundaries are documented
 in [the reliability runbook](infra/local/reliability/README.md).
+
+
+Reliability specification 2 adds a narrow server-only process contract under
+`integrations/reliability`: immutable execution identity, explicit child environments,
+scenario filesystem ownership and runtime identity verification. The existing local
+harness owns fixture builds, a Request Desk launcher that enriches only its process's
+health response, owned process lifecycles and staged evidence. Documentation still
+owns run admission and semantic report comparability; invocation logging remains
+best effort outside reliability mode. Offline contract children explicitly mock the
+invocation lifecycle and forbid real transport/persistence. This adds no service,
+general resource manager, database identity/copy/schema change or model-policy change.

@@ -1,4 +1,5 @@
 import "server-only";
+import { reliabilityContext } from "@/integrations/reliability/execution-context";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { isDeepStrictEqual } from "node:util";
 import { inferenceSnapshot, type ResolvedInference } from "./operation-policy";
@@ -24,6 +25,13 @@ export function withInferenceBudget<T>(runId: string, expected: Record<string, F
   return scope.run({ runId, expected, calls: 0, operations: new Set(), stopped: false, beforeCall }, action);
 }
 export function stopInferenceBudget() { const budget = scope.getStore(); if (budget) budget.stopped = true; }
+export function assertInferenceTransport() {
+  if (reliabilityContext()?.mode === "scenario") {
+    const budget = scope.getStore();
+    if (!budget) throw new InferenceBudgetError("unguarded-baseline-call");
+    if (budget.stopped) throw new InferenceBudgetError("inference-budget-stopped");
+  }
+}
 export function requireInferenceLog(inserted: boolean) {
   if (scope.getStore() && !inserted) { stopInferenceBudget(); throw new InferenceBudgetError("inference-log-unavailable"); }
 }
@@ -36,7 +44,7 @@ export function assertPlannedGenerationBatches(count: number, infeasible = false
 export async function admitInference(provider: "baseten" | "meta", operation: string, settings: ResolvedInference, runId?: string) {
   const budget = scope.getStore();
   if (!budget) {
-    if (process.env.DOCSYDE_RELIABILITY_MANIFEST) throw new InferenceBudgetError("unguarded-baseline-call");
+    if (process.env.DOCSYDE_RELIABILITY_MANIFEST || reliabilityContext()?.mode === "scenario") throw new InferenceBudgetError("unguarded-baseline-call");
     return;
   }
   if (budget.stopped) throw new InferenceBudgetError("inference-budget-stopped");

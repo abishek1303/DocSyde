@@ -1,4 +1,6 @@
 import "server-only";
+import { reliabilityContext, ReliabilityIsolationError } from "@/integrations/reliability/execution-context";
+import { ownedPath } from "@/integrations/reliability/owned-resources";
 
 import crypto from "node:crypto";
 import { constants } from "node:fs";
@@ -28,6 +30,11 @@ export function createLocalStorage(directory: string): ArtifactStorage {
 
   return {
     async store(bytes) {
+      const experiment = reliabilityContext();
+      if (experiment) {
+        if (process.env.DOCSYDE_RELIABILITY_CONTRACT_TEST === "1" || !["offline", "scenario"].includes(experiment.mode)) throw new ReliabilityIsolationError("artifact-write");
+        await ownedPath(experiment, root);
+      }
       const key = crypto.randomUUID();
       validateKey(key);
       const path = join(root, key);
@@ -47,6 +54,8 @@ export function createLocalStorage(directory: string): ArtifactStorage {
     },
 
     async read(key) {
+      const experiment = reliabilityContext();
+      if (experiment) await ownedPath(experiment, root);
       validateKey(key);
       const path = join(root, key);
       await requireRoot();

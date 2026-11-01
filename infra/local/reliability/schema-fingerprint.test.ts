@@ -1,0 +1,16 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { canonicalExpression, schemaFingerprint, type SchemaFacts } from '@/integrations/database/schema-fingerprint';
+const before = "((status)::text = ANY ((ARRAY['started'::character varying, 'structured-success'::character varying, 'succeeded'::character varying, 'failed'::character varying])::text[]))";
+const after = "((status)::text = ANY (ARRAY[('started'::character varying)::text, ('structured-success'::character varying)::text, ('succeeded'::character varying)::text, ('failed'::character varying)::text]))";
+function facts(expression = before): SchemaFacts { return { tables: [{ table: 'docsyde.ai_model_invocations', kind: 'r' }], columns: [{ table: 'docsyde.ai_model_invocations', name: 'status', modifier: 36, notNull: true, default: null }], constraints: [{ table: 'docsyde.ai_model_invocations', expression }], indexes: [{ table: 'docsyde.ai_model_invocations', predicate: null, columns: ['run_id', 'created_at', 'id'], unique: false }], migrations: [{ hash: 'migration-a' }, { hash: 'migration-b' }] }; }
+test('retained cast-distribution mismatch has identical v2 identity', () => { assert.deepEqual(schemaFingerprint(facts()), schemaFingerprint(facts(after))); assert.equal(schemaFingerprint(facts()).version, 2); });
+test('CHECK column/value/operator/null and meaningful cast changes remain distinct', () => {
+ for (const changed of [after.replace(", ('failed'::character varying)::text", ''), after.replace("'failed'", "'extra'"), after.replace('status', 'provider'), after.replace(' = ', ' <> '), `(${after}) IS TRUE`, after.replace('(status)::text', '(status)::uuid')]) assert.notDeepEqual(schemaFingerprint(facts()), schemaFingerprint(facts(changed)));
+});
+test('type modifiers, nullability, indexes, FK action and migration drift remain distinct', () => {
+ const original = facts(); original.constraints.push({ table: 'docsyde.ai_model_invocations', expression: null, kind: 'f', onDelete: 'c' });
+ for (const mutate of [(f: SchemaFacts) => { f.columns[0].modifier = 40; }, (f: SchemaFacts) => { f.columns[0].notNull = false; }, (f: SchemaFacts) => { f.indexes = []; }, (f: SchemaFacts) => { f.indexes[0].unique = true; }, (f: SchemaFacts) => { f.constraints[1].onDelete = 'r'; }, (f: SchemaFacts) => { f.migrations.pop(); }]) { const changed = structuredClone(original); mutate(changed); assert.notDeepEqual(schemaFingerprint(original), schemaFingerprint(changed)); }
+});
+test('collection ordering is stable; compound column order remains meaningful', () => { const a = facts(), b = structuredClone(a); b.migrations.reverse(); assert.deepEqual(schemaFingerprint(a), schemaFingerprint(b)); b.indexes[0].columns = ['id','created_at','run_id']; assert.notDeepEqual(schemaFingerprint(a), schemaFingerprint(b)); });
+test('unsupported functions and typmods fail closed; NULL envelopes survive parsing', () => { assert.throws(() => canonicalExpression('custom_function(status)', 'docsyde.ai_model_invocations'), /Unsupported/); assert.throws(() => canonicalExpression('status::varchar(20)', 'docsyde.ai_model_invocations'), /Unsupported/); assert.notDeepEqual(canonicalExpression('(status = 1) IS TRUE','docsyde.ai_model_invocations'),canonicalExpression('status = 1','docsyde.ai_model_invocations')); });

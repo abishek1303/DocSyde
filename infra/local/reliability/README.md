@@ -252,3 +252,120 @@ worktrees, temporary browser sessions and permitted temporary artifacts. Never
 bulk-delete records, reset unrelated worktrees, rewrite history or automatically
 delete remote scenario refs. Baseline restoration for later scenarios is achieved
 by selecting their untouched database copies, not removing earlier immutable saves.
+
+## Non-database isolation protocol (specification 2)
+
+This protocol supersedes the shared-root and manual host/server launch instructions
+above. Database connection identity, copy mechanics and schema fingerprinting are
+unchanged. Historical version-1 manifests/evidence remain evidence; they cannot
+admit specification-2 execution. No command below authorizes paid inference.
+
+Every reliability CLI/publication command requires `DOCSYDE_RELIABILITY_CONTEXT`
+to name a local JSON file. Each command reads and freezes it once. Use a new process
+for each mode/context; never change a running process's environment or context.
+A scenario context starts with this shape (all paths must be absolute):
+
+```json
+{
+  "version": 1,
+  "experimentId": "trial-unique-id",
+  "scenario": "A",
+  "mode": "offline",
+  "repositoryRoot": "/absolute/docsyde",
+  "docsydeSha": "FULL_COMMITTED_DOCSYDE_SHA",
+  "requestDeskSha": "FULL_COMMITTED_SCENARIO_A_SHA",
+  "outputRoot": "/absolute/docsyde/.artifacts/reliability/trial-unique-id/A",
+  "runtimeIdentity": null,
+  "manifestPath": null
+}
+```
+
+Keep operator context files outside the scenario output root, for example under
+`.artifacts/reliability/contexts`. `outputRoot` is fixed by repository root,
+experiment ID and scenario (`shared` when scenario is null); it cannot be reassigned
+to another scenario's directory. Commands create/check ownership markers and refuse
+symlink ancestors. Use a new experiment ID for a new attempt. Preserve prior roots,
+receipts, databases and logs. The harness does not delete historical evidence.
+
+Modes: `offline` for fixtures/contracts; `baseline-read` for freeze; `provision` for
+clone; `scenario` for batch/GitHub/seal/host/serve/publication/execution; `report` for
+report/compare. Freeze, clone and compare normally use `scenario: null`,
+`requestDeskSha: null`, `runtimeIdentity: null`, and the `shared` output root.
+A scenario/report context must name its exact scenario/head. Scenario mode also
+requires the runtime identity and intended absolute manifest path. Reuse the same
+experiment ID and DocSyde SHA across these context files.
+
+`npm run reliability:test` creates its own disposable test context and launches the
+unit/adversarial suite with an explicit environment. `npm run reliability:offline:test`
+does the same for all three local browser fixtures. The latter needs Chromium and
+loopback-server permission, uses only mocked providers, has no database credentials,
+and emits only inadmissible `head: null` export gates. `reliability scenarios` is also
+a preview: use a separate preview experiment ID rather than consuming a future
+committed scenario's offline attempt.
+
+For a real frozen preparation, use this order:
+
+1. Commit the implementation and verify the expected clean DocSyde root/SHA.
+   Prepare the independently committed Request Desk scenario SHAs as above.
+2. With each scenario's `offline` context, run the existing `offline A|B|C checkout
+   output` command. Put output under its scenario root, e.g. `A/offline`.
+   A pre-existing output directory is always rejected, including an empty one.
+3. Offline preparation reserves `A/offline.attempt.json` exclusively, stages output
+   in a fresh owned directory, builds SDK/host files from pinned sources into that
+   directory, and runs contracts with an in-memory invocation mock. Unmocked network,
+   production persistence and arbitrary nested commands fail the child even if caught.
+   The only nested renderer command is explicitly bounded and offline.
+4. A success appears only after capture and owned-process cleanup succeed, at
+   `A/offline/offline-gate.json`. Evidence is under `A/offline/evidence/`, including
+   `runtime.json`, logs, images and trace. Failed staging directories have no gate.
+   Receipts bind experiment/scenario, SHAs, runtime/build identity, workflow/capability
+   hashes, contract inputs, evidence directory token and exact evidence-file hashes.
+5. Freeze using `baseline-read` with output under `shared`, then clone using
+   `provision` with output under `shared`. Existing database requirements still apply.
+6. Copy `runtimeIdentity` from the committed offline gate into a new scenario-mode
+   context file. Set `manifestPath` to the intended `A/manifest.json`. Set server-only
+   `DOCSYDE_STORAGE_DIRECTORY` to the exact `A/artifacts` directory. Keep common model,
+   origin, repository, delivery and `NODE_ENV=production` settings fixed from freeze.
+7. Run batch and GitHub gates with this context and scenario-owned output paths.
+   The seal spec's runtime path is now `A/offline/evidence/runtime.json`.
+8. Start the host with `npm run reliability -- host A/manifest.json CHECKOUT`.
+   This launch accepts the intended manifest path before sealing, using the committed
+   offline gate/runtime identity in the context. After sealing it also checks the
+   existing manifest. The host rebuilds pinned sources into a fresh owned directory;
+   its harness-only `/health` response exposes scenario, source SHA, build hash and
+   workflow/runtime versions, and rechecks served bytes. An ordinary host's plain
+   `ready` response cannot admit reliability capture. Stop it with Ctrl-C.
+9. Seal while that exact host is running. The intended manifest identity/path must
+   match the context. File, workflow, ownership and live runtime checks precede run
+   preparation. Sealing still performs no inference.
+10. Start the production server with `npm run reliability -- serve A/manifest.json
+    3000`. It uses an explicit environment, an owned direct child and startup
+    preflight. Host and DocSyde processes are recorded separately; shutdown is bounded
+    and never searches/kills processes by port. Ordinary `npm run dev/start` without
+    reliability context retains ordinary behavior.
+11. Only after separate inference authorization, use the normal UI. Run creation
+    reserves `A/execution.attempt.json` before run insertion/reconciliation. This
+    fixed identity-bound reservation rejects concurrent/copy/reseal attempts even
+    when the manifest pathname changes. It is retained after completion/failure;
+    there is no automatic reopening or retry. Existing per-dispatch budgets remain.
+12. Review/save/publication are still separate explicit operations. Publication proof
+    checks the execution receipt and expected runtime before mutation, records intent,
+    acknowledgement and independently observed delivery, and hashes its journal/image.
+    A lost publication acknowledgement with an unknown association identity is blocked
+    for operator recovery; cleanup never guesses or overwrites an association.
+13. Produce reports using the scenario's `report` context. Compare using the shared
+    `report` context. Comparison requires one experiment and identical specification,
+    DocSyde/common-base, contract/config, runtime policy and corpus/baseline identities.
+    Ports, process IDs, instance paths and random capture IDs are exact evidence,
+    not semantic comparison keys.
+
+Child environments explicitly select context, working directory, storage/temp roots
+and Node mode. Git selectors, Node hooks, proxies, browser overrides and stale
+scenario values are not inherited. Only the explicitly invoked application server
+inherits the required provider/GitHub credentials and allowlisted application/model
+configuration; database-copy children receive only their existing explicit PG values.
+Secret values never enter ownership records or manifests.
+
+The original database and its 332 synthetic invocation rows remain retained audit
+evidence. The known raw schema-fingerprint restore limitation remains unchanged by
+this non-database pass and may still block a fresh frozen baseline's admission.

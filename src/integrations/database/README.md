@@ -41,3 +41,42 @@ changes discard stale form responses. Context cannot establish behavior or bypas
 citations. Reopening a draft reads only historical JSON. Run
 `npm run documentation:context:test` for isolated PostgreSQL/mocked-provider checks.
 These tests establish plumbing and boundaries, not universal factual correctness.
+
+## Reliability schema fingerprint v2
+
+`readReliabilityInventory` reads one read-only repeatable-read transaction. V1
+hashed `information_schema.columns` (name, data_type, nullable, raw default), ordered
+by table/ordinal, and `pg_constraint` names/raw `pg_get_constraintdef`, ordered by
+constraint name. `baselineInventory` hashed those arrays with sorted object keys;
+clone and scenario admission compared the digest. That omitted typmods, constraint
+owners, standalone indexes and applied migration hashes.
+
+V2 uses `pg_class`/`pg_namespace` for table identity/kind;
+`pg_attribute`/`pg_type`/`pg_attrdef` for ordered column identity, resolved type,
+`atttypmod`, nullability, identity/generated flags and defaults; `pg_constraint` for
+owning table, ordered source/target columns, FK actions/match, validation and
+constraint timing; and `pg_index`/`pg_am`/`pg_opclass`/`pg_collation` for standalone
+and backing indexes, ordered keys/includes, uniqueness, NULL behavior, options,
+operator classes, collations and validity. Applied `drizzle.__drizzle_migrations`
+hashes are included as a multiset (including duplicate history entries), without
+instance IDs or timestamps. Object names and OIDs are not semantic identity.
+
+CHECKs use `pg_get_expr` only as parser input. The bounded grammar covers the
+current catalog forms: qualified columns, typed string/numeric literals, casts,
+arrays/ANY, JSON extraction, comparisons/regex, ordered AND/OR, NULL/boolean tests,
+and the current built-in functions. `TRIM(BOTH FROM x)` is represented as `btrim(x)`.
+Unknown functions/syntax, expression indexes and unsupported casts fail explicitly.
+
+The observed source form was `ANY ((ARRAY['started'::character varying,
+...])::text[])`; restore produced `ANY (ARRAY[('started'::character varying)::text,
+...])`. Only text coercion of **unbounded varchar string literals**, individually
+or as a complete literal array, is canonicalized to text-literal casts. Column
+casts, other target types, value ordering and NULL envelopes remain significant.
+No global cast stripping, arbitrary expression sorting or SQL regex rewriting is
+used. Collections are sorted by canonical JSON with code-point ordering; key,
+index and expression operand order is preserved. The hashed payload contains
+`version: 2`; manifests also require `schemaFingerprintVersion: 2`.
+
+The query deliberately does not model ACLs, roles, triggers, policies or extensions.
+No current DocSyde migration requires those for this schema contract. Corpus,
+publication and repository-context inventories remain unchanged.

@@ -1,4 +1,5 @@
 import "server-only";
+import { assertReliabilitySideEffect } from "@/integrations/reliability/execution-context";
 import { z } from "zod";
 import { findDocumentationDraft, insertDocumentationDraft, selectDocumentationDrafts } from "@/integrations/database/documentation-drafts";
 import { validateDocumentationDocument } from "./document-validation";
@@ -22,6 +23,7 @@ function readDocument(row: { id: string; document: unknown }): DocumentationDocu
 // Trusted local demo operations. Public deployment needs user/resource access
 // control here; repository provenance is not a Project binding or authorization.
 export async function saveDocumentationDraft(raw: unknown): Promise<({ status: "saved" } & SavedDraft) | { status: "conflict" }> {
+  assertReliabilitySideEffect("product-mutation");
   const document = validateDocumentationDocument(raw);
   const result = await insertDocumentationDraft(document.id, document);
   if (!result.equal) return { status: "conflict" };

@@ -1,4 +1,5 @@
 import "server-only";
+import { reliabilityContext, ReliabilityIsolationError } from "@/integrations/reliability/execution-context";
 import { chromium, type Page } from "playwright";
 import { z } from "zod";
 import { randomUUID, createHash } from "node:crypto";
@@ -35,6 +36,7 @@ export async function executeCaptureStep(page: Page, action: z.infer<typeof capt
   else await locator.waitFor({ state: "visible" });
 }
 export async function captureRuntimeContext(raw: CaptureInput, storage: ArtifactStorage): Promise<CaptureEvidence> {
+  if (reliabilityContext()) throw new ReliabilityIsolationError("legacy-capture-outside-reliability-workflow");
   const options = captureInput.parse(raw), base = captureOrigin(options.baseUrl), target = new URL(options.path, base);
   if (target.origin !== base.origin) throw new Error("Capture path must remain on the configured origin");
   const captureId = randomUUID(), directory = resolve(options.outputDirectory, captureId);

@@ -1,4 +1,5 @@
 import "server-only";
+import { assertReliabilitySideEffect, ReliabilityIsolationError } from "@/integrations/reliability/execution-context";
 import { admitInference, stopInferenceBudget, requireInferenceLog } from "./inference-budget";
 import { randomUUID } from "node:crypto";
 import { insertAiModelInvocation, updateAiModelInvocation } from "@/integrations/database/ai-model-invocations";
@@ -26,6 +27,7 @@ export async function logStructuredInvocation<T extends { model: string; metadat
   const id = randomUUID(), context = options.invocation ?? { stage: "standalone", operation: options.provider === "meta" ? "runtime-vision" : "structured-generation" };
   const settings = options.settings ?? resolveInference(options.provider, context.operation);
   await admitInference(options.provider, context.operation, settings, context.runId);
+  assertReliabilitySideEffect("invocation-persistence");
   const configured = options.settings?.model ?? configuredModel(options.provider);
   let inserted = false;
   try {
@@ -36,7 +38,7 @@ export async function logStructuredInvocation<T extends { model: string; metadat
       requestPayload: request.payload, requestOmissionReason: request.reason, responsePayload: null,
       responseOmissionReason: responseAllowed(context.operation) ? "pending-validation" : "not-allowlisted", inferenceConfig: config });
     inserted = true;
-  } catch { warn(id); }
+  } catch (error) { if (error instanceof ReliabilityIsolationError) throw error; warn(id); }
   requireInferenceLog(inserted);
   const started = Date.now();
   try {
@@ -52,7 +54,7 @@ export async function logStructuredInvocation<T extends { model: string; metadat
         }
         await updateAiModelInvocation(id, { ...metadata(result.metadata), model: result.model.slice(0, 300), elapsedMs,
           status: options.postValidation ? "structured-success" : "succeeded", responsePayload: response.payload, responseOmissionReason: response.reason });
-      } catch { warn(id); stopInferenceBudget(); }
+      } catch (error) { if (error instanceof ReliabilityIsolationError) throw error; warn(id); stopInferenceBudget(); }
     }
     return { ...result, invocationId: inserted ? id : undefined };
   } catch (error) {
@@ -65,7 +67,7 @@ export async function logStructuredInvocation<T extends { model: string; metadat
       const knownCodes = new Set(["invalid-json", "schema-mismatch", "incomplete-output", "refused", "invalid-response", "timeout", "cancelled", "missing-credentials", "invalid-request", "unauthorized", "forbidden", "billing", "model-unavailable", "rate-limited", "upstream"]);
       const code = error instanceof ModelError && knownCodes.has(error.code) ? error.code : "provider-failure";
       try { await updateAiModelInvocation(id, { ...metadata(safe), model: safe?.model ?? configured.slice(0, 300),
-        elapsedMs, status: "failed", failureKind: code, diagnostic: safe ?? null, responsePayload: null, responseOmissionReason: "model-failure" }); } catch { warn(id); }
+        elapsedMs, status: "failed", failureKind: code, diagnostic: safe ?? null, responsePayload: null, responseOmissionReason: "model-failure" }); } catch (error) { if (error instanceof ReliabilityIsolationError) throw error; warn(id); }
     }
     throw error;
   }
@@ -75,6 +77,7 @@ export async function logStructuredInvocation<T extends { model: string; metadat
 export async function finishInvocationValidation(id: string | undefined, rejection?: "grounding-rejection" | "correspondence-rejection", accepted?: () => ApprovedInvocationResponse) {
   if (rejection) stopInferenceBudget();
   if (!id) return;
+  assertReliabilitySideEffect("invocation-persistence");
   let response: { payload: unknown; reason: string | null } = { payload: null, reason: rejection ? "validation-rejected" : "not-allowlisted" };
   let operation: string | undefined;
   if (!rejection && accepted) {
@@ -83,7 +86,7 @@ export async function finishInvocationValidation(id: string | undefined, rejecti
   }
   try { await updateAiModelInvocation(id, { status: rejection ? "failed" : "succeeded", failureKind: rejection ?? null,
     responsePayload: response.payload, responseOmissionReason: response.reason }, true, operation); }
-  catch { warn(id); stopInferenceBudget(); }
+  catch (error) { if (error instanceof ReliabilityIsolationError) throw error; warn(id); stopInferenceBudget(); }
 }
 
 /** Scope the callback to existing validation only, never progress/persistence/downstream work. */

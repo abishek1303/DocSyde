@@ -1,4 +1,6 @@
 import "server-only";
+import { assertReliabilityTransport } from "@/integrations/reliability/execution-context";
+import { assertInferenceTransport } from "../inference-budget";
 import { resolveInference, type ResolvedInference } from "../operation-policy";
 import { modelDiagnosticSchema, type ModelDiagnostic, type ModelInvocationMetadata } from "../model-diagnostic";
 import { z } from "zod";
@@ -22,6 +24,8 @@ const responseSchema = z.object({
 export async function invokeMetaVision(options: {
   png: Uint8Array; context: string; instructions: string; signal?: AbortSignal; settings?: ResolvedInference;
 }): Promise<{ text: string; model: string; metadata: ModelInvocationMetadata }> {
+  assertReliabilityTransport();
+  assertInferenceTransport();
   const key = process.env.META_API_KEY?.trim();
   if (!key) throw new MetaError("missing-credentials");
   const settings = options.settings ?? resolveInference("meta", "runtime-vision", 4096);
