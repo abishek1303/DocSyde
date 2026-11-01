@@ -8,6 +8,15 @@ export const draftProposal = z.object({ title: z.string().min(1).max(160), assoc
   title: z.string().min(1).max(160), kind: z.enum(["overview", "behavior", "requirements", "workflow", "limitations"]), associations: z.array(ref).max(20),
   content: z.array(z.object({ markdown: z.string().min(1).max(1500), factRefs: z.array(ref).min(1).max(6) }).strict()).min(1).max(2),
 }).strict()).min(1).max(4) }).strict();
+// Do not tighten canonical/historical documents when changing generation concision.
+export const DRAFT_GENERATION_BLOCK_CHARACTERS = 800;
+export const draftGenerationProposal = draftProposal.extend({
+  sections: z.array(draftProposal.shape.sections.element.extend({
+    content: z.array(draftProposal.shape.sections.element.shape.content.element.extend({
+      markdown: z.string().min(1).max(DRAFT_GENERATION_BLOCK_CHARACTERS),
+    })).min(1).max(2),
+  })).min(1).max(4),
+});
 const citation = z.object({ evidenceId: ref, startLine: z.number().int().min(1), endLine: z.number().int().min(1), excerpt: z.string() }).strict();
 export const provenanceFinding = z.object({ id: ref, kind: z.string(), description: z.string(), before: z.string().nullable(), after: z.string().nullable(), qualifications, citations: z.array(citation) }).strict();
 export const provenance = z.object({ analysisId: z.uuid(), repository: z.string().url(), base: z.string().regex(/^[a-f0-9]{40}$/i), head: z.string().regex(/^[a-f0-9]{40}$/i), assessment: z.string(), limited: z.boolean(), limitations: z.array(z.string()), facts: z.array(fact), findings: z.array(provenanceFinding), evidence: z.array(z.object({ id: ref, path: z.string(), side: z.enum(["patch", "base", "head"]), commitId: z.string().nullable(), contentId: z.string().nullable() }).strict()) }).strict();

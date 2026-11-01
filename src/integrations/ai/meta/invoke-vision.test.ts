@@ -34,7 +34,10 @@ test("Meta key is required lazily; model defaults unless explicitly overridden",
       assert.equal(JSON.parse(String(init.body)).model, expected);
       return Response.json({ ...valid, model: expected });
     });
-    assert.deepEqual(await invoke(), { model: expected, text: "{}" });
+    const result = await invoke();
+    assert.equal(result.model, expected); assert.equal(result.text, "{}");
+    assert.equal(result.metadata.completionReason, "stop");
+    assert.equal(typeof result.metadata.elapsedMs, "number");
   }
   assert.equal(fetch.mock.callCount(), 4);
 });

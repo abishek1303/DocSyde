@@ -1,4 +1,5 @@
 import "server-only";
+import type { InvocationContext } from "@/integrations/ai/invocation-context";
 import type { ArtifactStorage } from "@/integrations/storage/artifact-storage";
 import type { RuntimeTrace } from "@/integrations/browser/runtime-trace";
 import { redactRuntimeText, runtimePath } from "@/integrations/browser/runtime-redaction";
@@ -24,7 +25,7 @@ export type RuntimeVisualAnalysis = {
 export async function analyzeRuntimeVisuals(
   { source, trace, description, maxSelectedScreenshots = DEFAULT_SELECTED_SCREENSHOTS, secrets = [] }: {
     source: ProductResult; trace: RuntimeTrace; description: string; maxSelectedScreenshots?: number; secrets?: readonly string[];
-  }, storage: ArtifactStorage, signal?: AbortSignal,
+  }, storage: ArtifactStorage, signal?: AbortSignal, invocation?: InvocationContext,
 ): Promise<RuntimeVisualAnalysis> {
   const result: RuntimeVisualAnalysis = { status: "incomplete", reason: "invalid-input", runtime: [], provenance: [] };
   let phase: "invalid-input" | "selection-failed" | "vision-failed" = "invalid-input";
@@ -36,7 +37,7 @@ export async function analyzeRuntimeVisuals(
     if (maxSelectedScreenshots === 0) return { ...result, status: "disabled", reason: "disabled" };
     if (!summarized.input.candidates.length) return { ...result, reason: "no-eligible-checkpoints" };
     phase = "selection-failed";
-    const selected = await selectVisualCheckpoints(summarized.input, maxSelectedScreenshots, signal);
+    const selected = await selectVisualCheckpoints(summarized.input, maxSelectedScreenshots, signal, invocation);
     result.selection = selected;
     if (selected.selection.decision === "skip") return { ...result, status: "skipped", reason: "model-skip" };
     phase = "vision-failed";
@@ -52,7 +53,7 @@ export async function analyzeRuntimeVisuals(
         findings: summarized.input.findings.filter(finding => item.sourceRefs.includes(finding.id)).map(finding => ({
           id: finding.id, description: finding.description.slice(0, 300),
         })), question: redactRuntimeText(item.question, secrets, 300) });
-      const vision = await analyzeScreenshot({ artifactKey: screenshot.artifactKey, expectedSha256: screenshot.sha256, context, signal }, storage);
+      const vision = await analyzeScreenshot({ artifactKey: screenshot.artifactKey, expectedSha256: screenshot.sha256, context, signal, invocation: { ...invocation, stage: invocation?.stage ?? "runtime-inspection", operation: "runtime-vision" } }, storage);
       signal?.throwIfAborted();
       const evidence = runtimeVisualEvidenceList.parse([...result.runtime, {
         captureId: checkpoint.captureId, capturedAt: checkpoint.capturedAt, artifactKey: screenshot.artifactKey,

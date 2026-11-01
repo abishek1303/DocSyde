@@ -1,4 +1,5 @@
 import "server-only";
+import { basetenInferenceFields, resolveInference, type ResolvedInference } from "../operation-policy";
 import { z } from "zod";
 
 // Provider failures contain no response bodies, prompts, or credentials.
@@ -10,10 +11,12 @@ export class BasetenError extends Error {
 const responseSchema = z.object({ choices: z.array(z.object({
   finish_reason: z.string(), message: z.object({ content: z.string().nullable(), refusal: z.string().nullable().optional() }),
 })).length(1), usage: z.unknown().optional() });
-export async function invokeBaseten(options: { instructions: string; input: string; maxOutputTokens: number; signal?: AbortSignal }): Promise<{ text: string; model: string; metadata: ModelInvocationMetadata }> {
+export async function invokeBaseten(options: { instructions: string; input: string; maxOutputTokens: number; signal?: AbortSignal; settings?: ResolvedInference }): Promise<{ text: string; model: string; metadata: ModelInvocationMetadata }> {
   const key = process.env.BASETEN_API_KEY?.trim();
   if (!key) throw new BasetenError("missing-credentials");
-  const model = process.env.BASETEN_MODEL?.trim() || "meta-models/muse-spark-open-1026";
+  const settings = options.settings ?? resolveInference("baseten", "transport", options.maxOutputTokens);
+  const model = settings.model;
+  const fields = basetenInferenceFields(settings);
   const signal = AbortSignal.any([AbortSignal.timeout(120_000), ...(options.signal ? [options.signal] : [])]);
   const started = Date.now();
   let diagnostic: ModelDiagnostic = { kind: "provider-failure", model: model.slice(0, 300) };
@@ -22,7 +25,7 @@ export async function invokeBaseten(options: { instructions: string; input: stri
     response = await fetch("https://inference.baseten.co/v1/chat/completions", {
       method: "POST", redirect: "error", signal,
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model, stream: false, max_tokens: options.maxOutputTokens, messages: [
+      body: JSON.stringify({ model, stream: false, max_tokens: settings.maxOutputTokens, ...fields, messages: [
         { role: "system", content: options.instructions }, { role: "user", content: options.input },
       ] }),
     });

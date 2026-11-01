@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, index, jsonb, pgSchema, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
+import { bigint, check, index, jsonb, pgSchema, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
 
 export const docsydeSchema = pgSchema("docsyde");
 
@@ -88,4 +88,31 @@ export const documentationReviews = docsydeSchema.table("documentation_proposal_
       AND ${table.review}->>'operationId' IS NOT NULL
       AND octet_length(${table.review}::text) <= 262144))
   ) IS TRUE`),
+]);
+
+// Debug artifacts only: never evidence, authorization, or model input.
+export const aiModelInvocations = docsydeSchema.table("ai_model_invocations", {
+  id: uuid("id").primaryKey(),
+  runId: uuid("run_id").references(() => documentationRuns.id, { onDelete: "cascade" }),
+  stage: varchar("stage", { length: 100 }).notNull(),
+  operation: varchar("operation", { length: 100 }).notNull(),
+  provider: varchar("provider", { length: 32 }).notNull(),
+  model: varchar("model", { length: 300 }),
+  status: varchar("status", { length: 32 }).notNull(),
+  failureKind: varchar("failure_kind", { length: 100 }),
+  completionReason: varchar("completion_reason", { length: 32 }),
+  inputTokens: bigint("input_tokens", { mode: "number" }),
+  outputTokens: bigint("output_tokens", { mode: "number" }),
+  elapsedMs: bigint("elapsed_ms", { mode: "number" }),
+  diagnostic: jsonb("diagnostic").$type<unknown>(),
+  requestPayload: jsonb("request_payload").$type<unknown>(),
+  responsePayload: jsonb("response_payload").$type<unknown>(),
+  requestOmissionReason: varchar("request_omission_reason", { length: 40 }),
+  responseOmissionReason: varchar("response_omission_reason", { length: 40 }),
+  inferenceConfig: jsonb("inference_config").$type<unknown>(),
+  createdAt: timestamp("created_at", { withTimezone: true, precision: 3 }).notNull(),
+}, table => [
+  index("ai_model_invocations_run_created_idx").on(table.runId, table.createdAt, table.id),
+  check("ai_model_invocations_status", sql`${table.status} IN ('started', 'structured-success', 'succeeded', 'failed')`),
+  check("ai_model_invocations_nonnegative", sql`(${table.inputTokens} IS NULL OR ${table.inputTokens} >= 0) AND (${table.outputTokens} IS NULL OR ${table.outputTokens} >= 0) AND (${table.elapsedMs} IS NULL OR ${table.elapsedMs} >= 0)`),
 ]);

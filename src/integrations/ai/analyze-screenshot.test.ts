@@ -203,3 +203,11 @@ test("public vision operation preserves sanitized Meta failure codes and retry m
     assert.equal(error.retryAfterSeconds, 7); assert.ok(!error.message.includes("secret")); return true;
   });
 });
+
+test("vision retains maximum evidence capacity; character bounds are not a token-fit guarantee", () => {
+  const output = { elements: Array.from({length:20},()=>({description:"x".repeat(300),visibleText:"y".repeat(500),bounds:{xMin:0,yMin:0,xMax:1,yMax:1},certainty:"clear"})),
+    observations:Array.from({length:10},()=>"z".repeat(500)), limitations:Array.from({length:10},()=>"u".repeat(500)) };
+  assert.ok(visualEvidenceSchema.safeParse(output).success);
+  assert.ok(Buffer.byteLength(JSON.stringify(output)) > 26000);
+  assert.equal(visualEvidenceSchema.safeParse({...output,elements:[...output.elements,output.elements[0]]}).success,false);
+});

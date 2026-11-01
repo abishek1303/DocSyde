@@ -841,3 +841,55 @@ kind, model, completion reason, timing, returned usage and known schema issue pa
 No general telemetry service or raw rejected output storage is introduced. Historical
 rows remain readable. Unsupported Baseten Management API billing tooling is removed;
 inference billing failures remain classified.
+
+## AI invocation debug metadata
+
+Text and vision generation share a server-only invocation lifecycle under
+`integrations/ai`. A single `docsyde.ai_model_invocations` table stores bounded
+metadata and existing sanitized failure diagnostics. Explicit run/stage/operation
+context supplies correlation; standalone calls may have no run. IDs remain local
+to integration callers and never enter feature result/evidence contracts.
+
+Provider/schema success is `structured-success` while local grounding or
+correspondence validation is pending, then `succeeded` or `failed`. Feature
+validation updates never overwrite provider completion/usage metadata. Unrelated
+workflow failures do not become model failures; interrupted rows remain intermediate.
+All writes are best effort, bounded, and never retried. Failures preserve the original
+model result/error and emit only a fixed warning with an invocation UUID.
+
+Invocation payloads are default-denied. The allowlist retains the exact already-redacted,
+compacted visual-selection input and fixed receipt-verifier input. Responses are limited
+to accepted selection IDs/decision, vision bounds/certainty/counts, support IDs/verdicts,
+and the fixed receipt literal. Source-bearing requests, prose, complex transformation
+batches, static prompts, image bytes, provider bodies, credentials, and reasoning remain
+omitted. Each payload is bounded to 128 KiB without truncation, with fixed omission
+reasons. Post-validation responses remain null until acceptance. Payloads are SQL-only;
+UI readers explicitly select metadata/diagnostics. Logs are debugging artifacts only,
+never evidence, authorization, future model/retry input, or automatic training data. The Logs navigation tab
+opens the repository-scoped AI model usage log, with 25 rows per page and optional
+status, provider, and exact-stage filters. URL-backed filters carry across pagination;
+applying filters resets to the first page.
+Rows open invocation details with all retained metadata and sanitized diagnostics.
+Run screens link to filtered logs and model-failure details instead of rendering
+diagnostic JSON inline. Failure links resolve the latest failed invocation for the
+stage; older failures can show their existing saved diagnostic on a fallback page.
+Reads preserve repository authorization; standalone calls without a repository-bound
+run remain SQL-only. Log read failures stay isolated from run rendering. Historical
+runs need no backfill. No telemetry service or reconciliation worker is added.
+
+
+## Controlled model reliability changes
+
+Generation-only source analysis and legacy draft schemas enforce their prose limits
+without shrinking stored/historical contracts. Source generation permits two citations,
+200-character confidence reasons and 500-character excerpts. Legacy generated draft
+blocks are limited to 800 characters while historical canonical blocks retain 1500.
+Other evidence counts/spatial fields and all completion ceilings are preserved. Product
+impact owns an independent 8192-token constant rather than sharing the source constant.
+
+The AI integration resolves typed requested inference options and records a small
+contract/configuration snapshot. Reasoning and sampling remain omitted for all existing
+operations. Baseten's canonical Muse slug documents optional top-level reasoning effort,
+temperature and top-p; its -1026 alias is not explicitly confirmed, so requesting new
+controls for that alias rejects before network access. No model switching, arbitrary
+provider-option passthrough, repair, retry, or automatic tuning loop is introduced.

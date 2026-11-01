@@ -21,6 +21,7 @@ export class RunStageError extends Error {
 
 /** Product composition only. Runner owns processes/browser; capabilities own validation/inference. */
 export async function executeRunWorkflow(id: string, token: string, signal: AbortSignal, control: () => Promise<void>) {
+  const invocation = (stage: WorkflowStage["key"]) => ({ runId: id, stage, operation: stage });
   const check = async () => { signal.throwIfAborted(); await control(); signal.throwIfAborted(); };
   let record: RunRecordV2;
   const checkpoint = async (change: (r: RunRecordV2) => RunRecordV2) => {
@@ -49,7 +50,7 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
   let source: Awaited<ReturnType<typeof analyzeProductChanges>>;
   await stage("source-analysis", async () => {
     const { owner, repo, base, head, paths } = record.input;
-    source = await analyzeProductChanges({ owner, repo, base, head, paths }, record.contextSnapshot, undefined, { signal });
+    source = await analyzeProductChanges({ owner, repo, base, head, paths }, record.contextSnapshot, undefined, { signal, invocation: invocation("source-analysis") });
     await check();
     // Error results are useful diagnostics but are not accepted as downstream evidence.
     return { analysis: source, analysisSha256: documentationHash(source), models: [...record.models, ...model("source-analysis", source)] };
@@ -63,7 +64,7 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
   await stage("runtime-decision", async () => {
     if (!configuration!.available) return {};
     const supportingContext = await readInspectionContext(record.input, configuration.config.supportingSourcePaths, signal);
-    const result = await decideRuntimeInspection(validatedSource, { signal, supportingContext,
+    const result = await decideRuntimeInspection(validatedSource, { signal, invocation: invocation("runtime-decision"), supportingContext,
       operatorCapabilities: { workflow: configuration.descriptor, capabilities: configuration.config.capabilities } });
     await check();
     const decision = result.decision;
@@ -95,7 +96,7 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
       await storeManifest("runtime-trace", { runtime: captured.runtime, trace: captured.trace });
       const secrets = [...configured.config.workflow.secrets, ...configured.config.workflow.steps.flatMap(step => step.type === "fill" || step.type === "select" ? [step.value] : [])];
       const visual = await analyzeRuntimeVisuals({ source: validatedSource, trace: captured.trace, description: configured.config.description, secrets,
-        maxSelectedScreenshots: configured.config.maxSelectedScreenshots }, configured.storage, signal);
+        maxSelectedScreenshots: configured.config.maxSelectedScreenshots }, configured.storage, signal, invocation("runtime-inspection"));
       await check();
       await storeManifest("runtime-analysis", visual);
       const responsePreview = visual.selection?.selection.reason ?? visual.runtime[0]?.vision.data.observations[0];
@@ -110,12 +111,12 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
     });
   } else await skip("runtime-inspection", record!.runtime!.reason);
   await stage("impact-synthesis", async () => {
-    const result = await synthesizeProductImpact({ source: validatedSource, runtime, runtimeInspection: record.runtime }, { signal });
+    const result = await synthesizeProductImpact({ source: validatedSource, runtime, runtimeInspection: record.runtime }, { signal, invocation: invocation("impact-synthesis") });
     return { impact: result.impact, models: [...record.models, ...model("impact-synthesis", result)], warnings: [...(record.runtime?.limitations ?? []), ...result.impact.uncertainties] };
   });
   if (!record!.impact!.claims.length) { await finish("incomplete", "impact-has-no-usable-claims"); return; }
   await stage("documentation-planning", async () => {
-    const result = await planDocumentationImpact({ impact: record.impact!, context: record.input.associations }, { signal });
+    const result = await planDocumentationImpact({ impact: record.impact!, context: record.input.associations }, { signal, invocation: invocation("documentation-planning") });
     return { plan: result.plan, models: [...record.models, ...model("documentation-planning", result)] };
   });
   const plan = record!.plan!;
@@ -125,7 +126,7 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
   }
   let proposal: Awaited<ReturnType<typeof transformDocumentation>>;
   await stage("documentation-transformation", async () => {
-    proposal = await transformDocumentation({ impact: record.impact!, plan, context: record.input.associations }, { signal });
+    proposal = await transformDocumentation({ impact: record.impact!, plan, context: record.input.associations }, { signal, invocation: invocation("documentation-transformation") });
     await check();
     const { proposalId, status, batches, supportAttempted, supportModel } = proposal;
     const authored = proposal.results.flatMap(result => {

@@ -1,8 +1,9 @@
-import type { DraftProgress } from "./draft-progress";
 import "server-only";
+import { validateInvocation } from "@/integrations/ai/invocation-log";
+import type { DraftProgress } from "./draft-progress";
 import { generateStructured, ModelError } from "@/integrations/ai/generate-structured";
 import { analyzeProductChanges, captureGenerationContext, withSourceAccess, productChangeInput, type ProductResult } from "@/features/sources/product-analysis";
-import { draftProposal, type DraftResult, type AssociationChoice } from "../documents/document";
+import { draftGenerationProposal, type DraftResult, type AssociationChoice } from "../documents/document";
 import { prepareDraftInput, serializeDraftInput } from "./draft-input";
 import { assembleDraft } from "./draft-validation";
 import { draftInstructions } from "./draft-prompt";
@@ -16,10 +17,10 @@ export async function generateDocumentationDraft(analysis: ProductResult, contex
   return withSourceAccess(async () => {
     await onProgress?.({ step: "propose-documentation", status: "running", summary: "Writing structured sections from validated findings." });
     try {
-      const generated = await generateStructured({ instructions: draftInstructions, input: payload, schema: draftProposal, maxOutputTokens: DOCUMENTATION_DRAFT_OUTPUT_TOKENS, signal: AbortSignal.timeout(120_000) });
+      const generated = await generateStructured({ postValidation: true, invocation: { stage: "propose-documentation", operation: "documentation-draft" }, instructions: draftInstructions, input: payload, schema: draftGenerationProposal, maxOutputTokens: DOCUMENTATION_DRAFT_OUTPUT_TOKENS, signal: AbortSignal.timeout(120_000) });
       await onProgress?.({ step: "propose-documentation", status: "completed", summary: `${generated.data.sections.length} proposed sections.` });
       await onProgress?.({ step: "validate-draft", status: "running", summary: "Checking grounding references and canonical document integrity." });
-      const document = assembleDraft(generated.data, input, generated.model);
+      const document = await validateInvocation(generated.invocationId, () => assembleDraft(generated.data, input, generated.model), "grounding-rejection");
       await onProgress?.({ step: "validate-draft", status: "completed", summary: "Draft structure and provenance validated. Review required." });
       return { status: "draft", document, input };
     } catch (error) {

@@ -4,7 +4,7 @@ See the root [model usage audit](../../../MODEL_USAGE.md) for intended model rol
 current feature callers, provider replacement boundaries and missing orchestration.
 The vision capability below is independent of the product's source-to-draft flow.
 
-`generateStructured({ instructions, input, schema, maxOutputTokens?, signal? })`
+`generateStructured({ instructions, input, schema, maxOutputTokens?, inference?, signal? })`
 returns `{ data, model, elapsedMs }`. `data` is inferred from the supplied Zod
 schema and validated locally. Only JSON-Schema-compatible schemas are accepted.
 Provider formatting and transport stay under `baseten`; public failures use
@@ -82,3 +82,18 @@ The verifier loads root `.env`, uses configured storage and prints validated evi
 Tests use in-memory storage and mocked HTTP without developer `.env` or network.
 The Baseten text API/transport remains text-only. No runner, semantic change analysis,
 database, UI or documentation-generation workflow is connected to vision.
+
+
+## Requested inference controls and debug payloads
+
+`generateStructured` accepts strict optional `inference` fields: `reasoningEffort`,
+`temperature`, `topP`. Existing callers leave these omitted. Current hackathon `-1026`
+model overrides are unconfirmed and reject before fetch; only the documented canonical
+Muse slug accepts explicitly requested controls. Provider wire names stay in transports.
+The operation policy supplies explicit ceilings/revisions for debug snapshots; no
+provider-default values are inferred. There is no arbitrary provider-options passthrough.
+
+The shared logger allows only approved exact input strings and accepted typed response
+projections, each <=128 KiB. Static instructions, source bundles, provider envelopes,
+images and reasoning never enter logs. See root MODEL_USAGE.md for the operation matrix.
+Payloads remain SQL-only and cannot become model inputs, evidence or authority.

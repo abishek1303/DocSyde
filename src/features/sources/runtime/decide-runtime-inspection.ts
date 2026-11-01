@@ -1,4 +1,6 @@
 import "server-only";
+import type { InvocationContext } from "@/integrations/ai/invocation-context";
+import { validateInvocation } from "@/integrations/ai/invocation-log";
 import type { InspectionCapabilities, InspectionSupport } from "./inspection-capabilities";
 import { generateStructured } from "@/integrations/ai/generate-structured";
 import type { ProductResult } from "../analysis/product-change-analysis";
@@ -15,6 +17,7 @@ materially useful runtime verification, and desired inspection without an eviden
 staticEvidence concerns supplied claims only, never deployment, interaction or test success.
 Static sufficiency does not force not-needed: checking rendered UI state may still add evidence.
 Limited coverage cannot justify not-needed. Missing information must remain explicit uncertainty.
+Use a reason of at most 500 characters. Each target has a description of at most 300 characters, 1-4 visible-evidence strings of at most 300, and 1-4 citations with excerpts of at most 600. Overall uncertainties have at most 4 entries of at most 300. Prefer the fewest sufficient citations; do not repeat evidence as narration.
 not-needed has no targets. inspect needs 1-3 targets, all with concrete evidenced pathnames.
 Use unresolved if any desired target lacks a justified concrete route; include uncertainties and use pathname null.
 Choose a pathname from routeCandidates with its supporting citation, OR select a supplied operatorCapabilities capabilityId with its exact pathname. Operator capabilities declare what the trusted workflow is allowed/configured to inspect, not product truth. Cite source evidence explaining why inspection is useful even when selecting operator authority. Never expand a capability's scope. Prefer the capability that observes the resulting changed product state. Questions outside its scope remain uncertainties; do not claim them verified. Capability selection is planning only. For a trusted capability, use its ID rather than requiring a source citation to prove route authority.
@@ -28,7 +31,7 @@ Return only the decision DATA INSTANCE, not a schema.`;
 function reject(code: string): never { throw new Error(`Inspection decision rejected: ${code}`); }
 
 export async function decideRuntimeInspection(
-  source: ProductResult, options: { signal?: AbortSignal; operatorCapabilities?: InspectionCapabilities; supportingContext?: InspectionSupport } = {},
+  source: ProductResult, options: { invocation?: InvocationContext; signal?: AbortSignal; operatorCapabilities?: InspectionCapabilities; supportingContext?: InspectionSupport } = {},
 ): Promise<{ decision: InspectionDecision; model?: string; elapsedMs?: number }> {
   options.signal?.throwIfAborted();
   const input = validateProductResult(source);
@@ -43,17 +46,19 @@ export async function decideRuntimeInspection(
   })) }, analysis: input.analysis, routeCandidates, operatorCapabilities: options.operatorCapabilities });
   if (Buffer.byteLength(payload, "utf8") > PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES) reject("request-over-budget");
   options.signal?.throwIfAborted();
-  const generated = await generateStructured({ instructions, input: payload, schema: inspectionDecisionSchema,
+  const generated = await generateStructured({ postValidation: true, invocation: { stage: "runtime-decision", operation: "runtime-decision", ...options.invocation }, instructions, input: payload, schema: inspectionDecisionSchema,
     maxOutputTokens: 4096, signal: options.signal });
   const decision = generated.data;
-  if (bundle.limited && decision.status === "not-needed") reject("limited-evidence-not-needed");
-  for (const target of decision.targets) {
-    for (const citation of target.citations) validateProductCitation(citation, bundle);
-    if (target.capabilityId && !options.operatorCapabilities?.capabilities.some(c => c.id === target.capabilityId && c.pathname === target.pathname)) reject("unsupported-capability");
-    if (target.pathname !== null && !target.capabilityId && !routeCandidates.some(candidate => candidate.pathname === target.pathname
-      && target.citations.some(citation => citation.evidenceId === candidate.citation.evidenceId
-        && citation.startLine === candidate.citation.startLine && citation.endLine === candidate.citation.endLine
-        && citation.excerpt === candidate.citation.excerpt))) reject("unsupported-route");
-  }
+  await validateInvocation(generated.invocationId, () => {
+    if (bundle.limited && decision.status === "not-needed") reject("limited-evidence-not-needed");
+    for (const target of decision.targets) {
+      for (const citation of target.citations) validateProductCitation(citation, bundle);
+      if (target.capabilityId && !options.operatorCapabilities?.capabilities.some(c => c.id === target.capabilityId && c.pathname === target.pathname)) reject("unsupported-capability");
+      if (target.pathname !== null && !target.capabilityId && !routeCandidates.some(candidate => candidate.pathname === target.pathname
+        && target.citations.some(citation => citation.evidenceId === candidate.citation.evidenceId
+          && citation.startLine === candidate.citation.startLine && citation.endLine === candidate.citation.endLine
+          && citation.excerpt === candidate.citation.excerpt))) reject("unsupported-route");
+    }
+  }, "correspondence-rejection");
   return { decision, model: generated.model, elapsedMs: generated.elapsedMs };
 }

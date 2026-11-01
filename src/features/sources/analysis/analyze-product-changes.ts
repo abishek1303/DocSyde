@@ -1,18 +1,20 @@
-import type { SourceProgress } from "./analysis-progress";
 import "server-only";
+import type { InvocationContext } from "@/integrations/ai/invocation-context";
+import { validateInvocation } from "@/integrations/ai/invocation-log";
+import type { SourceProgress } from "./analysis-progress";
 import { compareCommits, repositoryPathInput } from "@/integrations/github/source-reader";
 import { generateStructured, ModelError } from "@/integrations/ai/generate-structured";
 import { assertAllowedRepository, withSourceAccess } from "../repository/local-source-access";
 import { readPinnedSourceContext } from "../context/read-source-context";
 import { selectEvidence } from "../summary/summary-evidence";
-import { productChangeInput, productChangeOutput, type ProductBundle, type ProductResult } from "./product-change-analysis";
+import { productChangeInput, productChangeGenerationOutput, type ProductBundle, type ProductResult } from "./product-change-analysis";
 import { serializeProductEvidence, ProductAnalysisValidationError } from "./product-change-evidence";
 import { validateWithDiagnostics } from "./analysis-diagnostics";
 import { productChangeInstructions } from "./product-change-prompt";
 import { PRODUCT_CHANGE_OUTPUT_TOKENS } from "./product-change-limits";
 import { captureGenerationContext } from "../context/repository-context";
 import { type GenerationContextSnapshot } from "../context/generation-context";
-export async function analyzeProductChanges(raw: unknown, capturedSnapshot?: GenerationContextSnapshot, onProgress?: SourceProgress, options: { signal?: AbortSignal } = {}): Promise<ProductResult> {
+export async function analyzeProductChanges(raw: unknown, capturedSnapshot?: GenerationContextSnapshot, onProgress?: SourceProgress, options: { invocation?: InvocationContext; signal?: AbortSignal } = {}): Promise<ProductResult> {
   options.signal?.throwIfAborted();
   const input = productChangeInput.parse(raw);
   const generationSnapshot = capturedSnapshot ?? await captureGenerationContext(input, null);
@@ -55,9 +57,9 @@ export async function analyzeProductChanges(raw: unknown, capturedSnapshot?: Gen
     if (!bundle.evidence.some(e => e.changed && e.text)) return result;
     await onProgress?.({ step: "understand-impact", status: "running", summary: "Interpreting product behavior and validating citations." });
     try {
-      const generated = await generateStructured({ instructions: productChangeInstructions, input: payload, schema: productChangeOutput, maxOutputTokens: PRODUCT_CHANGE_OUTPUT_TOKENS, signal: deadline });
+      const generated = await generateStructured({ postValidation: true, invocation: { stage: "source-analysis", operation: "source-analysis", ...options.invocation }, instructions: productChangeInstructions, input: payload, schema: productChangeGenerationOutput, maxOutputTokens: PRODUCT_CHANGE_OUTPUT_TOKENS, signal: deadline });
       deadline.throwIfAborted();
-      await validateWithDiagnostics(generated.data, bundle, payload);
+      await validateInvocation(generated.invocationId, () => validateWithDiagnostics(generated.data, bundle, payload), "grounding-rejection");
       await onProgress?.({ step: "understand-impact", status: "completed", summary: `${generated.data.findings.length} validated finding${generated.data.findings.length === 1 ? "" : "s"} · ${generated.data.assessment}.` });
       return { ...result, status: generated.data.assessment === "insufficient-evidence" ? "insufficient-evidence" : "analyzed", analysis: generated.data, model: generated.model, elapsedMs: generated.elapsedMs };
     } catch (error) {

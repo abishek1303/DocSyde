@@ -32,3 +32,5 @@ export { ProductEvidenceBudgetError } from "./analysis/product-change-evidence";
 
 export { inspectionCapabilitySchema, inspectionSupportSchema } from "./runtime/inspection-capabilities";
 export { readInspectionContext } from "./runtime/read-inspection-context";
+
+export { selectedRepository } from "./repository/repository-overview";

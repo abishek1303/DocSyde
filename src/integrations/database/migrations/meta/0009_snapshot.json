@@ -1,0 +1,678 @@
+{
+  "id": "b90f20f3-e7ab-429d-80d8-2ce340e2cd10",
+  "prevId": "2b266a32-021f-4bb6-b0eb-a49e6b02022d",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "docsyde.ai_model_invocations": {
+      "name": "ai_model_invocations",
+      "schema": "docsyde",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stage": {
+          "name": "stage",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operation": {
+          "name": "operation",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model": {
+          "name": "model",
+          "type": "varchar(300)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "failure_kind": {
+          "name": "failure_kind",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completion_reason": {
+          "name": "completion_reason",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "input_tokens": {
+          "name": "input_tokens",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "output_tokens": {
+          "name": "output_tokens",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "elapsed_ms": {
+          "name": "elapsed_ms",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "diagnostic": {
+          "name": "diagnostic",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "request_payload": {
+          "name": "request_payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "response_payload": {
+          "name": "response_payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "request_omission_reason": {
+          "name": "request_omission_reason",
+          "type": "varchar(40)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "response_omission_reason": {
+          "name": "response_omission_reason",
+          "type": "varchar(40)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "inference_config": {
+          "name": "inference_config",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "ai_model_invocations_run_created_idx": {
+          "name": "ai_model_invocations_run_created_idx",
+          "columns": [
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "ai_model_invocations_run_id_documentation_runs_id_fk": {
+          "name": "ai_model_invocations_run_id_documentation_runs_id_fk",
+          "tableFrom": "ai_model_invocations",
+          "tableTo": "documentation_runs",
+          "schemaTo": "docsyde",
+          "columnsFrom": [
+            "run_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "ai_model_invocations_status": {
+          "name": "ai_model_invocations_status",
+          "value": "\"docsyde\".\"ai_model_invocations\".\"status\" IN ('started', 'structured-success', 'succeeded', 'failed')"
+        },
+        "ai_model_invocations_nonnegative": {
+          "name": "ai_model_invocations_nonnegative",
+          "value": "(\"docsyde\".\"ai_model_invocations\".\"input_tokens\" IS NULL OR \"docsyde\".\"ai_model_invocations\".\"input_tokens\" >= 0) AND (\"docsyde\".\"ai_model_invocations\".\"output_tokens\" IS NULL OR \"docsyde\".\"ai_model_invocations\".\"output_tokens\" >= 0) AND (\"docsyde\".\"ai_model_invocations\".\"elapsed_ms\" IS NULL OR \"docsyde\".\"ai_model_invocations\".\"elapsed_ms\" >= 0)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "docsyde.documentation_drafts": {
+      "name": "documentation_drafts",
+      "schema": "docsyde",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "document": {
+          "name": "document",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "saved_at": {
+          "name": "saved_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "documentation_drafts_saved_at_id_idx": {
+          "name": "documentation_drafts_saved_at_id_idx",
+          "columns": [
+            {
+              "expression": "saved_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "documentation_drafts_canonical_envelope": {
+          "name": "documentation_drafts_canonical_envelope",
+          "value": "(\n    jsonb_typeof(\"docsyde\".\"documentation_drafts\".\"document\") = 'object'\n    AND \"docsyde\".\"documentation_drafts\".\"document\"->>'id' = \"docsyde\".\"documentation_drafts\".\"id\"::text\n    AND \"docsyde\".\"documentation_drafts\".\"document\"->'schemaVersion' IN ('1'::jsonb, '2'::jsonb)\n    AND \"docsyde\".\"documentation_drafts\".\"document\"->>'status' = 'draft'\n  ) IS TRUE"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "docsyde.documentation_publication_history": {
+      "name": "documentation_publication_history",
+      "schema": "docsyde",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "repository": {
+          "name": "repository",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "route": {
+          "name": "route",
+          "type": "varchar(300)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "draft_id": {
+          "name": "draft_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "published_at": {
+          "name": "published_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "documentation_publication_history_repository_archived_idx": {
+          "name": "documentation_publication_history_repository_archived_idx",
+          "columns": [
+            {
+              "expression": "repository",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "archived_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "documentation_publication_history_draft_id_documentation_drafts_id_fk": {
+          "name": "documentation_publication_history_draft_id_documentation_drafts_id_fk",
+          "tableFrom": "documentation_publication_history",
+          "tableTo": "documentation_drafts",
+          "schemaTo": "docsyde",
+          "columnsFrom": [
+            "draft_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "docsyde.documentation_publications": {
+      "name": "documentation_publications",
+      "schema": "docsyde",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "repository": {
+          "name": "repository",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "route": {
+          "name": "route",
+          "type": "varchar(300)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "draft_id": {
+          "name": "draft_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "published_at": {
+          "name": "published_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "documentation_publications_repository_route_idx": {
+          "name": "documentation_publications_repository_route_idx",
+          "columns": [
+            {
+              "expression": "repository",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "route",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "documentation_publications_draft_id_documentation_drafts_id_fk": {
+          "name": "documentation_publications_draft_id_documentation_drafts_id_fk",
+          "tableFrom": "documentation_publications",
+          "tableTo": "documentation_drafts",
+          "schemaTo": "docsyde",
+          "columnsFrom": [
+            "draft_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "docsyde.documentation_proposal_reviews": {
+      "name": "documentation_proposal_reviews",
+      "schema": "docsyde",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "repository": {
+          "name": "repository",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "proposal_hash": {
+          "name": "proposal_hash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "proposal": {
+          "name": "proposal",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "targets": {
+          "name": "targets",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "registered_at": {
+          "name": "registered_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "review": {
+          "name": "review",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "documentation_reviews_repository_idx": {
+          "name": "documentation_reviews_repository_idx",
+          "columns": [
+            {
+              "expression": "repository",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "registered_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "documentation_reviews_envelope": {
+          "name": "documentation_reviews_envelope",
+          "value": "(\n    \"docsyde\".\"documentation_proposal_reviews\".\"proposal_hash\" ~ '^[a-f0-9]{64}$'\n    AND \"docsyde\".\"documentation_proposal_reviews\".\"repository\" = lower(\"docsyde\".\"documentation_proposal_reviews\".\"repository\")\n    AND \"docsyde\".\"documentation_proposal_reviews\".\"repository\" ~ '^https://github.com/[^/]+/[^/]+$'\n    AND \"docsyde\".\"documentation_proposal_reviews\".\"expires_at\" > \"docsyde\".\"documentation_proposal_reviews\".\"registered_at\"\n    AND \"docsyde\".\"documentation_proposal_reviews\".\"proposal\"->>'proposalId' = \"docsyde\".\"documentation_proposal_reviews\".\"id\"::text\n    AND jsonb_typeof(\"docsyde\".\"documentation_proposal_reviews\".\"proposal\") = 'object'\n    AND octet_length(\"docsyde\".\"documentation_proposal_reviews\".\"proposal\"::text) <= 2097152\n    AND jsonb_typeof(\"docsyde\".\"documentation_proposal_reviews\".\"targets\") = 'array'\n    AND jsonb_array_length(\"docsyde\".\"documentation_proposal_reviews\".\"targets\") <= 64\n    AND (\"docsyde\".\"documentation_proposal_reviews\".\"review\" IS NULL OR (jsonb_typeof(\"docsyde\".\"documentation_proposal_reviews\".\"review\") = 'object'\n      AND \"docsyde\".\"documentation_proposal_reviews\".\"review\"->>'operationId' IS NOT NULL\n      AND octet_length(\"docsyde\".\"documentation_proposal_reviews\".\"review\"::text) <= 262144))\n  ) IS TRUE"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "docsyde.documentation_runs": {
+      "name": "documentation_runs",
+      "schema": "docsyde",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "repository": {
+          "name": "repository",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "documentation_runs_repository_created_idx": {
+          "name": "documentation_runs_repository_created_idx",
+          "columns": [
+            {
+              "expression": "repository",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "docsyde.projects": {
+      "name": "projects",
+      "schema": "docsyde",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "projects_name_not_blank": {
+          "name": "projects_name_not_blank",
+          "value": "length(trim(\"docsyde\".\"projects\".\"name\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "docsyde.repository_contexts": {
+      "name": "repository_contexts",
+      "schema": "docsyde",
+      "columns": {
+        "repository": {
+          "name": "repository",
+          "type": "varchar(512)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "text": {
+          "name": "text",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {
+    "docsyde": "docsyde"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

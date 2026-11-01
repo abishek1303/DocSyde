@@ -292,3 +292,81 @@ the proof reproduces its known rejection class, not an unavailable historical re
 The vertical slice is implemented and awaiting final live verification. Corrected
 synthesis has not been proven live; downstream live documentation stages remain
 unreached. No additional paid inference was used for these checks or presentation polish.
+
+## Persistent invocation metadata
+
+Both structured text and vision boundaries use the shared server-only invocation
+logger. Meta now retains optional returned completion/usage metadata using the same
+safe allowlist as text; request behavior and output acceptance remain unchanged.
+Missing metadata is unavailable, never inferred. Run workflows pass explicit
+run/stage/operation context, including separate visual selection, per-image vision,
+transformation batches, and support checks. Standalone calls have nullable run IDs.
+
+Invocation metadata, sanitized failure diagnostics and requested-configuration snapshots
+are persisted. Approved debug payloads are described below; static prompts, provider
+bodies, images and reasoning are never retained. Grounding/correspondence rejection is separate from provider/schema
+failure and preserves original completion metadata. Logging failures never replace
+model results/errors. Logs must never feed evidence, authority, or model input.
+
+The **Logs** tab opens the repository-scoped **AI model usage log** table. Rows
+open full retained metadata/diagnostics; run failure links resolve the latest failed
+invocation for that stage, with saved-diagnostic fallback for historical runs.
+Standalone rows without a repository-bound run are not exposed through these pages.
+
+
+## Reliability baseline and safe payload policy
+
+All current output ceilings remain unchanged: source/summary/impact/draft/transformation/
+support 8192, runtime decision/planning/vision 4096, selection 2048. All current reasoning,
+temperature and top-p values remain omitted. The integration's strict optional controls
+are `reasoningEffort` (`low`, `medium`, `high`, `xhigh`), `temperature` (0–4), and `topP`
+(>0 through 1). Only the documented canonical Baseten Muse slug accepts these overrides;
+requesting them for `meta-models/muse-spark-open-1026`, another model or Meta vision fails
+safely before fetch. No arbitrary provider fields are forwarded. See Baseten's
+[reasoning](https://docs.baseten.co/inference/model-apis/reasoning) and
+[request reference](https://docs.baseten.co/reference/inference-api/chat-completions).
+The reasoning overview and detailed table conflict, and neither confirms the hackathon
+alias. Do not silently equate aliases or activate effort values without confirmation.
+
+New generation contracts align source citations (2), reasons (200), excerpts (500),
+and legacy draft blocks (800) to intended prompts. Historical accepted schemas remain
+compatible. Source and product impact have independent output-budget constants.
+Vision preserves 20 elements, 10 observations/limitations and all spatial fields;
+runtime decision preserves three targets/four citations; impact preserves six claims
+and contradictions; transformation preserves individual entry validation and support
+preserves 128 units. Every category is consumed downstream; there is no established
+basis for removing it. Matching numeric prompt guidance discourages repeated narration.
+
+Capacity review: maximum populated fixture shapes remain valid locally, not guaranteed
+to fit token ceilings. Vision can legally contain about 26000 text characters; runtime
+and planning can carry many long citations/reasons; transformation budgets 12 blocks
+plus reference overhead; support can return 128 reasons. No character-to-token estimate
+or inferred reasoning split is recorded. Smaller budgets, numeric evidence reductions,
+and active reasoning/sampling changes require a separate controlled comparison.
+
+| Operation | Request | Accepted response |
+| --- | --- | --- |
+| Source analysis/summary, runtime decision | Omitted: source-bearing | Omitted: source-bearing |
+| Visual selection | Exact final existing redacted/compacted input string | Decision and selected checkpoint/source IDs only |
+| Runtime vision | Omitted: image/mixed context | Element index, bounds/certainty and observation/limitation counts only |
+| Product impact, planning, legacy draft, transformation | Omitted: source/document-derived text | Omitted: prose or complex batches |
+| Transformation support | Omitted: wording/authority catalogs | Unit IDs and verdict enums only, after all correspondence checks |
+| Fixed receipt verifier | Exact fixed input | Validated fixed literal only |
+| Unknown operations | Omitted | Omitted |
+
+This is an explicit operation allowlist, not a general secret scrubber. The selection
+input uses existing redaction of configured secrets and known credential patterns; it
+does not guarantee removal of arbitrary unrecognized application secrets. No raw source
+patches, citation bundles, executable workflows or trace/image artifacts are reconstructed
+for logging. Response projections deliberately exclude free-text reasons/questions,
+visible text and authored prose. Mixed or invalid transformation/support entries never
+enter retained payloads. Malformed, incomplete, refused, schema-invalid and rejected
+outputs retain no response. Responses awaiting feature validation remain null.
+
+Payloads are limited independently to 128 KiB of serialized UTF-8 JSON, omitted whole
+when oversized, and inspected only through SQL. A small `inference_config` records the
+contract revision, requested ceiling, and explicit options; null means omitted, not an
+inferred provider default. Logging/serialization failures preserve original results/errors.
+Logs must never feed evidence, authority, later model calls, retries, or automatic training.
+No paid inference was used for this implementation. Subsequent authorized comparisons
+must vary one operation/independent variable at a time, identified by saved configuration.

@@ -1,5 +1,5 @@
 import { Suspense, type ReactNode } from "react";
-export function AppShell({ children, repository, branch, branchContext, showBranch = true, headerContent, contentLayout = "page" }: { children: ReactNode; contentLayout?: "page" | "workspace"; headerContent?: ReactNode; repository: string; branch?: string; branchContext?: ReactNode; showBranch?: boolean; active: "Overview" | "Changes" | "Documentation" | "Runs" | "AI" }) {
+export function AppShell({ children, repository, branch, branchContext, showBranch = true, headerContent, contentLayout = "page" }: { children: ReactNode; contentLayout?: "page" | "workspace"; headerContent?: ReactNode; repository: string; branch?: string; branchContext?: ReactNode; showBranch?: boolean; active: "Overview" | "Changes" | "Documentation" | "Runs" | "AI" | "Logs" }) {
   return <div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground">
     <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50 focus:rounded-md focus:bg-card focus:p-3">Skip to content</a>
     <header className="relative z-20 flex h-16 shrink-0 items-center gap-3 border-b bg-card px-3 text-sm sm:px-8">

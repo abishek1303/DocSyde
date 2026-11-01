@@ -767,3 +767,37 @@ modules, configuration and workflows are unchanged.
 Documentation implementations, UI and colocated tests are grouped by responsibility;
 see the [module map](src/features/documentation/README.md#organization). Existing
 verification scripts use the grouped paths. No configuration or workflow changes.
+
+### AI invocation debug logs
+
+Run `npm run db:migrate` to apply migration **0008**. Existing `DATABASE_URL` is the
+only logging configuration. Text and vision calls retain best-effort metadata;
+missing PostgreSQL/log writes do not fail model calls. Apply migration **0009** for
+nullable approved payloads, fixed omission reasons and requested-configuration snapshots.
+Open the **Logs** tab for the **AI model usage log** table. Select a row to view
+all retained invocation metadata and sanitized diagnostics. The table has 25 rows per
+page and status, provider, and exact-stage filters. Run pages link to their
+filtered logs; model failures link to a detail page instead of showing diagnostics
+inline. Historical failures without logs show saved failure details where available.
+Standalone calls without a repository-bound run remain SQL-only. Intermediate rows
+may reflect interrupted execution.
+
+`npm run ai:test` covers lifecycle failure isolation and metadata sanitization.
+`npm run ai:logging:verify` checks the migrated PostgreSQL table using temporary
+fixture rows, cleans up those rows, and makes no model calls. No new credentials,
+services, or retention workers are required. See [MODEL_USAGE.md](MODEL_USAGE.md).
+
+
+### AI reliability baseline
+
+`npm run ai:test` also tests typed option serialization, model capability gates, payload
+allowlisting, size omission and validation failure isolation. `npm run sources:test`
+and `npm run documentation:test` cover generation limits and historical compatibility.
+`npm run ai:logging:verify` verifies the new columns with temporary local PostgreSQL
+fixtures and no provider calls. Approved payloads are SQL-only; the Logs UI continues
+to expose metadata and sanitized diagnostics. No new environment variables are required.
+
+Existing reasoning/sampling behavior and output ceilings are unchanged. Do not use live
+AI verification commands to tune them without separate authorization. See
+[MODEL_USAGE.md](MODEL_USAGE.md#reliability-baseline-and-safe-payload-policy) for the
+allowlist, current capacity risks and exact-alias reasoning restriction.

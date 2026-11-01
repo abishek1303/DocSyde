@@ -1,4 +1,5 @@
 import "server-only";
+import { validateInvocation } from "@/integrations/ai/invocation-log";
 import { compareCommits } from "@/integrations/github/source-reader";
 import { SourceReadError } from "@/integrations/github/errors";
 import {
@@ -126,14 +127,14 @@ export async function summarizeChanges(raw: unknown): Promise<SummaryResult> {
         return result;
       }
       try {
-        const generated = await generateStructured({
+        const generated = await generateStructured({ postValidation: true, invocation: { stage: "understand-impact", operation: "source-summary" },
           instructions,
           input: modelInput(result),
           schema: generatedSummary,
           maxOutputTokens: 8192,
           signal: deadline,
         });
-        validateCitations(generated.data, result);
+        await validateInvocation(generated.invocationId, () => validateCitations(generated.data, result), "grounding-rejection");
         result.summary = generated.data;
         result.model = generated.model;
         result.elapsedMs = generated.elapsedMs;

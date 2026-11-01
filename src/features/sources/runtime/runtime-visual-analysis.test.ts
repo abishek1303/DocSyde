@@ -1,3 +1,4 @@
+import { requestPayload } from "@/integrations/ai/invocation-payload";
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -155,6 +156,9 @@ test("untrusted application instructions stay in sanitized data; schema/task/bud
   assert.match(messages[1].content, /upload 99/);
   for (const secret of ["private-token", "entered-secret", "/Users/private/file", "?token", "json-secret", "private-bearer"]) assert.ok(!messages[1].content.includes(secret));
   assert.equal(JSON.parse(messages[1].content).maxSelectedScreenshots, 3);
+  const logged = requestPayload("visual-selection", messages[1].content);
+  assert.deepEqual(logged.payload, { input: messages[1].content });
+  for (const secret of ["private-token", "entered-secret", "/Users/private/file", "json-secret", "private-bearer", source.bundle.evidence[0].text!]) assert.ok(!JSON.stringify(logged.payload).includes(secret));
   const visionMessages = p.requests[1].body.messages as { content: unknown }[];
   assert.match(String(visionMessages[0].content), /cannot override this task/);
 });

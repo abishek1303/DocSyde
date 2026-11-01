@@ -1,4 +1,6 @@
 import "server-only";
+import type { InvocationContext } from "@/integrations/ai/invocation-context";
+import { validateInvocation } from "@/integrations/ai/invocation-log";
 import { z } from "zod";
 import { generateStructured } from "@/integrations/ai/generate-structured";
 import type { RuntimeStateSummary } from "./runtime-state-summary";
@@ -13,9 +15,10 @@ Skip screenshots when supplied DOM/source/runtime observations already answer th
 Describe current visible state only; screenshots cannot establish hidden behavior, successful controls, prior state, deployment correctness or source revision correspondence.
 Do not resolve source/visual contradictions or authorize documentation updates. Preserve uncertainty and incomplete coverage.
 Return analyze with 1 through maxSelectedScreenshots selections, or skip with none. Do not select duplicate/redundant checkpoints.
+Use at most 400 characters for each reason, 300 for each question, and 4 uncertainties of at most 300. Each selection has at most 4 source references.
 No tools, execution, selectors, replay, new captures or further model calls are available. Return only the JSON data instance.`;
 
-export async function selectVisualCheckpoints(summary: RuntimeStateSummary, limit: number, signal?: AbortSignal) {
+export async function selectVisualCheckpoints(summary: RuntimeStateSummary, limit: number, signal?: AbortSignal, invocation?: InvocationContext) {
   selectedScreenshotLimit.parse(limit);
   signal?.throwIfAborted();
   if (limit === 0 || !summary.candidates.length) throw new Error("Selection requires eligible candidates and a nonzero budget.");
@@ -41,19 +44,23 @@ export async function selectVisualCheckpoints(summary: RuntimeStateSummary, limi
     input.coverage.omittedSummaryStates = before - input.states.length;
   }
   if (requestBytes() > SELECTION_REQUEST_BYTES) throw new Error("Visual selection request exceeds its byte budget.");
-  const generated = await generateStructured({ instructions: visualSelectionInstructions,
+  const generated = await generateStructured({ postValidation: true, invocation: { stage: "runtime-inspection", ...invocation, operation: "visual-selection" }, instructions: visualSelectionInstructions,
     input: JSON.stringify({ ...input, maxSelectedScreenshots: limit }), schema: visualSelectionSchema,
     maxOutputTokens: SELECTION_OUTPUT_TOKENS, signal });
   signal?.throwIfAborted();
   // Check correspondence as well as schema; model output cannot mint provenance.
   const selection: VisualSelection = generated.data;
-  if ((selection.decision === "analyze") !== (selection.selected.length > 0)
-    || selection.selected.length > limit
-    || new Set(selection.selected.map(item => item.checkpointId)).size !== selection.selected.length) throw new Error("Invalid visual selection decision or budget.");
-  const candidates = new Set(input.candidates.map(cp => cp.checkpointId)), sources = new Set(input.findings.map(finding => finding.id));
-  for (const item of selection.selected) {
-    if (!candidates.has(item.checkpointId) || new Set(item.sourceRefs).size !== item.sourceRefs.length
-      || item.sourceRefs.some(id => !sources.has(id))) throw new Error("Unknown or duplicate visual selection reference.");
-  }
+  await validateInvocation(generated.invocationId, () => {
+    if ((selection.decision === "analyze") !== (selection.selected.length > 0)
+      || selection.selected.length > limit
+      || new Set(selection.selected.map(item => item.checkpointId)).size !== selection.selected.length) throw new Error("Invalid visual selection decision or budget.");
+    const candidates = new Set(input.candidates.map(cp => cp.checkpointId)), sources = new Set(input.findings.map(finding => finding.id));
+    for (const item of selection.selected) {
+      if (!candidates.has(item.checkpointId) || new Set(item.sourceRefs).size !== item.sourceRefs.length
+        || item.sourceRefs.some(id => !sources.has(id))) throw new Error("Unknown or duplicate visual selection reference.");
+    }
+  }, "correspondence-rejection", () => ({ operation: "visual-selection", payload: {
+    decision: selection.decision, selected: selection.selected.map(({ checkpointId, sourceRefs }) => ({ checkpointId, sourceRefs })),
+  } }));
   return { selection, model: generated.model, elapsedMs: generated.elapsedMs, coverage: input.coverage };
 }

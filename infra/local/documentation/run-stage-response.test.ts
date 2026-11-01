@@ -1,3 +1,5 @@
+import { getRunInvocations } from "@/features/documentation/runs/read-run-invocations";
+import { GET as invocationGET } from "@/app/runs/[id]/invocations/route";
 import assert from "node:assert/strict";
 import { randomUUID, createHash } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -41,14 +43,37 @@ test("stage response reads use validated saved outputs, enforce access/integrity
     runtimeResponsePreview: "Inspect the requirement", artifacts: [{ kind: "runtime-analysis", key: artifact.key, sha256: createHash("sha256").update(bytes).digest("hex") }],
     transformation: { responsePreview: "A request title is required.", proposalId: proposal.proposalId, sha256: documentationHash(proposal), status: proposal.status, results: proposal.results.map(result => ({ decisionId: result.decisionId, generation: result.generation, support: result.support, reviewReady: result.reviewReady, materialization: result.materialization, approval: result.approval, saveCompatible: result.saveCompatible, issues: result.issues, model: result.model, candidateId: result.candidateId })), batches: proposal.batches, supportModel: proposal.supportModel, supportAttempted: proposal.supportAttempted },
     retainedProposal: { proposalId: proposal.proposalId, proposalHash: documentationHash(proposal), registeredAt: now, expiresAt: new Date(Date.now() + 60000).toISOString() }, models: [{ stage: "source-analysis", model: "test-source", elapsedMs: 1 }] });
+  let invocationRows: unknown[][] = [];
+  let invocationReadFails = false;
   let queries = 0;
   t.mock.method(Pool.prototype, "query", async (query: { text: string }, params: unknown[]) => {
     queries++;
+    if (query.text.includes('"ai_model_invocations"')) {
+      assert.ok(!query.text.includes('"diagnostic"'));
+      assert.equal(params[0], id);
+      if (invocationReadFails) throw new Error("PRIVATE_DATABASE_BODY");
+      return { rows: invocationRows };
+    }
     assert.ok(query.text.startsWith("select"), "Response reads must not write");
     if (query.text.includes('"documentation_proposal_reviews"')) return { rows: [[proposal.proposalId, repository, documentationHash(proposal), proposal, [], now, new Date(Date.now() + 60000).toISOString(), null]] };
     if (params[0] === id) return { rows: [[id, repository, record.status, record, now, now]] };
     return { rows: [] };
   });
+  assert.deepEqual(await getRunInvocations(id), { invocations: [], omittedEarlier: false });
+  invocationRows = [[randomUUID(), "source-analysis", "source-analysis", "baseten", "fixture", "failed", "incomplete-output", "length", "12", "8192", "35", now]];
+  const logs = await getRunInvocations(id);
+  assert.equal(logs?.invocations[0].outputTokens, 8192);
+  assert.equal(logs?.invocations[0].completionReason, "length");
+  assert.ok(!JSON.stringify(logs).includes("SECRET_SOURCE_BUNDLE"));
+  const summary = invocationRows[0];
+  invocationRows = Array.from({ length: 101 }, () => summary);
+  assert.equal((await getRunInvocations(id))?.invocations.length, 100);
+  assert.equal((await getRunInvocations(id))?.omittedEarlier, true);
+  invocationReadFails = true;
+  const failedRead = await invocationGET(new Request("http://localhost"), { params: Promise.resolve({ id }) });
+  assert.equal(failedRead.status, 503);
+  assert.ok(!(await failedRead.text()).includes("PRIVATE"));
+  invocationReadFails = false;
   const previews = projectStageResponsePreviews(record);
   assert.equal(previews.find(entry => entry.stage === "prepare-context")?.status, "not-used");
   assert.equal(previews.find(entry => entry.stage === "runtime-decision")?.kind, "result");
@@ -67,6 +92,7 @@ test("stage response reads use validated saved outputs, enforce access/integrity
   assert.equal(queries, count);
   process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "other/repo";
   await assert.rejects(() => getRunStageResponse(id, "source-analysis"), /not allowed/);
+  await assert.rejects(() => getRunInvocations(id), /not allowed/);
   process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "abishek1303/DocSyde";
   await writeFile(join(directory, artifact.key), "PRIVATE_CORRUPT_ARTIFACT");
   const failed = await GET(new Request("http://localhost/"), { params: Promise.resolve({ id, stage: "runtime-inspection" }) });

@@ -1,4 +1,6 @@
 import "server-only";
+import type { InvocationContext } from "@/integrations/ai/invocation-context";
+import { finishInvocationValidation } from "@/integrations/ai/invocation-log";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { isDeepStrictEqual } from "node:util";
@@ -29,7 +31,7 @@ function fail(result: DecisionResult, issue: string, generation: DecisionResult[
  * artifacts or re-prove upstream citations. No save/sign/publication operations. */
 export async function transformDocumentation({ impact: rawImpact, plan: rawPlan, context = [] }: {
   impact: ProductImpact; plan: DocumentationImpactPlan; context?: AssociationChoice[];
-}, { signal }: { signal?: AbortSignal } = {}): Promise<DocumentationChangeProposal> {
+}, { signal, invocation }: { invocation?: InvocationContext; signal?: AbortSignal } = {}): Promise<DocumentationChangeProposal> {
   const impact = validateProductImpact(rawImpact), plan = validateDocumentationImpactPlan(impact, rawPlan);
   const supplied = z.array(associationChoice).max(20).parse(context);
   if (new Set(supplied.map(choice => choice.id)).size !== supplied.length || supplied.some(choice => choice.origin !== "operator" || choice.findingRef
@@ -94,13 +96,15 @@ export async function transformDocumentation({ impact: rawImpact, plan: rawPlan,
     proposal.batches.push(record);
     if (signal?.aborted) { batch.items.forEach(auth => fail(results.find(result => result.decisionId === auth.decisionId)!, "cancelled-before-batch")); continue; }
     try {
-      const generated = await generateStructured({ instructions: transformationInstructions, input: request.input, schema: transformationEnvelopeSchema, maxOutputTokens: TRANSFORMATION_OUTPUT_TOKENS, signal });
+      const generated = await generateStructured({ postValidation: true, invocation: { stage: "documentation-transformation", operation: "documentation-transformation", ...invocation }, instructions: transformationInstructions, input: request.input, schema: transformationEnvelopeSchema, maxOutputTokens: TRANSFORMATION_OUTPUT_TOKENS, signal });
       signal?.throwIfAborted();
       record.status = "completed"; record.model = { model: generated.model, elapsedMs: generated.elapsedMs };
+      let rejected = false;
       const entries = new Map<string, unknown[]>(), expected = new Set(record.decisionIds);
       for (const raw of generated.data.entries) {
         const id = raw !== null && typeof raw === "object" && "decisionId" in raw ? raw.decisionId : null;
         if (typeof id !== "string" || !expected.has(id)) {
+          rejected = true;
           if (!proposal.protocolIssues.includes("Unknown or malformed generation entry.")) proposal.protocolIssues.push("Unknown or malformed generation entry.");
           continue;
         }
@@ -110,7 +114,7 @@ export async function transformDocumentation({ impact: rawImpact, plan: rawPlan,
         const result = results.find(result => result.decisionId === auth.decisionId)!;
         const raw = entries.get(auth.decisionId);
         result.model = record.model;
-        if (raw?.length !== 1) { fail(result, "missing-or-duplicate-generation-entry"); continue; }
+        if (raw?.length !== 1) { rejected = true; fail(result, "missing-or-duplicate-generation-entry"); continue; }
         try {
           const change = validateTransformationEntry(raw[0], auth, auth.target.documentId ? baselines.get(auth.target.documentId) : undefined);
           result.change = change;
@@ -119,8 +123,9 @@ export async function transformDocumentation({ impact: rawImpact, plan: rawPlan,
             result.generation = "generated"; result.support = "pending";
             if (change.kind === "add-section" && change.placement.position === "undetermined") result.issues.push("placement-ambiguous");
           }
-        } catch { fail(result, "invalid-generation-entry"); }
+        } catch { rejected = true; fail(result, "invalid-generation-entry"); }
       }
+      await finishInvocationValidation(generated.invocationId, rejected ? "correspondence-rejection" : undefined);
     } catch {
       record.status = "failed";
       batch.items.forEach(auth => fail(results.find(result => result.decisionId === auth.decisionId)!, signal?.aborted ? "cancelled-during-generation" : "generation-provider-or-output-failure", "failed"));
@@ -132,7 +137,7 @@ export async function transformDocumentation({ impact: rawImpact, plan: rawPlan,
   if (generated.length && units.length) {
     try {
       const outlines = new Map(generatedAuth.map(auth => [auth.decisionId, (auth.target.documentId ? baselines.get(auth.target.documentId)?.sections ?? [] : []).map(({ id, title, kind }) => ({ id, title, kind }))]));
-      const checked = await validateTransformationGrounding(units, generatedAuth, outlines, signal, () => { proposal.supportAttempted = true; });
+      const checked = await validateTransformationGrounding(units, generatedAuth, outlines, signal, () => { proposal.supportAttempted = true; }, invocation);
       proposal.supportModel = checked.model; proposal.supportChecks = checked.checks;
       if (checked.protocolError) proposal.protocolIssues.push("Unknown or malformed support verdict.");
       for (const result of generated) {

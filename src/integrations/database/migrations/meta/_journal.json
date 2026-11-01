@@ -57,6 +57,20 @@
       "when": 1793489630186,
       "tag": "0007_publication-archive",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793509940350,
+      "tag": "0008_sloppy_mordo",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793514902233,
+      "tag": "0009_tiny_mach_iv",
+      "breakpoints": true
     }
   ]
 }

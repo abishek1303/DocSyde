@@ -1,14 +1,17 @@
 import "server-only";
+import { resolveInference, type ResolvedInference } from "../operation-policy";
+import { modelDiagnosticSchema, type ModelDiagnostic, type ModelInvocationMetadata } from "../model-diagnostic";
 import { z } from "zod";
 import { visualEvidenceJsonSchema } from "@/integrations/ai/visual-evidence";
 
 export class MetaError extends Error {
-  constructor(public readonly code: string, public readonly retryAfterSeconds?: number) {
+  constructor(public readonly code: string, public readonly retryAfterSeconds?: number, public readonly diagnostic?: ModelDiagnostic) {
     super(`Meta vision request failed: ${code}`);
   }
 }
 
 const responseSchema = z.object({
+  usage: z.unknown().optional(),
   model: z.string().min(1),
   choices: z.array(z.object({
     finish_reason: z.string(),
@@ -17,18 +20,21 @@ const responseSchema = z.object({
 });
 
 export async function invokeMetaVision(options: {
-  png: Uint8Array; context: string; instructions: string; signal?: AbortSignal;
-}): Promise<{ text: string; model: string }> {
+  png: Uint8Array; context: string; instructions: string; signal?: AbortSignal; settings?: ResolvedInference;
+}): Promise<{ text: string; model: string; metadata: ModelInvocationMetadata }> {
   const key = process.env.META_API_KEY?.trim();
   if (!key) throw new MetaError("missing-credentials");
-  const model = process.env.META_VISION_MODEL?.trim() || "muse-spark-1.3";
+  const settings = options.settings ?? resolveInference("meta", "runtime-vision", 4096);
+  const model = settings.model;
   const signal = AbortSignal.any([AbortSignal.timeout(120_000), ...(options.signal ? [options.signal] : [])]);
+  const started = Date.now();
+  let diagnostic: ModelDiagnostic = { kind: "provider-failure", model: model.slice(0, 300) };
   try {
     signal.throwIfAborted();
     const response = await fetch("https://api.meta.ai/v1/chat/completions", {
       method: "POST", redirect: "error", signal,
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model, stream: false, max_completion_tokens: 4096,
+      body: JSON.stringify({ model, stream: false, max_completion_tokens: settings.maxOutputTokens,
         response_format: { type: "json_schema", json_schema: {
           name: "VisualEvidence", strict: true, schema: visualEvidenceJsonSchema,
         } }, messages: [
@@ -52,11 +58,16 @@ export async function invokeMetaVision(options: {
     const parsed = responseSchema.safeParse(envelope);
     if (!parsed.success) throw new MetaError("invalid-response");
     const choice = parsed.data.choices[0];
+    const completionReason = ["stop", "length", "content_filter", "tool_calls"].includes(choice.finish_reason)
+      ? choice.finish_reason as "stop" | "length" | "content_filter" | "tool_calls" : "other";
+    const usage = modelDiagnosticSchema.shape.usage.unwrap().strip().safeParse(parsed.data.usage);
+    diagnostic = { ...diagnostic, model: parsed.data.model.slice(0, 300), completionReason, ...(usage.success ? { usage: usage.data } : {}) };
     if (choice.message.refusal || choice.finish_reason === "content_filter") throw new MetaError("refused");
     if (choice.finish_reason !== "stop" || typeof choice.message.content !== "string") throw new MetaError("incomplete-output");
-    return { text: choice.message.content, model: parsed.data.model };
+    return { text: choice.message.content, model: parsed.data.model, metadata: { model: diagnostic.model, completionReason, elapsedMs: Date.now() - started, ...(usage.success ? { usage: usage.data } : {}) } };
   } catch (error) {
-    if (error instanceof MetaError) throw error;
-    throw new MetaError(signal.aborted ? (options.signal?.aborted ? "cancelled" : "timeout") : "upstream");
+    const code = error instanceof MetaError ? error.code : signal.aborted ? (options.signal?.aborted ? "cancelled" : "timeout") : "upstream";
+    const kind = code === "refused" || code === "incomplete-output" || code === "invalid-response" || code === "cancelled" || code === "timeout" ? code : "provider-failure";
+    throw new MetaError(code, error instanceof MetaError ? error.retryAfterSeconds : undefined, { ...diagnostic, kind, elapsedMs: Date.now() - started });
   }
 }
