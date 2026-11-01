@@ -767,13 +767,13 @@ candidates, baseline documents or authorization catalogs.
 
 `GET /runs/<id>/responses/<stage>` is an authorized, no-store read of existing data.
 It performs no inference, generation, acceptance, save or publication operation.
-Full responses are bounded to 256 KiB and fetched only when the stage popup opens;
+Full responses are bounded to 256 KiB and fetched only for the displayed output stage;
 normal status polling carries only the short previews. Two optional bounded display
 fields retain runtime/generation excerpts for inexpensive previews. These excerpts
 are presentation metadata and never model input, evidence or authority. Existing
 rows require no migration and can show unavailable output where nothing was retained.
 
-The popup renders validated task results as escaped text. Provider transport bodies,
+The output panel renders validated task results as escaped text. Provider transport bodies,
 prompts, source bundles, executable workflow settings and rejected model output are
 not displayed. Deterministic results are distinguished from AI responses. Results
 appear after their checkpoint is saved; token streaming is not introduced.
@@ -788,3 +788,28 @@ fixed grid with separate article/navigation scroll regions and content-relative
 anchor offsets. Page scroll pacing targets the marked content viewport, leaving
 nested code blocks, dialogs and navigation scrollers native. Layout changes add no
 product, persistence, provider or execution responsibilities.
+
+## Pipeline and output workspace
+
+The feature-owned run monitor presents a selectable pipeline beside a sticky output
+panel on desktop, stacked on mobile. It follows the running stage by default;
+manual selection holds that stage until Follow pipeline is selected. Terminal runs
+prefer the failed/incomplete/cancelled stage or the last completed stage. The right panel displays only the
+selected stage: a thinking indicator for active AI work, a capture indicator for
+runtime inspection, a one-line description for deterministic steps, or the saved
+AI result when complete. It does not repeat pipeline labels or retain previous-stage
+output. Runtime inspection has no live browser stream; the UI shows capture activity
+and existing validated results only. Selecting a stage fetches
+only its existing response through the authorized no-store endpoint; requests abort
+on selection changes, and polling does not refetch an unchanged available result.
+Responses remain escaped, bounded, checkpoint-based results with explicit loading,
+retry and unavailable states. GSAP animates stage changes and output reveals while
+respecting reduced motion. No execution, inference, persistence, authorization or
+publication responsibilities change.
+
+The run screen keeps only the change headline, optional user-added context and the
+pipeline/activity workspace. Cancellation is a labelled button with a stop icon beside the
+headline. Technical metadata, redundant summary/status blocks, breadcrumbs and
+secondary action lists are omitted from this screen. Failure recovery stays with
+the failed stage output, and a completed update exposes one review/open action
+in that panel. The existing endpoints, history and other detail routes are unchanged.

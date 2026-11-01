@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ArrowUp, ChevronDown, FileText, Menu, Search } from "lucide-react";
+import { MotionReveal } from "@/components/application/motion-reveal";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -89,7 +90,7 @@ export function DocumentationReader({ title, sections, children, backHref, view 
         </nav>
       </div>
       <div ref={viewport} data-scroll-viewport tabIndex={0} aria-label="Document article" className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring">
-        <div className="mx-auto max-w-[860px] pt-6 lg:pt-2">{children}
+        <div className="mx-auto max-w-[860px] pt-6 lg:pt-2"><MotionReveal key={`${view}:${backHref}:${title}`}>{children}</MotionReveal>
           <footer className="mt-12 border-t pt-6">
             <button type="button" onClick={() => viewport.current?.scrollTo({ top: 0, behavior: behavior() })} className="mx-auto flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:text-primary focus-visible:outline-2 focus-visible:outline-ring">
               <ArrowUp aria-hidden="true" className="size-4" />Back to top</button>

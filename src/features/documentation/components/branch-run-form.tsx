@@ -2,6 +2,8 @@
 
 import { useActionState, useState } from "react";
 import { startBranchRun } from "@/app/runs/actions";
+import { MotionReveal } from "@/components/application/motion-reveal";
+import { LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,7 +23,7 @@ export function BranchRunForm({ repository, branches, selected, latestChanges, s
         <option value="" disabled>Choose a branch</option>{names.map(name => <option key={name} value={name}>{name}</option>)}</select> : <Input id="run-branch" name="branch" value={branch} onChange={event => setBranch(event.target.value)} maxLength={1024} required disabled={pending} placeholder="Branch name" />}
       <div className="pt-1" aria-live="polite">
         <p className="text-xs text-muted-foreground">Latest change</p>
-        <p className="mt-1 line-clamp-2 text-sm leading-6">{latestChange || "No change summary is available for this branch."}</p>
+        <MotionReveal key={branch}><p className="mt-1 line-clamp-2 text-sm leading-6">{latestChange || "No change summary is available for this branch."}</p></MotionReveal>
       </div>
       {selectionUnavailable && <p role="status" className="text-xs text-muted-foreground">Automatic selection is unavailable. Enter a branch name.</p>}
     </div>
@@ -29,7 +31,7 @@ export function BranchRunForm({ repository, branches, selected, latestChanges, s
       <label htmlFor="run-context" className="block text-sm font-medium">Context</label>
       <Textarea id="run-context" name="runContext" rows={5} maxLength={300} disabled={pending} placeholder="Anything we should know about this product or change?" />
     </div>
-    <Button type="submit" disabled={pending}>{pending ? "Starting run…" : "Start run"}</Button>
-    {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
+    <Button type="submit" disabled={pending} aria-busy={pending}>{pending && <LoaderCircle aria-hidden="true" className="size-4 motion-safe:animate-spin" />}{pending ? "Starting run…" : "Start run"}</Button>
+    {state.error && <MotionReveal key={state.error}><p role="alert" className="text-sm text-destructive">{state.error}</p></MotionReveal>}
   </form>;
 }

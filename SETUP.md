@@ -688,10 +688,17 @@ Focused checks: `npm run documentation:runs:unit:test`. The existing
 
 ### AI responses during a run
 
-Each AI stage shows a shortened response once its result is saved. Select the
-preview to open the full validated result in a scrollable popup. Long previews end
-with an ellipsis. The popup supports keyboard focus, Escape and a close button.
-Full responses load on demand without rerunning a model. Stages without an AI call,
+The run view shows a selectable pipeline beside a scrollable output panel on
+desktop, stacked on mobile. The panel follows the active stage and shows only its
+activity: AI thinking, runtime capture, a one-line code-step description, or the
+completed AI result. It does not repeat pipeline labels or show previous-stage
+output. Runtime capture has no live browser stream yet. The run page shows the change,
+optional added context, pipeline and activity. Context over 140 characters is
+shortened with an ellipsis and a **Read more / Read less** toggle. Cancel is a labelled button with a stop icon
+beside the change. Technical metadata and secondary action links are omitted; a
+completed update keeps its review/open action in the output panel. Select a stage to inspect it;
+**Follow pipeline** resumes automatic tracking. Full validated responses load only
+for the displayed stage, without rerunning a model. Stages without an AI call,
 skipped stages and unavailable/rejected outputs have explicit labels.
 
 Existing validated source/decision/impact/planning results can be viewed on older
@@ -704,3 +711,13 @@ using mocked database transport and temporary local artifacts.
 The application header and navigation remain fixed while the page content scrolls.
 The document reader keeps navigation and article scrolling separate. Keyboard focus,
 section links and reduced-motion preferences work within the content viewport.
+
+### UI motion
+
+GSAP and `@gsap/react` are installed through `npm ci`; no extra configuration is
+needed. The run timeline animates actual stage changes and reveals saved responses
+and the retained-proposal link without replaying on status polls. Overview uses a
+short entrance sequence; document content, branch summaries, form errors and loaded
+response content use brief reveals. Motion respects the system reduced-motion
+preference, including changes while the page is open. Animations clean up on
+unmount; execution, inference and publication behavior are unchanged.

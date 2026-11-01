@@ -30,7 +30,7 @@ function Navigation() {
       <ScanLine className="size-5" aria-hidden="true" />
     </Link>
     <nav aria-label="Main navigation" className="flex min-w-0 flex-1 justify-around gap-1 md:mt-8 md:flex-col md:justify-start md:gap-3">
-      {links.map(({ label, href, icon: Icon, active }) => <Link key={href} href={`${href}${suffix}`} aria-label={label} aria-current={active ? "page" : undefined} className="group relative flex min-h-11 flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:bg-accent aria-[current=page]:text-primary md:size-11 md:p-0">
+      {links.map(({ label, href, icon: Icon, active }) => <Link key={href} href={`${href}${suffix}`} aria-label={label} aria-current={active ? "page" : undefined} className="group relative flex min-h-11 flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-muted-foreground transition-colors duration-150 motion-reduce:transition-none hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:bg-accent aria-[current=page]:text-primary md:size-11 md:p-0">
         <Icon className="size-5" aria-hidden="true" />
         <span className="text-[10px] md:hidden">{label}</span>
         <span aria-hidden="true" className="pointer-events-none absolute left-full z-50 ml-3 hidden whitespace-nowrap rounded-md border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-sm group-hover:block group-focus-visible:block max-md:invisible">{label}</span>
