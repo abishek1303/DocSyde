@@ -920,3 +920,10 @@ owns run admission and semantic report comparability; invocation logging remains
 best effort outside reliability mode. Offline contract children explicitly mock the
 invocation lifecycle and forbid real transport/persistence. This adds no service,
 general resource manager, database identity/copy/schema change or model-policy change.
+
+Host ownership now uses a narrow tokenized lifecycle: an atomic short mutex,
+immutable transition history, and a replaceable versioned current-state record.
+Only real owned child handles release a running lease after confirmed exit;
+ambiguous/crashed acquisition state remains blocked. Sealing requires proof of two
+healthy, stopped host generations. This fixes preflight-to-execution restart without
+changing experiment treatments, inference policy, persistence, or publication.

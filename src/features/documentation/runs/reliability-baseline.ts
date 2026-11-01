@@ -1,4 +1,5 @@
 import "server-only";
+import { verifyHostRestartReadiness } from "@/integrations/reliability/host-ownership";
 import { join } from "node:path";
 import { requireReliabilityContext, reliabilityContext, runtimeIdentitySchema, assertScenarioContext, ReliabilityIsolationError } from "@/integrations/reliability/execution-context";
 import { assertOwnedRoot, ownedPath, reserveAttempt } from "@/integrations/reliability/owned-resources";
@@ -36,7 +37,7 @@ export const reliabilityBaselineSchema = z.object({
 export const reliabilityManifestSchema = z.object({
   version: z.literal(2), experimentId: z.string(), runtimeIdentity: runtimeIdentitySchema, scenario: z.enum(["A", "B", "C"]), baseline: reliabilityBaselineSchema,
   databaseName: z.string().regex(/^docsyde_reliability_[a-z0-9_]+$/), head: sha, branch: z.string().min(1),
-  runContext: z.string().max(300).nullable(), runtime: fileReceiptSchema,
+  runContext: z.string().max(300).nullable(), hostRestart: fileReceiptSchema, runtime: fileReceiptSchema,
   runtimeDescriptor: z.object({ id: z.string(), version: z.string(), sha256: hash, capabilitiesSha256: hash }).strict(),
   representativeBatchCheck: fileReceiptSchema, offlineGate: fileReceiptSchema, githubGate: fileReceiptSchema,
 }).strict();
@@ -84,6 +85,8 @@ export async function assertReliabilityProcess(manifest: ReliabilityManifest) {
     || context.docsydeSha !== baseline.docsydeSha || !context.runtimeIdentity) throw new ReliabilityIsolationError("manifest-context");
   assertRuntimeIdentity(context.runtimeIdentity, manifest.runtimeIdentity);
   await assertOwnedRoot(context);
+  await verifyFile(manifest.hostRestart);
+  await verifyHostRestartReadiness(context, manifest.hostRestart.path);
   if ((await readCleanCheckoutIdentity(context.repositoryRoot)).sha !== context.docsydeSha || resolve(process.cwd()) !== context.repositoryRoot) throw new ReliabilityIsolationError("docsyde-checkout");
   if (resolve(process.env.DOCSYDE_STORAGE_DIRECTORY ?? "") !== join(context.outputRoot, "artifacts")) throw new ReliabilityIsolationError("artifact-root");
   for (const path of [manifest.runtime.path, manifest.representativeBatchCheck.path, manifest.offlineGate.path, manifest.githubGate.path]) await ownedPath(context, path);

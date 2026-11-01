@@ -835,3 +835,8 @@ expressions use a bounded structural parser for current migrations, including th
 proven varchar-literal-array → text cast distribution equivalence. Unsupported
 expressions stop inventory explicitly; old unversioned fingerprints cannot admit
 new copies. Historical failed preparation artifacts remain unchanged.
+
+Host restart readiness is now a required sealing gate: use the normal launcher for
+start → healthy → stop → restart → healthy → stop, emit `reliability host-readiness`,
+and start again for sealing. See the reliability runbook's host lifecycle correction.
+Old process records are not silently deleted or upgraded; use a fresh freeze.

@@ -7,6 +7,7 @@ import { reliabilityEnvironment } from "@/integrations/reliability/subprocess-en
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { buildRequestDesk } from "./build-runtime";
+import { acquireHost, recordHostRestartReadiness } from "@/integrations/reliability/host-ownership";
 import { spawnOwned, stopOwned } from "@/integrations/reliability/process-ownership";
 import { verifyOfflineReceipt } from "@/integrations/reliability/evidence";
 import { assertRuntimeIdentity } from "@/integrations/reliability/runtime-identity";
@@ -28,7 +29,7 @@ async function output(path: string, value: unknown) {
 }
 async function main() {
   const [command, ...args] = process.argv.slice(2);
-  const modes: Record<string, ReliabilityContext["mode"]> = { scenarios: "offline", offline: "offline", freeze: "baseline-read", clone: "provision", batch: "scenario", seal: "scenario", github: "scenario", host: "scenario", serve: "scenario", report: "report", compare: "report" };
+  const modes: Record<string, ReliabilityContext["mode"]> = { scenarios: "offline", offline: "offline", freeze: "baseline-read", clone: "provision", batch: "scenario", seal: "scenario", github: "scenario", host: "scenario", serve: "scenario", "host-readiness": "scenario", report: "report", compare: "report" };
   const context = requireReliabilityContext(modes[command] ? [modes[command]] : []);
   const code = await readCleanCheckoutIdentity(context.repositoryRoot);
   if (code.sha !== context.docsydeSha || process.cwd() !== context.repositoryRoot) throw new Error("Expected clean DocSyde checkout required.");
@@ -107,7 +108,7 @@ async function main() {
     const runtime = runRuntimeConfigSchema.parse(await json(spec.runtimePath));
     const manifest = reliabilityManifestSchema.parse({ version: 2, experimentId: context.experimentId, runtimeIdentity: context.runtimeIdentity, baseline, scenario: spec.scenario, databaseName: spec.databaseName,
       head: spec.head, branch: spec.branch, runContext: spec.runContext,
-      runtime: await fileReceipt(spec.runtimePath), runtimeDescriptor: { id: runtime.id, version: runtime.version, sha256: documentationHash(runtime), capabilitiesSha256: documentationHash(runtime.capabilities) }, representativeBatchCheck: await fileReceipt(spec.batchReportPath),
+      hostRestart: await fileReceipt(join(context.outputRoot, "host-restart.json")), runtime: await fileReceipt(spec.runtimePath), runtimeDescriptor: { id: runtime.id, version: runtime.version, sha256: documentationHash(runtime), capabilitiesSha256: documentationHash(runtime.capabilities) }, representativeBatchCheck: await fileReceipt(spec.batchReportPath),
       offlineGate: await fileReceipt(spec.offlineGatePath), githubGate: await fileReceipt(spec.githubGatePath) });
     await assertReliabilityBaseline(manifest);
     await output(args[2], manifest); console.log("Scenario manifest sealed. Starting inference still requires separate authorization."); return;
@@ -129,6 +130,10 @@ async function main() {
     } finally { process.removeListener("SIGINT", stop); process.removeListener("SIGTERM", stop); await stopOwned(context, child); }
     return;
   }
+  if (command === "host-readiness" && args.length === 0) {
+    await recordHostRestartReadiness(context);
+    console.log("Two healthy stopped host generations prove restart readiness; no inference."); return;
+  }
   if (command === "host" && args.length >= 2 && args.length <= 3) {
     if (!context.runtimeIdentity || resolve(args[0]) !== context.manifestPath) throw new Error("Host context mismatch.");
     try {
@@ -140,20 +145,39 @@ async function main() {
       if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
       await verifyOfflineReceipt(context, args[2] ?? join(context.outputRoot, "offline/offline-gate.json"));
     }
-    const directory = await freshEvidence(context, join(context.outputRoot, "host"));
-    const built = await buildRequestDesk(context, resolve(args[1]), join(directory.path, "build"), true);
-    assertRuntimeIdentity(context.runtimeIdentity, built.identity);
-    const child = spawnOwned(context, process.execPath, ["--conditions=react-server", "--import", "tsx", resolve(context.repositoryRoot, "infra/local/reliability/request-desk-host.ts"), built.app],
-      { cwd: context.repositoryRoot, env: reliabilityEnvironment(context, process.env.DOCSYDE_RELIABILITY_CONTEXT!, "host", {
-        DOCSYDE_REPOSITORY_OWNER: "abishek1303", DOCSYDE_REPOSITORY_NAME: "docsyde", DOCSYDE_DELIVERY_ENDPOINT: process.env.DOCSYDE_DELIVERY_ENDPOINT ?? "http://127.0.0.1:3000/api/documentation/context" }), stdio: "ignore" });
-    const stop = () => { void stopOwned(context, child).catch(() => { process.exitCode = 1; }); };
+    const lease = await acquireHost(context);
+    let child: ReturnType<typeof spawnOwned> | undefined;
+    let spawnAttempted = false;
+    const stop = () => { if (child) void stopOwned(context, child).catch(() => { process.exitCode = 1; }); };
     process.once("SIGINT", stop); process.once("SIGTERM", stop);
     try {
-      await output(join(context.outputRoot, "host-process.json"), { pid: child.pid, experimentId: context.experimentId, scenario: context.scenario, runtimeIdentity: built.identity });
-      // Querying identity is mandatory before this host can be used by capture.
+      const directory = await freshEvidence(context, join(context.outputRoot, `host-${lease.token}`));
+      const built = await buildRequestDesk(context, resolve(args[1]), join(directory.path, "build"), true);
+      assertRuntimeIdentity(context.runtimeIdentity, built.identity);
+      spawnAttempted = true;
+      child = spawnOwned(context, process.execPath, ["--conditions=react-server", "--import", "tsx", resolve(context.repositoryRoot, "infra/local/reliability/request-desk-host.ts"), built.app],
+        { cwd: context.repositoryRoot, env: reliabilityEnvironment(context, process.env.DOCSYDE_RELIABILITY_CONTEXT!, "host", {
+          DOCSYDE_REPOSITORY_OWNER: "abishek1303", DOCSYDE_REPOSITORY_NAME: "docsyde", DOCSYDE_DELIVERY_ENDPOINT: process.env.DOCSYDE_DELIVERY_ENDPOINT ?? "http://127.0.0.1:3000/api/documentation/context" }), stdio: "ignore" });
+      const exited = new Promise<void>((resolve, reject) => { child!.once("exit", code => code ? reject(new Error("Owned host exited.")) : resolve()); child!.once("error", reject); });
+      // Attach rejection handling immediately, including a failure during journaling.
+      void exited.catch(() => {});
+      if (!child.pid) throw new Error("Owned host did not receive a process identity.");
+      await lease.running(child);
+      let healthy = false;
+      for (let check = 0; check < 100; check++) {
+        if (child.exitCode !== null || child.signalCode !== null) break;
+        try { await lease.healthy(); healthy = true; break; } catch { await new Promise(resolve => setTimeout(resolve, 150)); }
+      }
+      if (!healthy) throw new Error("Owned host identity readiness failed.");
       console.log("Owned Request Desk starting; capture independently verifies /health identity.");
-      await new Promise<void>((resolve, reject) => { child.once("exit", code => code ? reject(new Error("Owned host exited.")) : resolve()); child.once("error", reject); });
-    } finally { process.removeListener("SIGINT", stop); process.removeListener("SIGTERM", stop); await stopOwned(context, child); }
+      await exited;
+    } finally {
+      process.removeListener("SIGINT", stop); process.removeListener("SIGTERM", stop);
+      if (child) {
+        await stopOwned(context, child);
+        await lease.stopped(child);
+      } else if (!spawnAttempted) await lease.stopped();
+    }
     return;
   }
   if (command === "clone" && args.length === 3) {

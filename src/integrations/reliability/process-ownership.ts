@@ -14,11 +14,14 @@ async function settledWithin(action: Promise<unknown>, milliseconds: number) {
   try { return await Promise.race([action.then(() => true), new Promise<false>(resolve => { timer = setTimeout(() => resolve(false), milliseconds); })]); }
   finally { clearTimeout(timer); }
 }
-export async function stopOwned(context: ReliabilityContext, child: ChildProcess, timeoutMs = 2000) {
+export function assertOwnedProcess(context: ReliabilityContext, child: ChildProcess) {
   const owner = owned.get(child);
   if (!owner || owner.experimentId !== context.experimentId || owner.scenario !== context.scenario) throw new ReliabilityIsolationError("process-owner");
+}
+export async function stopOwned(context: ReliabilityContext, child: ChildProcess, timeoutMs = 2000) {
+  assertOwnedProcess(context, child);
   if (child.exitCode !== null || child.signalCode !== null) return;
-  const exited = new Promise<void>(resolve => { child.once("exit", () => resolve()); child.once("error", () => resolve()); });
+  const exited = new Promise<void>((resolve, reject) => { child.once("exit", () => resolve()); child.once("error", reject); });
   child.kill("SIGTERM");
   if (await settledWithin(exited, timeoutMs)) return;
   child.kill("SIGKILL");

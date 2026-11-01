@@ -369,3 +369,25 @@ Secret values never enter ownership records or manifests.
 The original database and its 332 synthetic invocation rows remain retained audit
 evidence. The known raw schema-fingerprint restore limitation remains unchanged by
 this non-database pass and may still block a fresh frozen baseline's admission.
+
+## Host lifecycle correction
+
+New freezes require `host-restart.json`, bound by the sealed manifest. Run the
+normal `host` command twice sequentially, prove each host healthy, and stop each
+through the launcher's normal shutdown. Then run `reliability host-readiness` with
+that scenario context. This emits readiness only from two distinct healthy/stopped
+generations in `host-history/`. Start the host again for sealing. The same host
+command can subsequently reacquire the stopped scenario for authorized execution.
+
+`host-process.json` is now versioned current ownership state; immutable tokenized
+transition files are the durable evidence. A short atomic directory mutex serializes
+acquisition/transition. Running owners block. A recorded stop follows confirmation
+through the actual owned ChildProcess handle. A crash record can be retired only
+when both recorded PIDs are conclusively absent; acquiring records without a child,
+legacy/malformed records, permission ambiguity, PID reuse/liveness and an interrupted
+mutex fail closed. Disk PIDs are probed with signal 0 only, never killed. No broad
+stale-file deletion occurs. Every host generation uses a fresh token-scoped build
+root. Attempt reservations and all other evidence exclusivity remain unchanged.
+
+The historical `frozen-v2-20261101214519436` is not upgraded or rewritten. Its
+admitted-then-startup-blocked evidence remains authoritative for that old version.

@@ -55,7 +55,8 @@
     "reliability:test": "node --conditions=react-server --import tsx infra/local/reliability/test-suite.ts",
     "reliability": "node --conditions=react-server --import tsx infra/local/reliability/cli.ts",
     "reliability:publication": "node --conditions=react-server --import tsx infra/local/reliability/publication-proof.ts",
-    "reliability:offline:test": "node --conditions=react-server --import tsx infra/local/reliability/test-suite.ts browser"
+    "reliability:offline:test": "node --conditions=react-server --import tsx infra/local/reliability/test-suite.ts browser",
+    "reliability:host:test": "node --conditions=react-server --import tsx --test infra/local/reliability/host-lifecycle.integration.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
