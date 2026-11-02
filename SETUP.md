@@ -855,3 +855,25 @@ Before execution, prove two identity-verified DocSyde start/stop cycles, then ru
 that receipt and the currently running server's launch token, PID, actual database,
 checkout SHA and build ID before reserving a run. An occupied port or ordinary
 server response cannot establish readiness. See the reliability runbook.
+
+Runtime inspection is read-only on the existing run page. Apply the additive table
+migration with `npm run db:migrate`. It requires the existing single long-lived Node
+process and run repository allowlist; no new credentials or service are needed.
+Previews are transient masked checkpoint copies, not retained evidence. Old runs
+continue to expose linked canonical captures even without inspection metadata.
+See [browser](src/integrations/browser/README.md) and
+[runner](src/runner/runtime/README.md) for lifecycle and offline verification.
+
+Offline inspection checks (no provider requests):
+
+```sh
+node --conditions=react-server --import tsx --test src/features/documentation/runs/*inspection.test.ts src/integrations/browser/runtime-observation.test.ts
+npm run build
+node --conditions=react-server --import tsx --test infra/local/inspection/inspection.integration.ts
+```
+
+The last command uses local PostgreSQL, Chromium, and port 45981, inserts/deletes its
+own run fixture, and verifies a real capture callback through a separate production
+HTTP request plus the UI. Its preload is test-only and never loaded by normal start.
+If Turbopack cannot bind its local CSS worker port, `npm run build -- --webpack`
+provides the supported production-build fallback.

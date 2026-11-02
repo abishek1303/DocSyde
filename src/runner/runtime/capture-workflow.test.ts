@@ -47,3 +47,13 @@ test("pre-cancellation avoids runtime launch", async t => {
   await assert.rejects(f.helper.captureWorkflowWithRuntime({ runtime: { mode: "attach", options: { baseUrl: "http://localhost:4317" } }, workflow: {} }, f.storage, controller.signal));
   assert.equal(f.start.mock.callCount(), 0);
 });
+
+for (const fail of ["capture", "cleanup", "both"] as const) test(`observer errors preserve ${fail} errors and cleanup`, async t => {
+  const f = setup(t, fail), observer = { event() { throw Error("observation"); }, preview() { throw Error("preview"); } };
+  let caught: unknown;
+  try { await f.helper.captureWorkflowWithRuntime({ runtime: { mode: "attach", options: { baseUrl: "http://localhost:4317" } }, workflow: {} }, f.storage, undefined, undefined, observer); } catch (error) { caught = error; }
+  assert.ok(caught instanceof Error);
+  assert.equal(caught.message, fail === "both" ? "Workflow and runtime cleanup failed." : fail);
+  if (caught instanceof AggregateError) assert.deepEqual(caught.errors.map(error => error.message), ["capture", "cleanup"]);
+  assert.deepEqual(f.order, ["start", "capture", "stop"]);
+});

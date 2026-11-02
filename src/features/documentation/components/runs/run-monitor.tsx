@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { RuntimeInspectionPane } from "./runtime-inspection-pane";
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Circle, LoaderCircle, XCircle, SkipForward, Square } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -113,6 +114,7 @@ export function RunMonitor({ initial }: { initial: RunView }) {
         </div>}
       </section>
     </div>
+    <RuntimeInspectionPane runId={id} terminal={!["pending", "running"].includes(run.status)} />
     <Link href={`/ai-model-usage?${query}&runId=${id}`} className="inline-block text-sm text-primary underline underline-offset-4">View AI model usage log</Link>
   </div>;
 }

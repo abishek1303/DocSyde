@@ -122,3 +122,17 @@ Documentation or persistence semantics and is not a separate orchestration host.
 The existing Next.js Node process owns the application task; process death can
 interrupt it. The future presentation observer attaches at page creation in
 `capture-trace.ts`; frames must remain separate from canonical evidence/inference.
+
+### Inspection lifecycle
+
+The optional final observer argument to `captureWorkflowWithRuntime` is synchronous,
+exception-safe presentation only. It observes the same canonical launch/attach and
+stop, without introducing a second session. Capture storage still follows browser
+cleanup. Runner cleanup must succeed before the caller stores/links its trace manifest;
+only then may Documentation announce canonical evidence. No observer flush is awaited.
+Failed capture/cleanup/storage/linkage leaves any copied frame provisional/not retained.
+
+Run the offline production proof after building:
+`node --conditions=react-server --import tsx --test infra/local/inspection/inspection.integration.ts`.
+It uses a test-only Node preload to execute a real capture in the Next process and
+reads the named global registry from bundled HTTP handlers, with zero provider requests.

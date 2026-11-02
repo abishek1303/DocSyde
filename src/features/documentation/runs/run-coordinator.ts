@@ -1,4 +1,6 @@
 import "server-only";
+import { startRunInspection, finishRunInspection } from "./run-inspection";
+import { observe } from "@/integrations/browser/runtime-observation";
 import { withReliabilityBaseline, preflightReliabilityProcess } from "./reliability-baseline";
 import { InferenceBudgetError } from "@/integrations/ai/inference-budget";
 import { randomUUID } from "node:crypto";
@@ -79,6 +81,7 @@ export async function startDocumentationRun(rawId: unknown) {
       if (admission === "busy") throw new RunBusyError("A persisted run is still running; wait for completion or interruption reconciliation.");
       return { id: run.id, accepted: false };
     }
+    const observer = startRunInspection(active.id, active.token);
     active.lastHeartbeat = Date.now();
     active.heartbeatTimer = setInterval(() => {
       if (active.heartbeatBusy || active.controller.signal.aborted) return;
@@ -97,7 +100,8 @@ export async function startDocumentationRun(rawId: unknown) {
     }, RUN_CONTROL_MS);
     const deadline = setTimeout(() => active.controller.abort("application-deadline"), RUN_DEADLINE_MS);
     // The promise is retained and all rejection handling is installed before returning acceptance.
-    active.task = withReliabilityBaseline(active.id, run.record.input, () => executeRunWorkflow(active.id, active.token, active.controller.signal, () => control(active))).catch(async error => {
+    active.task = withReliabilityBaseline(active.id, run.record.input, () => executeRunWorkflow(active.id, active.token, active.controller.signal, () => control(active), observer)).catch(async error => {
+      observe(observer, { kind: "failure", phase: "lifecycle", code: active.controller.signal.aborted ? "cancelled" : "run-failed" });
       if (error instanceof RunOwnershipLost) return;
       try {
         await writeRunCheckpoint(active.id, active.token, r => {
@@ -114,6 +118,7 @@ export async function startDocumentationRun(rawId: unknown) {
         }, true);
       } catch { /* Lost ownership/DB failure: preserved checkpoints are reconciled after heartbeat expiry. */ }
     }).finally(async () => {
+      finishRunInspection(active.id);
       clearTimeout(deadline); clearInterval(active.heartbeatTimer); clearInterval(active.controlTimer);
       await Promise.allSettled([active.heartbeatTask, active.controlTask]);
       if (coordinator.active?.token === active.token) coordinator.active = undefined;

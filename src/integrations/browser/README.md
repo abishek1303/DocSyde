@@ -98,3 +98,19 @@ browser-specific storage configuration.
 Tests use their own local HTTP fixture, in-memory storage and temporary manifests. No runner,
 Git, database or model service is needed. Real applications must provide suitable
 selectors and readiness; no universal hydration or screenshot stability is claimed.
+
+### Read-only observations
+
+`runtime-observation.ts` owns strict versioned event schemas and exception-safe
+synchronous callbacks. Capture emits navigation/action/state/checkpoint boundaries
+from the existing Playwright execution. Preview callbacks receive copies of already
+eligible masked PNGs, bounded to 2 MiB; they never invoke screenshot themselves.
+No selectors, values, raw DOM/errors, headers, cookies, credentials, environment,
+provider payloads or filesystem paths enter events. Pathnames reuse runtime redaction.
+Canonical trace, hashes, screenshot eligibility/count and storage ordering are unchanged.
+Documentation owns the bounded global registry and authorized image readers.
+
+`runtime-observation.test.ts` uses real Chromium and graph-preserving normalization
+to compare disabled, enabled, throwing, failed SQL and stalled SQL observation paths,
+including canonical PNG bytes, hashes, states, coverage, model summary inputs, storage
+order and session/screenshot counts. Preview mutation cannot change evidence.

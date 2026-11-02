@@ -1,4 +1,5 @@
 import "server-only";
+import { observe, type RuntimeObserver } from "@/integrations/browser/runtime-observation";
 import type { InvocationContext } from "@/integrations/ai/invocation-context";
 import type { ArtifactStorage } from "@/integrations/storage/artifact-storage";
 import type { RuntimeTrace } from "@/integrations/browser/runtime-trace";
@@ -25,7 +26,7 @@ export type RuntimeVisualAnalysis = {
 export async function analyzeRuntimeVisuals(
   { source, trace, description, maxSelectedScreenshots = DEFAULT_SELECTED_SCREENSHOTS, secrets = [] }: {
     source: ProductResult; trace: RuntimeTrace; description: string; maxSelectedScreenshots?: number; secrets?: readonly string[];
-  }, storage: ArtifactStorage, signal?: AbortSignal, invocation?: InvocationContext,
+  }, storage: ArtifactStorage, signal?: AbortSignal, invocation?: InvocationContext, observer?: RuntimeObserver,
 ): Promise<RuntimeVisualAnalysis> {
   const result: RuntimeVisualAnalysis = { status: "incomplete", reason: "invalid-input", runtime: [], provenance: [] };
   let phase: "invalid-input" | "selection-failed" | "vision-failed" = "invalid-input";
@@ -37,8 +38,10 @@ export async function analyzeRuntimeVisuals(
     if (maxSelectedScreenshots === 0) return { ...result, status: "disabled", reason: "disabled" };
     if (!summarized.input.candidates.length) return { ...result, reason: "no-eligible-checkpoints" };
     phase = "selection-failed";
+    observe(observer, { kind: "visual-selection-started", phase: "selection" });
     const selected = await selectVisualCheckpoints(summarized.input, maxSelectedScreenshots, signal, invocation);
     result.selection = selected;
+    observe(observer, { kind: "visual-selection-completed", phase: "selection", selected: selected.selection.selected.map(item => item.checkpointId), skipped: selected.selection.decision === "skip" });
     if (selected.selection.decision === "skip") return { ...result, status: "skipped", reason: "model-skip" };
     phase = "vision-failed";
     for (const item of selected.selection.selected) {
@@ -53,6 +56,7 @@ export async function analyzeRuntimeVisuals(
         findings: summarized.input.findings.filter(finding => item.sourceRefs.includes(finding.id)).map(finding => ({
           id: finding.id, description: finding.description.slice(0, 300),
         })), question: redactRuntimeText(item.question, secrets, 300) });
+      observe(observer, { kind: "vision-analysis-started", phase: "vision" });
       const vision = await analyzeScreenshot({ artifactKey: screenshot.artifactKey, expectedSha256: screenshot.sha256, context, signal, invocation: { ...invocation, stage: invocation?.stage ?? "runtime-inspection", operation: "runtime-vision" } }, storage);
       signal?.throwIfAborted();
       const evidence = runtimeVisualEvidenceList.parse([...result.runtime, {
@@ -61,10 +65,12 @@ export async function analyzeRuntimeVisuals(
         screenshotSha256: screenshot.sha256, vision,
       }]);
       result.runtime = evidence;
+      observe(observer, { kind: "vision-analysis-completed", phase: "vision", captureId: checkpoint.captureId });
       result.provenance.push({ captureId: checkpoint.captureId, stateId: checkpoint.stateId, sourceRefs: [...item.sourceRefs] });
     }
     return { ...result, status: "complete", reason: "analyzed" };
   } catch {
+    observe(observer, { kind: "failure", phase: phase === "selection-failed" ? "selection" : "vision", code: signal?.aborted ? "cancelled" : phase === "selection-failed" ? "selection-failed" : "vision-failed" });
     // Retain explicit partial evidence for inspection, never report it as complete.
     return { ...result, status: "incomplete", reason: signal?.aborted ? "cancelled" : phase };
   }

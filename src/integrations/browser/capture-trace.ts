@@ -1,4 +1,5 @@
 import "server-only";
+import { observe, observePreview, type RuntimeObserver } from "./runtime-observation";
 import { reliabilityContext, ReliabilityIsolationError, type ReliabilityRuntimeIdentity } from "@/integrations/reliability/execution-context";
 import { reliabilityBrowserOptions } from "@/integrations/reliability/subprocess-environment";
 import { closeBrowserWithin } from "@/integrations/reliability/process-ownership";
@@ -21,7 +22,7 @@ export async function runtimeCaptureAvailable() {
 }
 
 /** One caller-scripted session. No model or product interpretation lives here. */
-export async function captureRuntimeTrace(raw: RuntimeWorkflowInput, storage: ArtifactStorage, signal?: AbortSignal, fixtureIdentity?: ReliabilityRuntimeIdentity): Promise<RuntimeTrace> {
+export async function captureRuntimeTrace(raw: RuntimeWorkflowInput, storage: ArtifactStorage, signal?: AbortSignal, fixtureIdentity?: ReliabilityRuntimeIdentity, observer?: RuntimeObserver): Promise<RuntimeTrace> {
   const options = runtimeWorkflowSchema.parse(raw);
   const experiment = reliabilityContext();
   if (experiment) {
@@ -55,16 +56,16 @@ export async function captureRuntimeTrace(raw: RuntimeWorkflowInput, storage: Ar
       if ((route.request().isNavigationRequest() || experiment?.mode === "offline") && new URL(route.request().url()).origin !== base.origin) await route.abort();
       else await route.continue();
     });
-    // Future presentation-only screencast observer attaches here and detaches in finally.
-    // Frames must never feed checkpoints, hashes, selection or inference budgets.
     page = await context.newPage();
     page.setDefaultTimeout(30_000); page.setDefaultNavigationTimeout(30_000);
     page.on("pageerror", () => { trace.coverage.pageErrors = Math.min(1000, trace.coverage.pageErrors + 1); });
     // Native dialogs are not page pixels. Never retain their messages or values.
     page.on("dialog", dialog => { trace.coverage.dismissedDialogs = Math.min(1000, trace.coverage.dismissedDialogs + 1); void dialog.dismiss().catch(() => {}); });
+    observe(observer, { kind: "navigation-started", phase: "browser" });
     const response = await page.goto(target.href, { waitUntil: "domcontentloaded" });
     if (!response?.ok()) throw new Error("Navigation failed.");
     trace.coverage.navigationStatus = response.status();
+    observe(observer, { kind: "navigation-completed", phase: "browser" });
     if (options.readySelector) await page.locator(options.readySelector).waitFor({ state: "visible" });
 
     async function boundary(trigger: RuntimeTrace["states"][number]["trigger"], actionIndex: number | null) {
@@ -169,12 +170,14 @@ export async function captureRuntimeTrace(raw: RuntimeWorkflowInput, storage: Ar
         // success. Keep only bounded event metadata; summary models see states.
         trace.events.push({ order: trace.coverage.stateBoundaries - 1, at: new Date().toISOString(), trigger, actionIndex, stateId: state?.stateId ?? null });
 
+        observe(observer, { kind: "state-captured", phase: "browser", stateId: state?.stateId ?? null, pathname: runtimePath(snapshot.pathname, secrets).slice(0, 512) });
+
         // Fills contribute populated state, but never cause per-edit screenshots.
         if (!state || trigger === "fill" || (state === previous && trigger !== "checkpoint" && trace.checkpoints.some(cp => cp.stateId === state.stateId))) return;
         if (trace.checkpoints.length >= options.limits.maxCheckpoints) { trace.coverage.omittedCheckpoints++; return; }
         const checkpoint: RuntimeTrace["checkpoints"][number] = { captureId: randomUUID(), stateId: state.stateId, capturedAt: new Date().toISOString(), crop: null, screenshot: null, eligible: false, limitation: "masking-failed" };
         trace.checkpoints.push(checkpoint);
-        if (!maskReady || !marked) return;
+        if (!maskReady || !marked) { observe(observer, { kind: "checkpoint-created", phase: "browser", captureId: checkpoint.captureId, eligible: false, limitation: "masking-failed" }); return; }
         try {
           if (options.screenshotRegion) {
             const bounds = await page.locator(options.screenshotRegion).boundingBox();
@@ -185,11 +188,13 @@ export async function captureRuntimeTrace(raw: RuntimeWorkflowInput, storage: Ar
           const png = await page.screenshot({ type: "png", animations: "disabled", clip: checkpoint.crop ?? undefined,
             mask: [page.locator(`[${marker}]`)], maskColor: "#000000" });
           const sha256 = hash(png);
-          if (png.byteLength > 10 * 1024 * 1024 || (!pending.has(sha256) && totalBytes + png.byteLength > options.limits.maxScreenshotBytes)) { checkpoint.limitation = "image-budget"; return; }
+          if (png.byteLength > 10 * 1024 * 1024 || (!pending.has(sha256) && totalBytes + png.byteLength > options.limits.maxScreenshotBytes)) { checkpoint.limitation = "image-budget"; observe(observer, { kind: "checkpoint-created", phase: "browser", captureId: checkpoint.captureId, eligible: false, limitation: "image-budget" }); return; }
           if (!pending.has(sha256)) { pending.set(sha256, png); totalBytes += png.byteLength; }
           checkpoint.screenshot = { artifactKey: randomUUID(), mimeType: "image/png", sha256 };
           checkpoint.eligible = true; checkpoint.limitation = null;
+          observePreview(observer, checkpoint.captureId, png);
         } catch { checkpoint.limitation = "screenshot-failed"; }
+        observe(observer, { kind: "checkpoint-created", phase: "browser", captureId: checkpoint.captureId, eligible: checkpoint.eligible, limitation: checkpoint.limitation });
       } finally {
         await page.locator(`[${marker}]`).evaluateAll((elements, attr) => elements.forEach(el => el.removeAttribute(attr)), marker).catch(() => {});
       }
@@ -198,7 +203,9 @@ export async function captureRuntimeTrace(raw: RuntimeWorkflowInput, storage: Ar
     await boundary("initial", null);
     for (const [index, step] of options.steps.entries()) {
       controller.throwIfAborted();
+      observe(observer, { kind: "action-started", phase: "browser", action: step.type, actionIndex: index });
       if (step.type !== "checkpoint") await executeCaptureStep(page, step);
+      observe(observer, { kind: "action-completed", phase: "browser", action: step.type, actionIndex: index });
       await boundary(step.type, index);
     }
     await boundary("final", null);

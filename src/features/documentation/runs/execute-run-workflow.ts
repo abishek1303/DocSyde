@@ -1,4 +1,5 @@
 import "server-only";
+import { observe, type RuntimeObserver } from "@/integrations/browser/runtime-observation";
 import { createHash } from "node:crypto";
 import { readInspectionContext, analyzeProductChanges, captureGenerationContext, decideRuntimeInspection, synthesizeProductImpact, analyzeRuntimeVisuals, validateProductResult, type RuntimeInspectionContext } from "@/features/sources/product-analysis";
 import { captureWorkflowWithRuntime } from "@/runner/runtime/capture-workflow";
@@ -20,7 +21,7 @@ export class RunStageError extends Error {
 }
 
 /** Product composition only. Runner owns processes/browser; capabilities own validation/inference. */
-export async function executeRunWorkflow(id: string, token: string, signal: AbortSignal, control: () => Promise<void>) {
+export async function executeRunWorkflow(id: string, token: string, signal: AbortSignal, control: () => Promise<void>, observer?: RuntimeObserver) {
   const invocation = (stage: WorkflowStage["key"]) => ({ runId: id, stage, operation: stage });
   const check = async () => { signal.throwIfAborted(); await control(); signal.throwIfAborted(); };
   let record: RunRecordV2;
@@ -86,7 +87,7 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
       if (!configured.available) throw new Error("Runtime configuration lost.");
       // Mark attempted before any launch. A failed attempt never becomes unavailable/not-needed.
       await checkpoint(r => ({ ...r, runtime: { ...r.runtime!, outcome: "attempted-and-failed", reason: "inspection-started-not-complete" } }));
-      const captured = await captureWorkflowWithRuntime(configured.config, configured.storage, signal);
+      const captured = await captureWorkflowWithRuntime(configured.config, configured.storage, signal, undefined, observer);
       await check();
       const storeManifest = async (kind: "runtime-trace" | "runtime-analysis", value: unknown) => {
         const bytes = Buffer.from(JSON.stringify(value));
@@ -94,9 +95,11 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
         await checkpoint(r => ({ ...r, artifacts: [...r.artifacts, artifact] }));
       };
       await storeManifest("runtime-trace", { runtime: captured.runtime, trace: captured.trace });
+      const retainedCaptures = captured.trace.checkpoints.filter(cp => cp.eligible && cp.screenshot).map(cp => cp.captureId);
+      for (let offset = 0; offset < retainedCaptures.length; offset += 12) observe(observer, { kind: "canonical-evidence-retained", phase: "evidence", captures: retainedCaptures.slice(offset, offset + 12) });
       const secrets = [...configured.config.workflow.secrets, ...configured.config.workflow.steps.flatMap(step => step.type === "fill" || step.type === "select" ? [step.value] : [])];
       const visual = await analyzeRuntimeVisuals({ source: validatedSource, trace: captured.trace, description: configured.config.description, secrets,
-        maxSelectedScreenshots: configured.config.maxSelectedScreenshots }, configured.storage, signal, invocation("runtime-inspection"));
+        maxSelectedScreenshots: configured.config.maxSelectedScreenshots }, configured.storage, signal, invocation("runtime-inspection"), observer);
       await check();
       await storeManifest("runtime-analysis", visual);
       const responsePreview = visual.selection?.selection.reason ?? visual.runtime[0]?.vision.data.observations[0];

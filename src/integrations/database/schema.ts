@@ -116,3 +116,10 @@ export const aiModelInvocations = docsydeSchema.table("ai_model_invocations", {
   check("ai_model_invocations_status", sql`${table.status} IN ('started', 'structured-success', 'succeeded', 'failed')`),
   check("ai_model_invocations_nonnegative", sql`(${table.inputTokens} IS NULL OR ${table.inputTokens} >= 0) AND (${table.outputTokens} IS NULL OR ${table.outputTokens} >= 0) AND (${table.elapsedMs} IS NULL OR ${table.elapsedMs} >= 0)`),
 ]);
+
+export const documentationRunInspections = docsydeSchema.table("documentation_run_inspections", {
+  runId: uuid("run_id").primaryKey().references(() => documentationRuns.id, { onDelete: "cascade" }),
+  revision: bigint("revision", { mode: "number" }).notNull(),
+  payload: jsonb("payload").$type<unknown>().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, table => [check("documentation_run_inspections_bound", sql`(${table.revision} >= 0 AND ${table.payload}->>'version' = '1' AND octet_length(${table.payload}::text) <= 262144) IS TRUE`)]);

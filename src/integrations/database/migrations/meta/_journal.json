@@ -71,6 +71,13 @@
       "when": 1793514902233,
       "tag": "0009_tiny_mach_iv",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793579336315,
+      "tag": "0010_third_valkyrie",
+      "breakpoints": true
     }
   ]
 }

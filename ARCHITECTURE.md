@@ -583,9 +583,8 @@ remains proposal authority. Admission and review-row insertion/idempotent verifi
 plus final run linkage commit transactionally; failed retention cannot claim awaiting
 review. Review/save/publication remain separate explicit human operations.
 
-The next presentation slice can attach a transient screencast observer where
-`capture-trace.ts` creates its page, with teardown in the same lifecycle. Live frames
-must not affect evidence, hashes, checkpoints, selection or model budgets.
+The implemented read-only inspection slice described below copies existing eligible
+masked checkpoint PNGs. It adds no screencast or additional screenshot capture.
 
 ## Explicit publication and contextual delivery
 
@@ -949,3 +948,40 @@ identity). Both Request Desk and DocSyde launchers share the bounded two-kind
 ownership lifecycle; ordinary product execution remains unchanged. Admission
 requires separate stopped-generation proofs and checks the live DocSyde identity
 before the experiment execution reservation or run insert.
+
+## Read-only live runtime inspection
+
+Documentation owns the read-only inspection pane and authorized run readers. Browser
+and Runner emit strict, versioned allowlisted observation events at execution boundaries
+of the existing canonical session. Sources emits selection/vision boundaries through
+the same optional synchronous observer. Observer exceptions never change capture,
+actions, RuntimeTrace, eligibility, masking, image budgets or provider inputs/settings.
+There is no playback, screencast, extra browser or periodic screenshot capture.
+
+`globalThis.docsydeRuntimeInspections` holds the active run and most recent terminal
+metadata. Each run is bounded to 512 events, 256 KiB metadata and 1 KiB per event;
+eight events and 8 KiB are reserved for terminal/failure/truncation, with omitted
+counts. A single copied eligible masked checkpoint PNG (at most 2 MiB) is provisional.
+It is replaced rather than accumulated, cleared on new admission, and expires within
+60 seconds after terminal completion. No preview bytes enter SQL or ArtifactStorage.
+
+Browser cleanup still precedes canonical image storage; Runner cleanup precedes trace
+manifest storage. Only successful manifest storage and guarded run linkage permit a
+canonical retention announcement. Readers independently resolve retained manifest
+membership and validate manifest, state and PNG hashes/bounds; callbacks are not
+image authority. Failed capture, cleanup, storage or linkage cannot promote previews.
+
+A separate bounded best-effort downstream writer replaces one pending snapshot, starts
+at most once per second, and permits one global write in flight. Its separate single
+connection pool uses 500 ms connection/statement timeouts. SQL checks the execution
+token and increasing revision without modifying or locking heartbeat state. The
+coordinator never awaits an observation flush. Migration 0010 adds only versioned,
+bounded JSONB metadata keyed by the cascading run FK. Process loss may omit recent
+events; persisted metadata and existing canonical artifacts remain readable.
+
+The three `/runs/[id]/inspection` GET routes use existing run validation and repository
+allowlisting, Node's default runtime and no-store responses. They accept run/capture
+identities and preview revisions, never storage keys/paths. Missing/replaced/expired
+previews return 410. Independent one-second polling retries after three seconds and
+fetches once again on terminal transition. The pane distinguishes browser activity,
+captured evidence, and validated model analysis. No semantic run state is added.
