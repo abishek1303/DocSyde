@@ -302,3 +302,12 @@ Source analysis now accepts a caller AbortSignal as its fourth argument, combine
 with existing deadlines. Optional server-owned runtime-inspection context describes
 unavailable/uncovered coverage; it is projected to synthesis, retained in provenance
 and forwarded to documentation planning. It creates no evidence or mutation authority.
+
+
+Visual selection uses a compact v3 wire object: only `selected` items containing an
+exact candidate checkpointId, sourceRefs and a nonblank question of at most 80
+characters. Empty means skip. Count/identity/reference validation is strict and the
+actual configured count is in the schema. The 3072-token ceiling is reasoning
+headroom, not expected response size. No candidate projection/ranking, capture, vision
+context/prompt/schema or other AI-stage behavior changes. See MODEL_USAGE.md for safe
+selection-specific invocation snapshots and historical v2 compatibility.

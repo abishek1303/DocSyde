@@ -21,7 +21,8 @@ It never salvages JSON from reasoning or strips arbitrary prose. Validation
 proves shape, not truth. Defaults: 4096 output tokens, 120-second request deadline,
 no retries. Errors distinguish missing credentials, billing/auth/model failures,
 rate limits, cancellation, timeouts, incomplete output, and invalid structures.
-No provider response body, prompts, secrets, or reasoning is logged.
+No raw provider response body, secrets or reasoning is logged. Only operation-approved
+bounded sanitized snapshots described below are retained.
 
 ```sh
 npm run ai:test
@@ -96,8 +97,25 @@ provider-default values are inferred. There is no arbitrary provider-options pas
 The shared logger uses an explicit operation retention policy. Runtime decision, planning
 and product impact retain sanitized bounded model-facing instructions/input/schema plus
 schema-valid output before post-validation. Transformation retains requests/diagnostics,
-not unknown entries. Vision, selection, support and receipt keep their strict projections.
+not unknown entries. Visual selection now retains bounded debug snapshots and fixed
+correspondence diagnostics; vision, support and receipt keep their strict projections.
 No raw malformed/provider output, images, credentials, headers or reasoning are captured.
 See root MODEL_USAGE.md for the operation matrix and byte budgets. Authorized invocation
 details expose only validated debug representations. Logs cannot become model inputs,
 evidence or authority. Historical missing content is not reconstructed.
+
+
+### Compact visual selection
+
+`visual-selection-v3` alone uses 3072 completion tokens (previously 2048). The model
+returns only a strict `selected` array of exact candidate IDs, sourceRefs and nonblank
+questions of at most 80 characters, with the actual configured count bound. No rationale,
+decision or uncertainty fields are requested. Empty means skip. Questions and sourceRefs
+continue into the unchanged vision contract; no other operation's settings change.
+The small JSON body leaves headroom because Muse may spend completion budget reasoning.
+The current Baseten Muse transport has no supported provider-side JSON Schema
+enforcement: instructions carry the schema and JSON/Zod/correspondence checks run
+locally, without retries or repairs. Selector instructions/input/schema and schema-valid
+output use the existing bounded sanitized debug envelopes; fixed code/path diagnostics
+survive post-validation failures. Malformed/schema-invalid raw output remains excluded.
+Historical approved projections remain readable. See [MODEL_USAGE.md](../../../MODEL_USAGE.md) for exact bounds.

@@ -1,0 +1,828 @@
+{
+  "provenance": "Derived only from sanitized visual-selection requestPayload.input in frozen-observability-v2-20261101235600619/{A,B,C}/report.json. UUIDs replaced with a graph-preserving mapping. No historical model answer is retained or inferred.",
+  "scenarios": [
+    {
+      "scenario": "A",
+      "sourceInputSha256": "41dc2eb0f710840de91a7b03e64d2a7214068bbd5f5a858260fdc10a58737371",
+      "input": {
+        "workflow": "Explicitly select Urgent and create a request. The detail checkpoint observes resulting priority only; it does not establish the initial default. Source and separate deterministic checks establish the default. Runtime revision is operator-verified, not proven by attach.",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "findings": [
+          {
+            "id": "source-1",
+            "kind": "workflow-changed",
+            "description": "Creating a new request now defaults Priority to Urgent. On /requests/new the Priority select is pre-selected to Urgent (Normal remains selectable as second option). Calling createRequest(title, description) without priority now creates an open request with priority [redacted]; Title (required, non-blank) and Description (optional) requirements unchanged.",
+            "before": "createRequest default priority was \"normal\" and New request form had no pre-selected Urgent (Normal first).",
+            "after": "createRequest default priority is \"[redacted]\" and New request form renders with <option value=\"[redacted]\" selected>Urgent</option>; Normal still selectable explicitly.",
+            "support": "directly-supported",
+            "uncertainties": []
+          },
+          {
+            "id": "source-2",
+            "kind": "behavior-modified",
+            "description": "Existing and legacy priority handling is preserved as Normal: initialRequests() seeded records remain priority normal, requestPriority(undefined) normalizes to normal, and explicitly passing \"normal\" to createRequest still creates a normal-priority request.",
+            "before": "Seeded requests and undefined-priority normalization were normal (implicit).",
+            "after": "Same Normal handling explicitly documented and tested: seeded requests stay normal, undefined stays normal, explicit normal still allowed while default new requests become [redacted].",
+            "support": "directly-supported",
+            "uncertainties": []
+          }
+        ],
+        "sourceCoverage": {
+          "limited": false,
+          "uncertainties": [
+            "Supplied patches are limited to 4 files; full repository inventory not verified for additional priority usage.",
+            "No runtime deployment or end-to-end verification available; behavior inferred from source and tests only."
+          ]
+        },
+        "states": [
+          {
+            "stateId": "00000000-0000-4000-8000-000000000001",
+            "order": 0,
+            "trigger": "initial",
+            "occurrences": 2,
+            "effects": [
+              "Initial ready state"
+            ],
+            "pathname": "/requests/new",
+            "headings": [
+              "New request"
+            ],
+            "text": "Request Desk Requests New request New request Title (required) Description (optional) Priority Create request Help for this page Local demo. Data is saved in this tab\u2019s session only. Reset demo data",
+            "regions": [],
+            "controls": [
+              {
+                "role": "input",
+                "name": "Title (required)",
+                "populated": false,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              },
+              {
+                "role": "textarea",
+                "name": "Description (optional)",
+                "populated": false,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              },
+              {
+                "role": "select",
+                "name": "Priority",
+                "populated": true,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              },
+              {
+                "role": "button",
+                "name": "Create request",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              },
+              {
+                "role": "button",
+                "name": "Help for this page",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": false
+              },
+              {
+                "role": "button",
+                "name": "Reset demo data",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              }
+            ],
+            "overlays": [],
+            "hostContext": {
+              "applicationId": "request-desk",
+              "route": "/requests/new",
+              "featureIds": []
+            },
+            "truncated": false
+          },
+          {
+            "stateId": "00000000-0000-4000-8000-000000000002",
+            "order": 2,
+            "trigger": "fill",
+            "occurrences": 1,
+            "effects": [
+              "controls changed"
+            ],
+            "pathname": "/requests/new",
+            "headings": [
+              "New request"
+            ],
+            "text": "Request Desk Requests New request New request Title (required) Description (optional) Priority Create request Help for this page Local demo. Data is saved in this tab\u2019s session only. Reset demo data",
+            "regions": [],
+            "controls": [
+              {
+                "role": "input",
+                "name": "Title (required)",
+                "populated": true,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              },
+              {
+                "role": "textarea",
+                "name": "Description (optional)",
+                "populated": false,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              },
+              {
+                "role": "select",
+                "name": "Priority",
+                "populated": true,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              },
+              {
+                "role": "button",
+                "name": "Create request",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              },
+              {
+                "role": "button",
+                "name": "Help for this page",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": false
+              },
+              {
+                "role": "button",
+                "name": "Reset demo data",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              }
+            ],
+            "overlays": [],
+            "hostContext": {
+              "applicationId": "request-desk",
+              "route": "/requests/new",
+              "featureIds": []
+            },
+            "truncated": false
+          },
+          {
+            "stateId": "00000000-0000-4000-8000-000000000003",
+            "order": 3,
+            "trigger": "click",
+            "occurrences": 4,
+            "effects": [
+              "pathname changed",
+              "text changed",
+              "controls changed",
+              "hostContext changed"
+            ],
+            "pathname": "/requests/r-003",
+            "headings": [
+              ""
+            ],
+            "text": "Request Desk Requests New request Request created. No description provided. Status: open Priority: Urgent Close request Help for this page Local demo. Data is saved in this tab\u2019s session only. Reset demo data",
+            "regions": [],
+            "controls": [
+              {
+                "role": "button",
+                "name": "Close request",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              },
+              {
+                "role": "button",
+                "name": "Help for this page",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": false
+              },
+              {
+                "role": "button",
+                "name": "Reset demo data",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              }
+            ],
+            "overlays": [],
+            "hostContext": {
+              "applicationId": "request-desk",
+              "route": "/requests/r-003",
+              "featureIds": []
+            },
+            "truncated": false
+          }
+        ],
+        "candidates": [
+          {
+            "checkpointId": "00000000-0000-4000-8000-000000000004",
+            "stateId": "00000000-0000-4000-8000-000000000001",
+            "crop": null
+          },
+          {
+            "checkpointId": "00000000-0000-4000-8000-000000000005",
+            "stateId": "00000000-0000-4000-8000-000000000003",
+            "crop": null
+          }
+        ],
+        "duplicates": [
+          {
+            "checkpointId": "00000000-0000-4000-8000-000000000006",
+            "representativeId": "00000000-0000-4000-8000-000000000005"
+          }
+        ],
+        "ineligible": [],
+        "coverage": {
+          "stateBoundaries": 7,
+          "omittedStates": 0,
+          "omittedCheckpoints": 0,
+          "truncatedSnapshots": 0,
+          "pageErrors": 0,
+          "dismissedDialogs": 0,
+          "navigationStatus": 200,
+          "projectionCompacted": false,
+          "omittedSummaryStates": 0,
+          "omittedDetails": false
+        },
+        "maxSelectedScreenshots": 1
+      }
+    },
+    {
+      "scenario": "B",
+      "sourceInputSha256": "baaacf93218256c9e7220bdad3cbb1fb2fb7339adfc8d113fb398f38b7d551d1",
+      "input": {
+        "workflow": "Trace seeded open request, reveal confirmation, cancel, then close and confirm. Prefer confirmation-controls checkpoint if useful. One image does not prove the sequence. No persistence, historical, concurrency or refresh guarantee.",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "findings": [
+          {
+            "id": "source-1",
+            "kind": "workflow-changed",
+            "description": "Open requests: 'Close request' (id close-request) no longer closes directly. Click now replaces button with inline div id close-confirmation showing 'Close this request?' and 'Confirm close' (id confirm-close). Clicking 'Confirm close' closes request via save(closeRequest(...)) and re-renders.",
+            "before": "Clicking 'Close request' immediately executed save(closeRequest(readRequests(), request.id)); render();",
+            "after": "Clicking 'Close request' shows inline confirmation; only 'Confirm close' performs save(closeRequest(...)); render();",
+            "support": "directly-supported",
+            "uncertainties": []
+          },
+          {
+            "id": "source-2",
+            "kind": "workflow-changed",
+            "description": "Same inline prompt includes 'Cancel' (id cancel-close). Clicking 'Cancel' leaves request open, dismissing confirmation without saving.",
+            "before": "No cancel step; 'Close request' action was immediate with no abort option.",
+            "after": "'Cancel' triggers render only, leaving status open and restoring original view.",
+            "support": "directly-supported",
+            "uncertainties": []
+          }
+        ],
+        "sourceCoverage": {
+          "limited": false,
+          "uncertainties": [
+            "No evidence of persistence, styling, or accessibility of confirmation beyond IDs and text.",
+            "Full render() and error handling not shown; limited patch context may omit additional side effects."
+          ]
+        },
+        "states": [
+          {
+            "stateId": "00000000-0000-4000-8000-000000000001",
+            "order": 0,
+            "trigger": "initial",
+            "occurrences": 1,
+            "effects": [
+              "Initial ready state"
+            ],
+            "pathname": "/requests/r-001",
+            "headings": [
+              "Update team contact"
+            ],
+            "text": "Request Desk Requests New request Update team contact The support contact needs updating. Status: open Priority: Normal Close request Help for this page Local demo. Data is saved in this tab\u2019s session only. Reset demo data",
+            "regions": [],
+            "controls": [
+              {
+                "role": "button",
+                "name": "Close request",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              },
+              {
+                "role": "button",
+                "name": "Help for this page",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": false
+              },
+              {
+                "role": "button",
+                "name": "Reset demo data",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              }
+            ],
+            "overlays": [],
+            "hostContext": {
+              "applicationId": "request-desk",
+              "route": "/requests/r-001",
+              "featureIds": []
+            },
+            "truncated": false
+          },
+          {
+            "stateId": "00000000-0000-4000-8000-000000000002",
+            "order": 1,
+            "trigger": "click",
+            "occurrences": 3,
+            "effects": [
+              "text changed",
+              "controls changed"
+            ],
+            "pathname": "/requests/r-001",
+            "headings": [
+              "Update team contact"
+            ],
+            "text": "Request Desk Requests New request Update team contact The support contact needs updating. Status: open Priority: Normal Close this request? Confirm close Cancel Help for this page Local demo. Data is saved in this tab\u2019s session only. Reset demo data",
+            "regions": [],
+            "controls": [
+              {
+                "role": "button",
+                "name": "Confirm close",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              },
+              {
+                "role": "button",
+                "name": "Cancel",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              },
+              {
+                "role": "button",
+                "name": "Help for this page",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": false
+              },
+              {
+                "role": "button",
+                "name": "Reset demo data",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              }
+            ],
+            "overlays": [],
+            "hostContext": {
+              "applicationId": "request-desk",
+              "route": "/requests/r-001",
+              "featureIds": []
+            },
+            "truncated": false
+          },
+          {
+            "stateId": "00000000-0000-4000-8000-000000000003",
+            "order": 4,
+            "trigger": "click",
+            "occurrences": 2,
+            "effects": [
+              "text changed",
+              "controls changed"
+            ],
+            "pathname": "/requests/r-001",
+            "headings": [
+              "Update team contact"
+            ],
+            "text": "Request Desk Requests New request Update team contact The support contact needs updating. Status: open Priority: Normal Close request Help for this page Local demo. Data is saved in this tab\u2019s session only. Reset demo data",
+            "regions": [],
+            "controls": [
+              {
+                "role": "button",
+                "name": "Close request",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              },
+              {
+                "role": "button",
+                "name": "Help for this page",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": false
+              },
+              {
+                "role": "button",
+                "name": "Reset demo data",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              }
+            ],
+            "overlays": [],
+            "hostContext": {
+              "applicationId": "request-desk",
+              "route": "/requests/r-001",
+              "featureIds": []
+            },
+            "truncated": false
+          },
+          {
+            "stateId": "00000000-0000-4000-8000-000000000004",
+            "order": 6,
+            "trigger": "click",
+            "occurrences": 1,
+            "effects": [
+              "text changed",
+              "controls changed"
+            ],
+            "pathname": "/requests/r-001",
+            "headings": [
+              "Update team contact"
+            ],
+            "text": "Request Desk Requests New request Update team contact The support contact needs updating. Status: open Priority: Normal Close this request? Confirm close Cancel Help for this page Local demo. Data is saved in this tab\u2019s session only. Reset demo data",
+            "regions": [],
+            "controls": [
+              {
+                "role": "button",
+                "name": "Confirm close",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              },
+              {
+                "role": "button",
+                "name": "Cancel",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              },
+              {
+                "role": "button",
+                "name": "Help for this page",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": false
+              },
+              {
+                "role": "button",
+                "name": "Reset demo data",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              }
+            ],
+            "overlays": [],
+            "hostContext": {
+              "applicationId": "request-desk",
+              "route": "/requests/r-001",
+              "featureIds": []
+            },
+            "truncated": false
+          },
+          {
+            "stateId": "00000000-0000-4000-8000-000000000005",
+            "order": 7,
+            "trigger": "click",
+            "occurrences": 3,
+            "effects": [
+              "text changed",
+              "controls changed"
+            ],
+            "pathname": "/requests/r-001",
+            "headings": [
+              "Update team contact"
+            ],
+            "text": "Request Desk Requests New request Update team contact The support contact needs updating. Status: closed Priority: Normal Reopen request Help for this page Local demo. Data is saved in this tab\u2019s session only. Reset demo data",
+            "regions": [],
+            "controls": [
+              {
+                "role": "button",
+                "name": "Reopen request",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              },
+              {
+                "role": "button",
+                "name": "Help for this page",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": false
+              },
+              {
+                "role": "button",
+                "name": "Reset demo data",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              }
+            ],
+            "overlays": [],
+            "hostContext": {
+              "applicationId": "request-desk",
+              "route": "/requests/r-001",
+              "featureIds": []
+            },
+            "truncated": false
+          }
+        ],
+        "candidates": [
+          {
+            "checkpointId": "00000000-0000-4000-8000-000000000006",
+            "stateId": "00000000-0000-4000-8000-000000000001",
+            "crop": null
+          },
+          {
+            "checkpointId": "00000000-0000-4000-8000-000000000007",
+            "stateId": "00000000-0000-4000-8000-000000000002",
+            "crop": null
+          },
+          {
+            "checkpointId": "00000000-0000-4000-8000-000000000008",
+            "stateId": "00000000-0000-4000-8000-000000000005",
+            "crop": null
+          }
+        ],
+        "duplicates": [
+          {
+            "checkpointId": "00000000-0000-4000-8000-000000000009",
+            "representativeId": "00000000-0000-4000-8000-000000000007"
+          },
+          {
+            "checkpointId": "00000000-0000-4000-8000-00000000000a",
+            "representativeId": "00000000-0000-4000-8000-000000000006"
+          },
+          {
+            "checkpointId": "00000000-0000-4000-8000-00000000000b",
+            "representativeId": "00000000-0000-4000-8000-000000000007"
+          }
+        ],
+        "ineligible": [],
+        "coverage": {
+          "stateBoundaries": 10,
+          "omittedStates": 0,
+          "omittedCheckpoints": 0,
+          "truncatedSnapshots": 0,
+          "pageErrors": 0,
+          "dismissedDialogs": 0,
+          "navigationStatus": 200,
+          "projectionCompacted": false,
+          "omittedSummaryStates": 0,
+          "omittedDetails": false
+        },
+        "maxSelectedScreenshots": 1
+      }
+    },
+    {
+      "scenario": "C",
+      "sourceInputSha256": "2d6fafe663f7dd1ab14b52983fe6bc1a557204684c221efca7f0fbcce49e99e0",
+      "input": {
+        "workflow": "Observe Resolved terminology in request list and seeded closed-request details. Optional image represents details. Display observation does not prove domain values, transitions, persistence or historical behavior.",
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "findings": [
+          {
+            "id": "source-1",
+            "kind": "behavior-modified",
+            "description": "Request list now displays closed requests as \u201cResolved\u201d. Each <li> contains an <a> to /requests/:id plus a span ` \u2014 {statusLabel} \u2014 {Urgent|Normal} priority`; label is now via requestStatusLabel where closed \u2192 \u201cResolved\u201d and open \u2192 \u201copen\u201d.",
+            "before": "List span used ` \u2014 ${request.status} \u2014 ${priority === \"urgent\" ? \"Urgent\" : \"Normal\"} priority` showing 'closed' for closed requests.",
+            "after": "List span uses ` \u2014 ${requestStatusLabel(request.status)} \u2014 ...` showing 'Resolved' for closed requests and 'open' for open requests.",
+            "support": "directly-supported",
+            "uncertainties": []
+          },
+          {
+            "id": "source-2",
+            "kind": "behavior-modified",
+            "description": "Request detail view (#request-detail) status paragraph (#request-status) now shows \u201cStatus: Resolved\u201d for closed requests instead of \u201cStatus: closed\u201d. Open requests continue to show \u201cStatus: open\u201d (lowercase).",
+            "before": "Detail status was text(\"p\", `Status: ${request.status}`) with id request-status showing 'Status: closed' or 'Status: open'.",
+            "after": "Detail status is text(\"p\", `Status: ${requestStatusLabel(request.status)}`) showing 'Status: Resolved' for closed via mapping closed\u2192Resolved, other\u2192open.",
+            "support": "directly-supported",
+            "uncertainties": []
+          },
+          {
+            "id": "source-3",
+            "kind": "behavior-modified",
+            "description": "\u201cResolved\u201d is presentation-only. Closing still stores status=\"closed\" (not \"resolved\"), serialization contains no \"status\":\"resolved\", and Reopen request still restores status=\"open\".",
+            "before": "No explicit presentation-only guarantee; storage value matched display.",
+            "after": "Stored Request.status remains \"closed\" after closeRequest; JSON.stringify does not include \"resolved\"; reopenRequest retains existing behavior setting status to \"open\".",
+            "support": "directly-supported",
+            "uncertainties": []
+          }
+        ],
+        "sourceCoverage": {
+          "limited": false,
+          "uncertainties": []
+        },
+        "states": [
+          {
+            "stateId": "00000000-0000-4000-8000-000000000001",
+            "order": 0,
+            "trigger": "initial",
+            "occurrences": 1,
+            "effects": [
+              "Initial ready state"
+            ],
+            "pathname": "/requests",
+            "headings": [
+              "Requests"
+            ],
+            "text": "Request Desk Requests New request Requests Update team contact \u2014 open \u2014 Normal priority Find monthly report \u2014 Resolved \u2014 Normal priority Help for this page Local demo. Data is saved in this tab\u2019s session only. Reset demo data",
+            "regions": [],
+            "controls": [
+              {
+                "role": "button",
+                "name": "Help for this page",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": false
+              },
+              {
+                "role": "button",
+                "name": "Reset demo data",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              }
+            ],
+            "overlays": [],
+            "hostContext": {
+              "applicationId": "request-desk",
+              "route": "/requests",
+              "featureIds": []
+            },
+            "truncated": false
+          },
+          {
+            "stateId": "00000000-0000-4000-8000-000000000002",
+            "order": 1,
+            "trigger": "click",
+            "occurrences": 1,
+            "effects": [
+              "pathname changed",
+              "text changed",
+              "hostContext changed"
+            ],
+            "pathname": "/requests/r-002",
+            "headings": [],
+            "text": "Request Desk Requests New request Loading requests\u2026 Help for this page Local demo. Data is saved in this tab\u2019s session only. Reset demo data",
+            "regions": [],
+            "controls": [
+              {
+                "role": "button",
+                "name": "Help for this page",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": false
+              },
+              {
+                "role": "button",
+                "name": "Reset demo data",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              }
+            ],
+            "overlays": [],
+            "hostContext": {
+              "applicationId": "request-desk",
+              "route": "/requests/r-002",
+              "featureIds": []
+            },
+            "truncated": false
+          },
+          {
+            "stateId": "00000000-0000-4000-8000-000000000003",
+            "order": 2,
+            "trigger": "waitFor",
+            "occurrences": 3,
+            "effects": [
+              "text changed",
+              "controls changed"
+            ],
+            "pathname": "/requests/r-002",
+            "headings": [
+              "Find monthly report"
+            ],
+            "text": "Request Desk Requests New request Find monthly report Help locating the monthly report. Status: Resolved Priority: Normal Reopen request Help for this page Local demo. Data is saved in this tab\u2019s session only. Reset demo data",
+            "regions": [],
+            "controls": [
+              {
+                "role": "button",
+                "name": "Reopen request",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              },
+              {
+                "role": "button",
+                "name": "Help for this page",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": false
+              },
+              {
+                "role": "button",
+                "name": "Reset demo data",
+                "populated": null,
+                "checked": null,
+                "selected": null,
+                "expanded": null
+              }
+            ],
+            "overlays": [],
+            "hostContext": {
+              "applicationId": "request-desk",
+              "route": "/requests/r-002",
+              "featureIds": []
+            },
+            "truncated": false
+          }
+        ],
+        "candidates": [
+          {
+            "checkpointId": "00000000-0000-4000-8000-000000000004",
+            "stateId": "00000000-0000-4000-8000-000000000001",
+            "crop": null
+          },
+          {
+            "checkpointId": "00000000-0000-4000-8000-000000000005",
+            "stateId": "00000000-0000-4000-8000-000000000002",
+            "crop": null
+          }
+        ],
+        "duplicates": [
+          {
+            "checkpointId": "00000000-0000-4000-8000-000000000006",
+            "representativeId": "00000000-0000-4000-8000-000000000005"
+          },
+          {
+            "checkpointId": "00000000-0000-4000-8000-000000000007",
+            "representativeId": "00000000-0000-4000-8000-000000000005"
+          }
+        ],
+        "ineligible": [],
+        "coverage": {
+          "stateBoundaries": 5,
+          "omittedStates": 0,
+          "omittedCheckpoints": 0,
+          "truncatedSnapshots": 0,
+          "pageErrors": 0,
+          "dismissedDialogs": 0,
+          "navigationStatus": 200,
+          "projectionCompacted": false,
+          "omittedSummaryStates": 0,
+          "omittedDetails": false
+        },
+        "maxSelectedScreenshots": 1
+      }
+    }
+  ]
+}

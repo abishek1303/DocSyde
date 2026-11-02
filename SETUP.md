@@ -877,3 +877,27 @@ own run fixture, and verifies a real capture callback through a separate product
 HTTP request plus the UI. Its preload is test-only and never loaded by normal start.
 If Turbopack cannot bind its local CSS worker port, `npm run build -- --webpack`
 provides the supported production-build fallback.
+
+
+Visual-selection v3 requires no migration, new credential or service. It uses the
+existing Baseten model with a compact strict selected/checkpointId/sourceRefs/question
+contract, questions bounded to 80 characters, and a 3072-token completion ceiling for
+reasoning headroom. The actual image limit is included in its schema. Muse uses local
+JSON/Zod/correspondence validation, without provider-side schema enforcement or retries.
+Vision inputs and capture policy are unchanged. Historical records remain readable.
+Selection-only sanitized debug snapshots retain valid output and fixed correspondence
+diagnostics, never malformed/schema-invalid raw output. See [MODEL_USAGE.md](MODEL_USAGE.md).
+
+Offline selector verification (all AI transport is mocked; no experiment execution):
+
+```sh
+node --conditions=react-server --import tsx --test src/features/sources/runtime/visual-selection.test.ts
+npm run runtime:visual:test
+npm run ai:test
+node --conditions=react-server --import tsx --test infra/local/reliability/report.test.ts src/features/documentation/runs/*inspection.test.ts
+```
+
+A/B/C selector inputs are sanitized test fixtures under
+`infra/local/runner/visual-selection-inputs.json`, derived from retained request inputs
+with UUID relationships preserved. Mock responses test contracts and are not historical
+model answers or evidence that live inference reliability has been established.

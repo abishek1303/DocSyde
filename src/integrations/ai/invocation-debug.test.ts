@@ -9,7 +9,7 @@ test("operation policies default deny; transformation unknown entries and vision
     assert.equal(debugRequest(operation, "instructions", "input", "{}"), undefined);
     assert.equal(debugOutput(operation, { value: "private" }), undefined);
   }
-  for (const operation of ["runtime-decision", "documentation-planning", "product-impact"]) {
+  for (const operation of ["visual-selection", "runtime-decision", "documentation-planning", "product-impact"]) {
     assert.ok(debugRequest(operation, "instructions", "input", "{}"));
     assert.ok(debugOutput(operation, { value: "validated" }));
   }
@@ -60,4 +60,17 @@ test("historical vision and selection display only strict approved projections",
   assert.equal(hostile.response, null);
   const selection = invocationDebugView({ operation: "visual-selection", failureKind: null, requestPayload: { input: '{"workflow":"safe"}' } });
   assert.ok(selection.input); assert.equal(selection.request, null);
+});
+
+
+test("selection debug uses existing byte/redaction bounds and legacy projections still decode", () => {
+  const request = debugRequest("visual-selection", "x".repeat(10000), JSON.stringify({ text: "漢".repeat(20000), api_key: "UNSAFE_SECRET" }), "x".repeat(10000))!;
+  assert.ok(request.instructions.retainedBytes <= DEBUG_LIMITS.instructions);
+  assert.ok(request.input.retainedBytes <= DEBUG_LIMITS.input);
+  assert.ok(request.schema.retainedBytes <= DEBUG_LIMITS.schema);
+  assert.ok(Buffer.byteLength(JSON.stringify(request)) <= DEBUG_LIMITS.column);
+  const legacy = { decision: "skip", selected: [] };
+  const view = invocationDebugView({ operation: "visual-selection", failureKind: null, requestPayload: { input: '{"workflow":"safe"}' }, responsePayload: legacy });
+  assert.deepEqual(JSON.parse(view.response!.output.content), legacy); assert.ok(view.input);
+  assert.equal(invocationDebugView({ operation: "visual-selection", failureKind: null, responsePayload: { ...legacy, extra: "UNSAFE" } }).response, null);
 });

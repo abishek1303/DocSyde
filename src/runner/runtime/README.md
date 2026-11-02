@@ -120,8 +120,8 @@ workflow covers the inspection decision. `workflow-config.ts` shares the executa
 configuration schema with the local visual verifier. Runner still owns no Sources,
 Documentation or persistence semantics and is not a separate orchestration host.
 The existing Next.js Node process owns the application task; process death can
-interrupt it. The future presentation observer attaches at page creation in
-`capture-trace.ts`; frames must remain separate from canonical evidence/inference.
+interrupt it. The existing inspection observer copies eligible masked checkpoint PNGs; frames
+remain separate from canonical evidence/inference.
 
 ### Inspection lifecycle
 
@@ -136,3 +136,17 @@ Run the offline production proof after building:
 `node --conditions=react-server --import tsx --test infra/local/inspection/inspection.integration.ts`.
 It uses a test-only Node preload to execute a real capture in the Next process and
 reads the named global registry from bundled HTTP handlers, with zero provider requests.
+
+
+### Visual-selection v3 compatibility
+
+Post-run selection is Sources-owned and requests only checkpoint IDs, sourceRefs and
+short questions (80 characters), under the configured 0–3 image limit. The 3072-token
+ceiling is bounded reasoning headroom; the current Baseten Muse integration uses
+strict local parsing/correspondence validation, no provider-side schema enforcement,
+no retries and no repair. The versioned retained selection and safe invocation debug
+snapshots remain readable alongside historical v2 data. No candidate pruning/ranking,
+Runner/capture changes, browser sessions or screenshots are added. The same canonical
+PNG hashes, finding filter and question reach the unchanged vision prompt/schema.
+Run `npm run runtime:visual:test` with mocked providers for the existing lifecycle,
+grounding and visual-workflow tests; focused selector tests are documented in SETUP.md.

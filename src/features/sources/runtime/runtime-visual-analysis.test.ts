@@ -10,9 +10,9 @@ import { visualSourceFixture, visualTraceFixture } from "../../../../infra/local
 
 type SelectionInput = ReturnType<typeof summarizeRuntimeStates>["input"] & { maxSelectedScreenshots: number };
 function selection(input: SelectionInput, count = 1) {
-  return { decision: "analyze", reason: "Clarify visible guidance", selected: input.candidates.slice(0, count).map(cp => ({
-    checkpointId: cp.checkpointId, sourceRefs: ["source-1"], reason: "Rendered guidance", question: "What guidance is visible?",
-  })), uncertainties: [] };
+  return { selected: input.candidates.slice(0, count).map(cp => ({
+    checkpointId: cp.checkpointId, sourceRefs: ["source-1"], question: "What guidance is visible?",
+  })) };
 }
 function provider(t: TestContext, output: (input: SelectionInput) => unknown = selection, failVision = 0) {
   for (const key of ["BASETEN_API_KEY", "META_API_KEY"] as const) {
@@ -49,11 +49,14 @@ test("exactly one structured selection precedes at most three hash-verified visi
 
 test("zero budget, no eligible checkpoints and model skip never invoke vision", async t => {
   for (const kind of ["disabled", "ineligible", "skip"] as const) await t.test(kind, async t => {
-    const f = visualTraceFixture(), p = provider(t, () => ({ decision: "skip", reason: "Structured evidence is sufficient", selected: [], uncertainties: [] }));
+    const f = visualTraceFixture(), p = provider(t, () => ({ selected: [] }));
+    const events: import("@/integrations/browser/runtime-observation").RuntimeObservationInput[] = [];
     if (kind === "ineligible") for (const cp of f.trace.checkpoints) { cp.eligible = false; cp.screenshot = null; cp.limitation = "masking-failed"; }
-    const result = await analyzeRuntimeVisuals({ source: visualSourceFixture(), trace: f.trace, description: "Inspect", maxSelectedScreenshots: kind === "disabled" ? 0 : 3 }, f.storage);
+    const result = await analyzeRuntimeVisuals({ source: visualSourceFixture(), trace: f.trace, description: "Inspect", maxSelectedScreenshots: kind === "disabled" ? 0 : 3 }, f.storage, undefined, undefined, { event: event => { events.push(event); }, preview() { assert.fail(); } });
     assert.equal(result.status, kind === "disabled" ? "disabled" : kind === "skip" ? "skipped" : "incomplete");
     assert.deepEqual(p.counts(), { textCalls: kind === "skip" ? 1 : 0, visionCalls: 0 });
+    if (kind === "skip") assert.deepEqual(events.at(-1), { kind: "visual-selection-completed", phase: "selection", selected: [], skipped: true });
+    assert.equal(events.some(event => event.kind === "vision-analysis-started"), false);
   });
 });
 
@@ -63,7 +66,7 @@ test("fabricated/duplicate references, invalid decisions and excessive selection
     value => ({ ...value, selected: [{ ...value.selected[0], sourceRefs: ["source-4"] }] }),
     value => ({ ...value, selected: [{ ...value.selected[0], sourceRefs: ["source-1", "source-1"] }] }),
     value => ({ ...value, selected: [value.selected[0], value.selected[0]] }),
-    value => ({ ...value, decision: "skip" }), value => ({ ...value, selected: [] }),
+    value => ({ ...value, decision: "skip" }), value => ({ ...value, uncertainties: [] }),
     value => ({ ...value, extra: "ignored instruction" }), () => "```json invalid```",
     value => value, // Four selected violates the schema maximum.
   ];
@@ -203,4 +206,59 @@ test("compaction can omit non-candidate states with an explicit count", async t 
   const summary = summarizeRuntimeStates(visualSourceFixture(), f.trace, "Inspect").input;
   const result = await selectVisualCheckpoints(summary, 3);
   assert.equal(result.coverage.omittedSummaryStates, 63); assert.equal(p.counts().textCalls, 1);
+});
+
+test("equivalent legacy/v3 choices produce identical vision context, canonical PNGs and execution order", async t => {
+  const f = visualTraceFixture(2), source = visualSourceFixture();
+  const summary = summarizeRuntimeStates(source, f.trace, "Inspect").input;
+  const legacy = { decision: "analyze", reason: "Historical explanation", selected: [
+    { checkpointId: summary.candidates[1].checkpointId, sourceRefs: [], reason: "Historical", question: "Which guidance is visible?" },
+    { checkpointId: summary.candidates[0].checkpointId, sourceRefs: ["source-1"], reason: "Historical", question: "Which label is visible?" },
+  ], uncertainties: [] };
+  const compact = { selected: legacy.selected.map(({ checkpointId, sourceRefs, question }) => ({ checkpointId, sourceRefs, question })) };
+  const p = provider(t, () => compact);
+  const before = structuredClone(f.trace), beforeBytes = [...f.bytes].map(([key, bytes]) => [key, Buffer.from(bytes)]);
+  const read = t.mock.method(f.storage, "read", f.storage.read);
+  t.mock.method(f.storage, "store", async () => { throw Error("Selection cannot create evidence"); });
+  const { chromium } = await import("playwright");
+  const launch = t.mock.method(chromium, "launch", async () => { throw Error("Selection cannot open a browser"); });
+  const events: import("@/integrations/browser/runtime-observation").RuntimeObservationInput[] = [];
+  const result = await analyzeRuntimeVisuals({ source, trace: f.trace, description: "Inspect" }, f.storage, undefined, undefined, { event: event => { events.push(event); }, preview() { assert.fail("No additional screenshot/preview"); } });
+  assert.equal(result.status, "complete"); assert.equal(launch.mock.callCount(), 0);
+  assert.deepEqual(result.runtime.map(cp => cp.captureId), legacy.selected.map(cp => cp.checkpointId));
+  for (const [index, selected] of legacy.selected.entries()) {
+    const checkpoint = f.trace.checkpoints.find(cp => cp.captureId === selected.checkpointId)!;
+    assert.equal(read.mock.calls[index].arguments[0], checkpoint.screenshot!.artifactKey);
+    // Frozen legacy context construction: no reason/decision/uncertainty participates in vision.
+    const expectedContext = JSON.stringify({ task: "Describe only current visible evidence relevant to these findings.", imageCoverage: "Viewport only; offscreen content is unobserved.", findings: summary.findings.filter(f => selected.sourceRefs.includes(f.id)).map(f => ({ id: f.id, description: f.description.slice(0, 300) })), question: selected.question });
+    const messages = p.requests[index + 1].body.messages as { content: { type: string; text?: string; image_url?: { url: string } }[] }[];
+    assert.equal(messages[1].content[0].text, JSON.stringify({ analysisContext: expectedContext }));
+    assert.equal(messages[1].content[1].image_url!.url, `data:image/png;base64,${Buffer.from(f.bytes.get(checkpoint.screenshot!.artifactKey)!).toString("base64")}`);
+    assert.equal(result.runtime[index].screenshotSha256, checkpoint.screenshot!.sha256);
+  }
+  assert.deepEqual(f.trace, before); assert.deepEqual([...f.bytes].map(([key, bytes]) => [key, Buffer.from(bytes)]), beforeBytes);
+  const completed = events.findIndex(e => e.kind === "visual-selection-completed");
+  assert.ok(completed > events.findIndex(e => e.kind === "visual-selection-started"));
+  assert.ok(events.findIndex(e => e.kind === "vision-analysis-started") > completed);
+  const event = events[completed]; assert.ok(event.kind === "visual-selection-completed");
+  assert.deepEqual(event.selected, compact.selected.map(item => item.checkpointId));
+});
+
+test("selection root failures and length completions emit failure with no validated IDs or vision start/retry", async t => {
+  for (const kind of ["root-extra", "unknown-id", "length"] as const) await t.test(kind, async t => {
+    const f = visualTraceFixture(1), p = provider(t), events: import("@/integrations/browser/runtime-observation").RuntimeObservationInput[] = [];
+    let calls = 0;
+    t.mock.method(globalThis, "fetch", async (url: unknown, init?: RequestInit) => {
+      calls++; assert.match(String(url), /baseten/);
+      const input: SelectionInput = JSON.parse(JSON.parse(String(init?.body)).messages[1].content);
+      const output = selection(input);
+      if (kind === "unknown-id") output.selected[0].checkpointId = randomUUID();
+      return Response.json({ choices: [{ finish_reason: kind === "length" ? "length" : "stop", message: { content: JSON.stringify(kind === "root-extra" ? { ...output, explanation: "B-like fixture only" } : output) } }] });
+    });
+    const result = await analyzeRuntimeVisuals({ source: visualSourceFixture(), trace: f.trace, description: "Inspect" }, f.storage, undefined, undefined, { event: event => { events.push(event); }, preview() { assert.fail(); } });
+    assert.equal(result.reason, "selection-failed"); assert.equal(result.selection, undefined); assert.equal(calls, 1);
+    assert.equal(p.counts().visionCalls, 0);
+    assert.deepEqual(events.map(e => e.kind), ["visual-selection-started", "failure"]);
+    assert.ok(events[1].kind === "failure" && events[1].code === "selection-failed");
+  });
 });

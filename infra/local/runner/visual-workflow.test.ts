@@ -44,7 +44,7 @@ test("real workflow → selection → vision → synthesis → existing document
       if (input.candidates) {
         const cp = input.candidates.find((cp: { stateId: string }) => input.states.some((state: { stateId: string; overlays: string[] }) => state.stateId === cp.stateId && state.overlays.length));
         assert.ok(cp, "Transient dialog checkpoint available without replay"); selectedCapture = cp.checkpointId;
-        output = { decision: "analyze", reason: "Visible dialog guidance", selected: [{ checkpointId: selectedCapture, sourceRefs: ["source-1"], reason: "Check guidance", question: "What guidance is visible?" }], uncertainties: [] };
+        output = { selected: [{ checkpointId: selectedCapture, sourceRefs: ["source-1"], question: "What guidance is visible?" }] };
       } else if (input.visualReferences) {
         const visual = `visual:${selectedCapture}:observations:0`;
         output = { assessment: mode === "supported" ? "product-change" : "insufficient-evidence", summary: "Request form evidence",

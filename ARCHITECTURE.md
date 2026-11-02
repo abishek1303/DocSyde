@@ -985,3 +985,26 @@ identities and preview revisions, never storage keys/paths. Missing/replaced/exp
 previews return 410. Independent one-second polling retries after three seconds and
 fetches once again on terminal transition. The pane distinguishes browser activity,
 captured evidence, and validated model analysis. No semantic run state is added.
+
+
+## Compact visual selection
+
+Sources owns visual-selection v3: a strict model-facing object containing only
+`selected`, with exact candidate checkpoint IDs, source references and nonblank
+questions of at most 80 characters. The configured 0–3 limit is reflected in the
+schema and independently checked alongside identity/reference correspondence.
+Empty selected means skip. Array order remains vision execution order. The retained
+v3 envelope adds a server-owned version field; readers accept historical v2 objects
+without rewriting them or fabricating model rationale.
+
+Only this operation moves from 2048 to 3072 output tokens, leaving bounded reasoning
+headroom around a compact answer. Baseten Muse still uses schema-bearing instructions
+and strict local JSON/Zod validation, without supported provider-side JSON Schema
+enforcement, retries or repair. Selection alone joins the existing sanitized bounded
+debug-retention policy for instructions/input/schema/schema-valid output and fixed
+post-validation code/path diagnostics. Output survives correspondence rejection;
+malformed/schema-invalid raw output is never retained. Reliability reports understand
+new envelopes and historical projections. Logs remain diagnostics, never evidence.
+Candidate projection/eligibility/deduplication/compaction and capture are unchanged.
+The existing vision context, prompt/schema, other AI stages, and runtime-inspection
+registry/routes/pane remain unchanged; existing observer events follow validated IDs.

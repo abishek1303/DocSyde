@@ -38,6 +38,9 @@ test("inspection routes validate retained membership, hashes, selected/vision li
   assert.ok(await reader.getRunInspectionScreenshot(id, checkpoint.captureId));
   assert.equal(await reader.getRunInspectionScreenshot(id, randomUUID()), null);
   assert.equal((await reader.getRunInspectionPreview(id, 1)).status, 410);
+  const compact = { ...visual, selection: { selection: { version: 3, selected: visual.selection.selection.selected.map(({ checkpointId, sourceRefs, question }) => ({ checkpointId, sourceRefs, question })) } } };
+  await link("runtime-analysis", compact);
+  assert.deepEqual(await reader.getRunInspection(id), view, "pane badges and observations are identical for equivalent v2/v3 retained evidence");
   f.bytes.set(checkpoint.screenshot!.artifactKey, Uint8Array.of(0));
   await assert.rejects(reader.getRunInspectionScreenshot(id, checkpoint.captureId), /integrity/);
   visual.selection.selection.selected[0].checkpointId = randomUUID(); await link("runtime-analysis", visual);

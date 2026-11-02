@@ -13,7 +13,7 @@ const policies = {
   "source-analysis": [8192, "source-analysis-v2"],
   "source-summary": [8192, "source-summary-v1"],
   "runtime-decision": [4096, "runtime-decision-v2"],
-  "visual-selection": [2048, "visual-selection-v2"],
+  "visual-selection": [3072, "visual-selection-v3"],
   "runtime-vision": [4096, "runtime-vision-v2"],
   "product-impact": [8192, "product-impact-v2"],
   "documentation-planning": [4096, "documentation-planning-v2"],

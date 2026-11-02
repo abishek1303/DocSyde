@@ -69,6 +69,24 @@ test("SQL ownership/stale revision and production next start cross-module captur
     await page.route('**/inspection', route => route.abort());
     await page.reload(); await page.getByText('Inspection unavailable. Reconnecting…').waitFor();
     await page.unroute('**/inspection'); await page.getByText('Earlier activity', { exact: false }).waitFor({ timeout: 10000 });
+    // UI-only fixtures use the existing page/session and canonical identities; no inference/capture.
+    const snapshot = view.snapshot, captureId = view.captures[0].captureId;
+    const envelope = { version: 1 as const, inspectionId: snapshot.inspectionId, at: new Date().toISOString() };
+    for (const mode of ['failed', 'selected', 'vision-started'] as const) {
+      const selectionEvents: NonNullable<InspectionView['snapshot']>['events'] = [
+        { ...envelope, seq: 1, phase: 'selection', kind: 'visual-selection-started' },
+        ...(mode === 'failed' ? [{ ...envelope, seq: 2, phase: 'selection' as const, kind: 'failure' as const, code: 'selection-failed' as const }]
+          : [{ ...envelope, seq: 2, phase: 'selection' as const, kind: 'visual-selection-completed' as const, selected: [captureId], skipped: false }]),
+        ...(mode === 'vision-started' ? [{ ...envelope, seq: 3, phase: 'vision' as const, kind: 'vision-analysis-started' as const }] : []),
+      ];
+      await page.route('**/inspection', route => route.fulfill({ json: { ...view, captures: view.captures.map(cp => ({ ...cp, selected: mode !== 'failed' && cp.captureId === captureId })), snapshot: { ...snapshot, events: selectionEvents } } }));
+      await page.reload();
+      const pane = page.getByRole('region', { name: 'Runtime inspection' });
+      await pane.getByText(mode === 'failed' ? /selection: failure/ : /selection: visual selection completed/).waitFor();
+      assert.equal(await pane.getByText(/vision analysis started/).count() > 0, mode === 'vision-started');
+      assert.equal(await pane.getByText('Selected for analysis', { exact: true }).count(), mode === 'failed' ? 0 : 1);
+      await page.unroute('**/inspection');
+    }
   } finally { await browser.close(); }
   const linked = (await pool.query('SELECT payload FROM docsyde.documentation_runs WHERE id=$1', [id])).rows[0].payload;
   const tampered = structuredClone(linked); tampered.artifacts[0].sha256 = '0'.repeat(64);

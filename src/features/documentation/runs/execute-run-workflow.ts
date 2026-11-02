@@ -102,7 +102,8 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
         maxSelectedScreenshots: configured.config.maxSelectedScreenshots }, configured.storage, signal, invocation("runtime-inspection"), observer);
       await check();
       await storeManifest("runtime-analysis", visual);
-      const responsePreview = visual.selection?.selection.reason ?? visual.runtime[0]?.vision.data.observations[0];
+      const responsePreview = visual.runtime[0]?.vision.data.observations[0]
+        ?? (visual.selection ? JSON.stringify({ selected: visual.selection.selection.selected }) : undefined);
       if (responsePreview) await checkpoint(r => ({ ...r, runtimeResponsePreview: shortResponse(responsePreview) }));
       if (visual.status === "incomplete" || visual.status === "disabled") {
         await checkpoint(r => ({ ...r, runtime: { ...r.runtime!, outcome: "attempted-and-failed", reason: visual.reason } }));

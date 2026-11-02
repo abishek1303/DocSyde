@@ -116,20 +116,51 @@ test("concurrent calls retain distinct explicit contexts and successful validati
   }
 });
 
-test("approved selection retains exact input but response waits for correspondence acceptance", async t => {
+test("selection retains bounded instructions/input/schema and schema-valid output through acceptance", async t => {
   const s = setup(t), input = ' {"workflow":"safe","maxSelectedScreenshots":1}\n';
-  const context = { ...invocation, operation: "visual-selection" };
-  t.mock.method(globalThis,"fetch",async()=>Response.json({choices:[{finish_reason:"stop",message:{content:'{"decision":"skip","selected":[],"reason":"PRIVATE_PROSE"}'}}]}));
-  const generated = await s.generateStructured({ input, instructions:"PRIVATE_STATIC_INSTRUCTIONS", invocation:context, postValidation:true,
-    schema:z.object({decision:z.literal("skip"),selected:z.array(z.never()),reason:z.string()}) });
-  const before=s.rows.get(generated.invocationId!)!;
-  assert.deepEqual(before.requestPayload,{input}); assert.equal(before.responsePayload,null);
-  assert.equal(before.responseOmissionReason,"pending-validation");
-  await s.validateInvocation(generated.invocationId,()=>{},"correspondence-rejection",()=>({operation:"visual-selection",payload:{decision:"skip",selected:[]}}));
-  const after=s.rows.get(generated.invocationId!)!;
-  assert.deepEqual(after.responsePayload,{decision:"skip",selected:[]}); assert.equal(after.responseOmissionReason,null);
-  assert.equal(after.status,"succeeded"); assert.ok(!JSON.stringify(after).includes("PRIVATE"));
-  assert.deepEqual(after.inferenceConfig,{contractVersion:"visual-selection-v2",maxOutputTokens:2048,reasoningEffort:null,temperature:null,topP:null});
+  const { visualSelectionOutputSchema } = await import("@/features/sources/runtime/visual-selection");
+  const { invocationDebugView } = await import("@/features/documentation/runs/invocation-debug-view");
+  const output = { selected: [] };
+  t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(output), reasoning_content: "UNSAFE_REASONING" } }] }));
+  const generated = await s.generateStructured({ input, instructions: "Select only JSON. Bearer UNSAFE_CREDENTIAL", invocation: { ...invocation, operation: "visual-selection" }, postValidation: true, schema: visualSelectionOutputSchema(1) });
+  const before = s.rows.get(generated.invocationId!)!;
+  const beforeView = invocationDebugView({ ...before, failureKind: null });
+  assert.equal(beforeView.input!.content, input); assert.ok(beforeView.request!.instructions.redacted);
+  assert.ok(beforeView.request!.schema.content.includes('"maxItems":1'));
+  assert.deepEqual(JSON.parse(beforeView.response!.output.content), output); assert.equal(before.status, "structured-success");
+  await s.validateInvocation(generated.invocationId, () => {}, "correspondence-rejection", () => ({ operation: "visual-selection", payload: { decision: "skip", selected: [] } }));
+  const after = s.rows.get(generated.invocationId!)!;
+  assert.deepEqual(after.responsePayload, before.responsePayload); assert.equal(after.status, "succeeded");
+  assert.equal(after.responseOmissionReason, null);
+  assert.ok(!JSON.stringify(after).includes("UNSAFE_CREDENTIAL")); assert.ok(!JSON.stringify(after).includes("UNSAFE_REASONING"));
+  assert.deepEqual(after.inferenceConfig, { contractVersion: "visual-selection-v3", maxOutputTokens: 3072, reasoningEffort: null, temperature: null, topP: null });
+});
+
+test("selection schema-valid output survives each fixed correspondence rejection", async t => {
+  const s = setup(t);
+  const { visualSelectionOutputSchema }: typeof import("@/features/sources/runtime/visual-selection") = load("./src/features/sources/runtime/visual-selection.ts");
+  const { validateVisualSelection }: typeof import("@/features/sources/runtime/select-visual-checkpoints") = load("./src/features/sources/runtime/select-visual-checkpoints.ts");
+  const { summarizeRuntimeStates }: typeof import("@/features/sources/runtime/runtime-state-summary") = load("./src/features/sources/runtime/runtime-state-summary.ts");
+  const { visualSourceFixture, visualTraceFixture }: typeof import("../../../infra/local/runner/visual-fixtures") = load("./infra/local/runner/visual-fixtures.ts");
+  const { invocationDebugView }: typeof import("@/features/documentation/runs/invocation-debug-view") = load("./src/features/documentation/runs/invocation-debug-view.ts");
+  const { randomUUID }: typeof import("node:crypto") = load("node:crypto");
+  const summary = summarizeRuntimeStates(visualSourceFixture(), visualTraceFixture(2).trace, "Inspect").input;
+  const item = { checkpointId: summary.candidates[0].checkpointId, sourceRefs: ["source-1"], question: "What is visible?" };
+  for (const [output, limit, code, path] of [
+    [{ selected: [{ ...item, checkpointId: randomUUID() }] }, 3, "unknown-checkpoint", "selected[0].checkpointId"],
+    [{ selected: [item, item] }, 3, "duplicate-checkpoint", "selected[1].checkpointId"],
+    [{ selected: [item, { ...item, checkpointId: summary.candidates[1].checkpointId }] }, 1, "excessive-selection-count", "selected"],
+    [{ selected: [{ ...item, sourceRefs: ["source-4"] }] }, 3, "unknown-source-reference", "selected[0].sourceRefs[0]"],
+    [{ selected: [{ ...item, sourceRefs: ["source-1", "source-1"] }] }, 3, "duplicate-source-reference", "selected[0].sourceRefs[1]"],
+  ] as const) {
+    t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(output) } }] }));
+    const generated = await s.generateStructured({ input: JSON.stringify(summary), instructions: "Select", invocation: { ...invocation, operation: "visual-selection" }, postValidation: true, schema: visualSelectionOutputSchema(3) });
+    await assert.rejects(s.validateInvocation(generated.invocationId, () => validateVisualSelection(generated.data, summary, limit), "correspondence-rejection"));
+    const row = s.rows.get(generated.invocationId!)!;
+    const view = invocationDebugView({ ...row, failureKind: row.failureKind ?? null });
+    assert.equal(row.status, "failed"); assert.equal(view.diagnostic?.code, code); assert.equal(view.diagnostic?.path, path);
+    assert.deepEqual(JSON.parse(view.response!.output.content), output);
+  }
 });
 
 test("post-validation rejection and interrupted validation never persist accepted response content", async t => {
@@ -146,7 +177,7 @@ test("approved operation omits failed outputs, including malformed, incomplete a
   const s=setup(t);
   for(const [content,reason,refusal] of [["PRIVATE_MALFORMED","stop",null],["PRIVATE_PARTIAL","length",null],[null,"stop","PRIVATE_REFUSAL"],['{"value":5}',"stop",null]]) {
     t.mock.method(globalThis,"fetch",async()=>Response.json({choices:[{finish_reason:reason,message:{content,refusal}}]}));
-    await assert.rejects(s.generateStructured({...options,input:'{"workflow":"safe"}',invocation:{...invocation,operation:"visual-selection"}}));
+    await assert.rejects(s.generateStructured({...options,instructions:'Select JSON',input:'{"workflow":"safe"}',invocation:{...invocation,operation:"visual-selection"}}));
     const row=[...s.rows.values()].at(-1)!; assert.equal(row.responsePayload,null); assert.equal(row.responseOmissionReason,"model-failure");
   }
   assert.ok(!JSON.stringify([...s.rows.values()]).includes("PRIVATE"));

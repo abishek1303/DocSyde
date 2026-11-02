@@ -1,3 +1,6 @@
+import { debugOutputSchema, DEBUG_LIMITS } from "@/integrations/ai/invocation-debug";
+import { storedResponsePayload } from "@/integrations/ai/invocation-payload";
+import { visualSelectionSchema, visualSelectionOutputSchema } from "@/features/sources/response-evidence";
 import { join } from "node:path";
 import { requireReliabilityContext, assertScenarioContext, runtimeIdentitySchema } from "@/integrations/reliability/execution-context";
 import { assertOwnedRoot, ownedPath } from "@/integrations/reliability/owned-resources";
@@ -67,11 +70,23 @@ export async function reportScenario(manifestPath: string, rawRunId: string, pub
       responsePayload: invocation.responsePayload, responseOmissionReason: invocation.responseOmissionReason })),
     limits: "Three independent observations; no causal, statistical-reliability or dollar-cost inference. Missing usage remains unavailable." };
 }
-function selectedImageCount(invocations: { operation: string; status: string; responsePayload: unknown }[], outcome?: string) {
+export function selectedImageCount(invocations: { operation: string; status: string; responsePayload: unknown }[], outcome?: string) {
   if (outcome === "not-needed" || outcome === "unavailable" || outcome === "requested-but-uncovered") return 0;
   const selection = invocations.find(invocation => invocation.operation === "visual-selection" && invocation.status === "succeeded");
-  const parsed = z.object({ selected: z.array(z.unknown()) }).passthrough().safeParse(selection?.responsePayload);
-  return parsed.success ? parsed.data.selected.length : null;
+  if (!selection) return null;
+  try {
+    if (Buffer.byteLength(JSON.stringify(selection.responsePayload)) > DEBUG_LIMITS.column) return null;
+    const debug = debugOutputSchema.safeParse(selection.responsePayload);
+    if (debug.success) {
+      if (debug.data.output.truncated) return null;
+      const output = visualSelectionOutputSchema(3).safeParse(JSON.parse(debug.data.output.content));
+      return output.success ? output.data.selected.length : null;
+    }
+    const retained = visualSelectionSchema.safeParse(selection.responsePayload);
+    if (retained.success) return retained.data.selected.length;
+    const legacy = z.object({ selected: z.array(z.unknown()) }).safeParse(storedResponsePayload("visual-selection", selection.responsePayload));
+    return legacy.success ? legacy.data.selected.length : null;
+  } catch { return null; }
 }
 const comparisonReportSchema = z.object({
   experimentId: z.string(), comparisonIdentity: comparisonIdentitySchema,

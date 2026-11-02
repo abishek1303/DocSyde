@@ -88,8 +88,10 @@ export async function finishInvocationValidation(id: string | undefined, rejecti
     try { const candidate = accepted(); operation = candidate.operation; response = responsePayload(operation, candidate); }
     catch { response = { payload: null, reason: "logging-data-invalid" }; }
   }
+  // Selection retains the bounded schema-valid snapshot written before correspondence;
+  // final acceptance changes status, not the model output. Other operations keep their existing projections.
   try { await updateAiModelInvocation(id, { status: rejection ? "failed" : "succeeded", failureKind: rejection ?? null,
-    ...(accepted && !rejection ? { responsePayload: response.payload, responseOmissionReason: response.reason } : {}),
+    ...(accepted && !rejection && operation !== "visual-selection" ? { responsePayload: response.payload, responseOmissionReason: response.reason } : {}),
     ...(rejection ? { diagnostic: validationDiagnosticSchema.parse(diagnostic ?? rejectionDiagnostic(undefined, rejection)) } : {}) }, true, operation); }
   catch (error) { if (error instanceof ReliabilityIsolationError) throw error; warn(id); stopInferenceBudget(); }
 }

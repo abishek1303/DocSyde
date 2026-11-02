@@ -41,8 +41,8 @@ export async function analyzeRuntimeVisuals(
     observe(observer, { kind: "visual-selection-started", phase: "selection" });
     const selected = await selectVisualCheckpoints(summarized.input, maxSelectedScreenshots, signal, invocation);
     result.selection = selected;
-    observe(observer, { kind: "visual-selection-completed", phase: "selection", selected: selected.selection.selected.map(item => item.checkpointId), skipped: selected.selection.decision === "skip" });
-    if (selected.selection.decision === "skip") return { ...result, status: "skipped", reason: "model-skip" };
+    observe(observer, { kind: "visual-selection-completed", phase: "selection", selected: selected.selection.selected.map(item => item.checkpointId), skipped: selected.selection.selected.length === 0 });
+    if (selected.selection.selected.length === 0) return { ...result, status: "skipped", reason: "model-skip" };
     phase = "vision-failed";
     for (const item of selected.selection.selected) {
       signal?.throwIfAborted();

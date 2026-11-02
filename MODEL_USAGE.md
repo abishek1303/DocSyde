@@ -316,8 +316,8 @@ Standalone rows without a repository-bound run are not exposed through these pag
 
 ## Reliability baseline and safe payload policy
 
-All current output ceilings remain unchanged: source/summary/impact/draft/transformation/
-support 8192, runtime decision/planning/vision 4096, selection 2048. All current reasoning,
+Output ceilings: source/summary/impact/draft/transformation/support 8192, runtime
+decision/planning/vision 4096. Visual-selection v3 alone changes from 2048 to 3072. All current reasoning,
 temperature and top-p values remain omitted. The integration's strict optional controls
 are `reasoningEffort` (`low`, `medium`, `high`, `xhigh`), `temperature` (0–4), and `topP`
 (>0 through 1). Only the documented canonical Baseten Muse slug accepts these overrides;
@@ -351,7 +351,7 @@ and active reasoning/sampling changes require a separate controlled comparison.
 | Documentation planning | Sanitized bounded snapshots | Schema-valid response before grounding checks | Fixed targeting/support invariant code; generic fallback |
 | Documentation transformation | Sanitized bounded snapshots | Denied: envelope entries remain unvalidated unknown values | First failed entry protocol invariant |
 | Runtime vision | Denied | Existing validated bounds/certainty/count projection | Generic fixed diagnostic only |
-| Visual selection | Existing exact redacted/compacted input only | Accepted decision and selected checkpoint/source IDs | Generic fixed diagnostic only |
+| Visual selection | Sanitized bounded instructions/input/schema | Schema-valid compact output, preserved through correspondence acceptance/rejection | Fixed checkpoint/count/source-reference invariant and bounded path |
 | Transformation support | Denied | Accepted unit IDs/verdict enums | Generic fixed diagnostic only |
 | Fixed receipt verifier | Existing exact fixed input only | Validated fixed literal | Generic fixed diagnostic only |
 | Source analysis/summary, legacy draft, unknown/new operations | Denied | Denied | Generic fixed diagnostic only |
@@ -384,3 +384,35 @@ labeled as projections. Logging failures preserve original results/errors.
 Logs must never feed evidence, authority, later model calls, retries, or automatic training.
 No paid inference was used for this implementation. Subsequent authorized comparisons
 must vary one operation/independent variable at a time, identified by saved configuration.
+
+
+## Visual-selection v3
+
+The model returns only `{ "selected": [{ "checkpointId": "<candidate UUID>",
+"sourceRefs": ["source-1"], "question": "<nonblank, <=80 characters>" }] }`.
+Root and items are strict; the model-facing array limit is the actual configured
+0–3 budget. Zero budget bypasses the call. Empty selection means skip; otherwise
+vision runs in array order. Independent correspondence checks reject unknown/state
+IDs, duplicate checkpoints, excessive counts and unknown/duplicate source references.
+The selector adds no ranking/pruning and preserves eligibility, PNG/state/crop
+deduplication, candidate order, state context and existing request compaction.
+
+The 3072-token ceiling is bounded completion/reasoning headroom for Muse, not a
+license for long answers. Three maximum ordinary items serialize to 641 UTF-8 bytes;
+the conservative escaped representation is at most 1841 bytes. These are serialization
+bounds, not Muse token counts or proof about its hidden reasoning allocation.
+No reasoning/sampling setting changes, retries, repair, or provider-side JSON Schema
+constraint are added. The current Baseten Muse integration sends schema-bearing
+instructions and performs strict local JSON/Zod parsing; Muse has no supported
+`response_format` enforcement here. Model/provider identity is unchanged.
+
+New retained results wrap the compact selection in a server-owned `version: 3`
+envelope. No generated rationale is manufactured. Historical v2 selections and
+invocation projections remain readable and are never rewritten. The same sourceRefs
+and question feed the unchanged vision-context construction and vision prompt/schema.
+The existing observation pane reports only validated selected IDs before vision starts.
+Selection-only debug snapshots use the existing 8 KiB instructions/schema, 32 KiB
+input/output and 128 KiB column bounds and sanitization. Fixed diagnostics identify
+unknown/duplicate checkpoint, excessive count and unknown/duplicate source references.
+Schema-valid output survives correspondence rejection; malformed, incomplete and
+schema-invalid provider content remains excluded. Unknown operations remain denied.

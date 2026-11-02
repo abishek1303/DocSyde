@@ -80,7 +80,7 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
       phase = "decision"; output = mode === "not-needed" ? { status: "not-needed", reason: "Source is sufficient for this change", staticEvidence: "sufficient", targets: [], uncertainties: [] }
         : { status: "inspect", reason: "Inspect rendered requirement", staticEvidence: "uncertain", targets: [{ pathname: "/requests/new", description: "Request form", visibleEvidence: ["Requirement label"], citations: [citation] }], uncertainties: [] };
     } else if (input.candidates) {
-      phase = "selection"; output = { decision: "analyze", reason: "Inspect requirement", selected: [{ checkpointId: input.candidates[0].checkpointId, sourceRefs: ["source-1"], reason: "Check visible requirement", question: "What requirement is visible?" }], uncertainties: [] };
+      phase = "selection"; output = { selected: [{ checkpointId: input.candidates[0].checkpointId, sourceRefs: ["source-1"], question: "What requirement is visible?" }] };
     } else if (input.visualReferences) {
       phase = "impact";
       assert.ok(input.runtimeInspection, "Coverage context reaches synthesis");
