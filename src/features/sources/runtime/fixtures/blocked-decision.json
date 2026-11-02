@@ -1,0 +1,13 @@
+{
+  "status": "inspect",
+  "reason": "Verify rendered Blocked status",
+  "staticEvidence": "sufficient",
+  "targets": [
+    {
+      "findingRef": "finding-3",
+      "targetRef": "target-0",
+      "reason": "Check the Blocked icon in the grouped issue list"
+    }
+  ],
+  "uncertainties": []
+}

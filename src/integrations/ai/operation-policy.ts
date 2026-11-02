@@ -12,7 +12,7 @@ export type InferenceOptions = z.infer<typeof optionsSchema>;
 const policies = {
   "source-analysis": [8192, "source-analysis-v3"],
   "source-summary": [8192, "source-summary-v1"],
-  "runtime-decision": [4096, "runtime-decision-v2"],
+  "runtime-decision": [4096, "runtime-decision-v3"],
   "visual-selection": [3072, "visual-selection-v3"],
   "runtime-vision": [4096, "runtime-vision-v2"],
   "product-impact": [8192, "product-impact-v2"],

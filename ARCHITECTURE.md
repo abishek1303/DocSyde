@@ -1065,3 +1065,18 @@ fixed public structural key names (at most eight per issue), total/withheld key 
 sanitized schema paths, schema/output hashes and output byte length. Arbitrary key
 names and all schema-invalid values remain excluded. Other operations preserve their
 current diagnostic projection and inference behavior. No migration or backfill.
+
+## Compact runtime inspection decisions
+
+Sources now generates runtime-decision-v3 as a bounded semantic IR: status, short
+reason, staticEvidence, up to three finding/target-reference pairs with short check
+reasons, and up to three short uncertainties. Invocation-local IDs resolve against
+validated source findings and the existing literal-route/operator-capability table.
+Sources reconstructs canonical paths, capability IDs and citations, using each short
+check reason for the canonical description/visible-evidence context. The existing
+canonical correspondence validator runs afterward. Unknown IDs, duplicate pairs,
+invalid evidence/authority or excessive canonical citations reject; no evidence is
+silently dropped. Canonical/historical decision schemas and downstream execution stay
+unchanged. Debug output is labeled as compact references, separate from resolved run
+metadata. No provider/model/ceiling or reasoning option changes; no fallback or retry
+is added. See the Sources runtime contract and exact review diff for calculated bounds.

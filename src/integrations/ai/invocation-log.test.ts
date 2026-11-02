@@ -291,3 +291,21 @@ test("product-impact invalid-root diagnostics survive logging without retaining 
   assert.ok(!JSON.stringify(row.diagnostic).includes("PRIVATE_VALUE"));
   assert.ok(!JSON.stringify(row.diagnostic).includes("SECRET_KEY_NAME"));
 });
+
+test("runtime decision v3 retains compact IR and unknown-target diagnostics without canonical echoes", async t => {
+  const s = setup(t);
+  const { inspectionDecisionIRSchema } = await import("@/features/sources/runtime/inspection-decision-ir");
+  const { resolveRuntimeDecision } = await import("@/features/sources/runtime/decide-runtime-inspection");
+  const { default: fixture } = await import("@/features/sources/impact/fixtures/blocked-impact.json");
+  const { storedProductResult } = await import("@/features/sources/analysis/stored-product-result");
+  const { invocationDebugView } = await import("@/features/documentation/runs/invocation-debug-view");
+  const source = storedProductResult.parse(fixture.source);
+  const output = { status: "inspect", reason: "Check Blocked", staticEvidence: "sufficient", targets: [{ findingRef: "finding-1", targetRef: "target-0", reason: "Check changed status" }], uncertainties: [] };
+  t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(output) } }] }));
+  const result = await s.generateStructured({ ...options, invocation: { ...invocation, stage: "runtime-decision", operation: "runtime-decision" }, schema: inspectionDecisionIRSchema, postValidation: true });
+  await assert.rejects(s.validateInvocation(result.invocationId, () => resolveRuntimeDecision(result.data, source, []), "correspondence-rejection"), /unsupported-route/);
+  const row = s.rows.get(result.invocationId!)!; const view = invocationDebugView({ ...row, failureKind: row.failureKind ?? null });
+  assert.deepEqual(JSON.parse(view.response!.output.content), output);
+  assert.equal(view.diagnostic?.path, "targets[0].targetRef");
+  assert.match(view.responseAvailability, /compact routing references/);
+});

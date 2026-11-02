@@ -61,7 +61,6 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
   const realFetch = globalThis.fetch;
   const base = "a".repeat(40), head = "b".repeat(40);
   const patch = '@@ -0,0 +1,2 @@\n+required\n+route: "/requests/new"';
-  const citation = { evidenceId: "patch-f1", startLine: 3, endLine: 3, excerpt: '+route: "/requests/new"' };
   const meta = (sha: string) => ({ sha, html_url: `${repository}/commit/${sha}`, parents: sha === head ? [{ sha: base }] : [], commit: { message: "Require a title", author: { name: "Fixture" }, committer: { date: "2026-10-30T12:00:00Z" } }, files: [] });
   const count = (key: string) => { counts[key] = (counts[key] ?? 0) + 1; };
   t.mock.method(globalThis, "fetch", async (url: unknown, init?: RequestInit) => {
@@ -76,9 +75,9 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
     if (!text) { phase = "vision"; output = { elements: [], observations: ["Title is required."], limitations: ["Visible state only"] }; }
     else if (instructions.includes("Interpret meaningful PRODUCT")) {
       phase = "source"; output = { assessment: "product-change", findings: [{ kind: "field-requirement-changed", description: "A title is required", before: "Optional", after: "Required", support: "directly-supported", confidence: "high", confidenceReason: "Literal source", citations: [{ evidenceId: "patch-f1", startLine: 2, endLine: 2 }], reachabilityEvidenceIds: [], assumptions: [], uncertainties: [] }], uncertainties: [] };
-    } else if (input.routeCandidates) {
+    } else if (Array.isArray(input.targets)) {
       phase = "decision"; output = mode === "not-needed" ? { status: "not-needed", reason: "Source is sufficient for this change", staticEvidence: "sufficient", targets: [], uncertainties: [] }
-        : { status: "inspect", reason: "Inspect rendered requirement", staticEvidence: "uncertain", targets: [{ pathname: "/requests/new", description: "Request form", visibleEvidence: ["Requirement label"], citations: [citation] }], uncertainties: [] };
+        : { status: "inspect", reason: "Inspect rendered requirement", staticEvidence: "uncertain", targets: [{ findingRef: "finding-1", targetRef: "target-0", reason: "Check the requirement label" }], uncertainties: [] };
     } else if (input.candidates) {
       phase = "selection"; output = { selected: [{ checkpointId: input.candidates[0].checkpointId, sourceRefs: ["source-1"], question: "What requirement is visible?" }] };
     } else if (input.visualReferences) {

@@ -1047,3 +1047,23 @@ Offline verification: product-impact tests 50 passed; AI tests 52; source compat
 production Webpack build and diff checks passed. TypeScript was rerun after the build
 finished to avoid concurrent regeneration of `.next/types`. All provider transport in
 tests was mocked; provider attempts were 0 and the external workflow was not rerun.
+
+## Compact runtime-decision contract
+
+Runtime-decision-v3 returns exact finding/target IDs and short semantic reasons;
+Sources resolves canonical routes/capabilities/citations before the existing runtime
+validator and execution boundary. Historical decisions remain readable without a
+migration or backfill. No setup or runtime workflow change is required.
+
+The model-output maximum is 864 ASCII bytes / 1,984 worst-case UTF-8 bytes versus
+18,513 / 87,313 for the old schema. The existing Baseten Meta Muse Spark Open -1026
+model and 4,096 output-token ceiling are retained for always-enabled reasoning
+headroom; no reasoning control, fallback or provider run is introduced. See the
+[complete contract and consumer audit](src/features/sources/runtime/inspection-decision-contract.md)
+and [exact before/after review snippets](src/features/sources/runtime/inspection-decision-review.md).
+
+Offline verification: runtime-decision focused tests 15 passed; source compatibility
+146; AI 53; real Chromium visual/runtime 69; inspection/observation 27; documentation
+153; PostgreSQL/Chromium run orchestration 17. Sandbox-blocked observation binding
+was rerun outside the sandbox and passed. Lint, TypeScript, Webpack production build
+and diff checks passed. Tests mock model transport; provider attempts were 0.
