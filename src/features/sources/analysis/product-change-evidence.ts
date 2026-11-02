@@ -1,4 +1,5 @@
-import type { ProductAnalysis, ProductBundle, AnalysisRejection } from "./product-change-analysis";
+import { productChangeGenerationOutput } from "./product-change-analysis";
+import type { ProductAnalysis, ProductBundle, AnalysisRejection, GeneratedProductAnalysis } from "./product-change-analysis";
 import { PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES } from "./product-change-limits";
 import { noGenerationContext, type GenerationContextSnapshot } from "../context/generation-context";
 export class ProductEvidenceBudgetError extends Error {
@@ -43,4 +44,26 @@ export function validateProductAnalysis(analysis: ProductAnalysis, bundle: Produ
     if (finding.kind === "capability-added" && (!finding.reachabilityEvidenceIds.length || finding.reachabilityEvidenceIds.some(id => !cited.some(e => e.id === id)))) reject("missing-reachability-evidence", findingIndex);
     if (finding.support === "inferred" && !finding.assumptions.length && !finding.uncertainties.length) reject("unqualified-inference", findingIndex);
   }
+}
+
+/** New model references become canonical citations before any downstream consumer. */
+export function reconstructProductAnalysis(analysis: GeneratedProductAnalysis, bundle: ProductBundle): ProductAnalysis {
+  const references = productChangeGenerationOutput.parse(analysis);
+  if (new Set(bundle.evidence.map(entry => entry.id)).size !== bundle.evidence.length) reject("duplicate-reference");
+  const canonical: ProductAnalysis = { ...references, findings: references.findings.map((finding, findingIndex) => ({
+    ...finding, citations: finding.citations.map((citation, citationIndex) => {
+      const evidence = bundle.evidence.find(e => e.id === citation.evidenceId);
+      if (!evidence) reject("unknown-evidence", findingIndex, citationIndex);
+      if (evidence.text === null) reject("unavailable-evidence", findingIndex, citationIndex);
+      const lines = evidence.text.split("\n");
+      if (!Number.isInteger(citation.startLine) || !Number.isInteger(citation.endLine) || citation.startLine < 1
+        || citation.endLine < citation.startLine || citation.endLine > lines.length) reject("invalid-line-range", findingIndex, citationIndex);
+      const excerpt = lines.slice(citation.startLine - 1, citation.endLine).join("\n");
+      // Preserve the historical canonical contract; never truncate or normalize evidence.
+      if (!excerpt.length || excerpt.length > 600) reject("citation-excerpt-size", findingIndex, citationIndex);
+      return { evidenceId: citation.evidenceId, startLine: citation.startLine, endLine: citation.endLine, excerpt };
+    }),
+  })) };
+  validateProductAnalysis(canonical, bundle);
+  return canonical;
 }

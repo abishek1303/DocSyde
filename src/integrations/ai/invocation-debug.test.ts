@@ -4,12 +4,12 @@ import { debugPolicy, debugRequest, debugOutput, debugSection, DEBUG_LIMITS, rej
 import { invocationDebugView } from "@/features/documentation/runs/invocation-debug-view";
 
 test("operation policies default deny; transformation unknown entries and vision prose stay excluded", () => {
-  for (const operation of ["unknown", "toString", "source-analysis"]) {
+  for (const operation of ["unknown", "toString"]) {
     assert.deepEqual(Object.values(debugPolicy(operation)), [false, false, false, false, false]);
     assert.equal(debugRequest(operation, "instructions", "input", "{}"), undefined);
     assert.equal(debugOutput(operation, { value: "private" }), undefined);
   }
-  for (const operation of ["visual-selection", "runtime-decision", "documentation-planning", "product-impact"]) {
+  for (const operation of ["source-analysis", "visual-selection", "runtime-decision", "documentation-planning", "product-impact"]) {
     assert.ok(debugRequest(operation, "instructions", "input", "{}"));
     assert.ok(debugOutput(operation, { value: "validated" }));
   }
@@ -73,4 +73,16 @@ test("selection debug uses existing byte/redaction bounds and legacy projections
   const view = invocationDebugView({ operation: "visual-selection", failureKind: null, requestPayload: { input: '{"workflow":"safe"}' }, responsePayload: legacy });
   assert.deepEqual(JSON.parse(view.response!.output.content), legacy); assert.ok(view.input);
   assert.equal(invocationDebugView({ operation: "visual-selection", failureKind: null, responsePayload: { ...legacy, extra: "UNSAFE" } }).response, null);
+});
+
+test("source snapshots redact credential forms and enforce central bounds and truncation markers", () => {
+  const request = debugRequest("source-analysis", "instruction".repeat(2000), JSON.stringify({ text: "Bearer SECRET_VALUE " + "x".repeat(50000), api_key: "SECRET_VALUE" }), "{}")!;
+  assert.ok(request.input.truncated); assert.ok(request.input.redacted);
+  assert.ok(request.input.retainedBytes <= DEBUG_LIMITS.input);
+  assert.ok(request.instructions.truncated);
+  assert.ok(!JSON.stringify(request).includes("SECRET_VALUE"));
+  assert.ok(Buffer.byteLength(JSON.stringify(request)) <= DEBUG_LIMITS.column);
+  const response = debugOutput("source-analysis", { value: "x".repeat(50000), api_key: "SECRET_VALUE" })!;
+  assert.ok(response.output.truncated); assert.ok(response.output.redacted);
+  assert.ok(response.output.retainedBytes <= DEBUG_LIMITS.output);
 });

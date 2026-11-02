@@ -919,3 +919,110 @@ transport is forbidden. It creates no scenario refs or frozen experiment.
 For old runs without event history, the reader may show an exact retained
 selection-failed/vision-failed/cancelled runtime outcome, explicitly labeled as a
 retained run diagnostic. It does not synthesize events or infer errors from raw text.
+
+## External OpenTodo runtime target (November 1, 2026)
+
+Verified the separate checkout `/private/tmp/DockSyde-demo-app-test-subject`
+(`main`, `696c37bdaa67b1d39a3028e5bc7ed5655742f370`), remote
+`https://github.com/abishek1303/DockSyde-demo-app-test-subject`.
+Node 20+ is documented; verification used Node 22.12.0. Install with
+`npx --yes pnpm@10 install --frozen-lockfile`, then start in that checkout with
+`npx --yes pnpm@10 run dev`. The npx form avoids the machine's missing pnpm and
+outdated Corepack signing keys. Actual Vite URL is `http://localhost:5173/?agent`
+(normal `/` also works), with Wrangler API on port 8787. No application `.env`,
+Cloudflare account, or remote database was required. SQLite lives in local
+`.wrangler/state/v3/d1`, rather than the README's stated `data.db`.
+
+Repository descriptive context is saved through `repository_contexts`. The ignored
+trusted workflow is `.artifacts/external-app/runtime.json`, selected with
+`DOCSYDE_RUN_RUNTIME_CONFIG`; it attaches to the running app, checks `/api/stats`,
+opens TASK-1, waits for its status control, and captures a checkpoint. The checkout
+path/start command are recorded as operator context; attach mode does not start or
+stop the host application. `maxSelectedScreenshots: 0` deliberately disables model
+selection; this is a browser-only configuration, not a full documentation run.
+
+The ignored local proof scripts under `.artifacts/external-app` use the existing
+inspection integration-test preload pattern with provider credentials cleared and
+non-loopback fetch forbidden. They leave a labeled runtime-only run (terminal
+`interrupted` because the full pipeline was intentionally not executed):
+`792ad282-090c-4a1f-849d-2107e18dc061`. Its retained inspection has three canonical
+masked checkpoints, one browser launch/close, successful health/navigation/actions,
+and zero AI invocation rows. HTTP screenshot bytes matched ArtifactStorage and PNG
+hashes. Desktop Chrome verified both app modes, creation of one local TASK-1,
+status persistence after refresh, and live DocSyde events plus screenshots.
+GitHub lookup/default branch/current commit/parent comparison also succeeded.
+Local proof receipts and storage are ignored artifacts; `/private/tmp` is temporary.
+No external source code, architecture, provider behavior, or demo feature scenario
+was changed.
+
+### Single Blocked-status end-to-end attempt
+
+The external feature branch `feat/blocked-issue-status` was committed and pushed at
+`52995911826a07247049aa9a914627ff3e9b9e50`, based on the baseline above. It adds
+Blocked to issue controls/grouping and API ordering, with a red barred-circle icon.
+Desktop verification confirmed transitions into/out of Blocked and persistence
+across refresh. Vite production build passed. TypeScript reported the same 15
+server diagnostics on baseline and feature (missing D1Database type and existing
+Hono response mismatches); no unrelated typing repair was made.
+
+The trusted `.artifacts/external-app/full-runtime.json` attaches to the same host,
+selects Blocked, and captures detail/list checkpoints, with up to two visual
+selections. It was loaded successfully by an ordinary DocSyde server on port 45982.
+One authorized paid run, `e2824712-b1e5-48ec-91e0-f7b2c02a44fe`, stopped at source
+analysis after a schema-valid response failed evidence validation:
+`citation-range-mismatch`, finding index 2, citation index 0. Invocation
+`fc81562a-60f2-4bcb-992f-7e94b5367bf2` used Baseten Muse Spark Open -1026,
+3,952 input / 3,418 output tokens, 13,009 ms latency. Run duration was 13,863 ms.
+All downstream stages were skipped; no screenshot, vision call or proposal was
+produced in this run. The existing source-analysis snapshot policy retained no
+prompt/input/output, only invocation metadata and generic post-validation diagnostic.
+The run and invocation UI were inspected in desktop Chrome. No retry, model/prompt
+change, publication change or system patch followed the failure. Sanitized local
+receipt: `.artifacts/external-app/full-run-report.json`.
+
+### Source-analysis rejection diagnostics
+
+Future source-analysis calls retain sanitized, bounded instructions, projected input,
+schema and schema-valid output in the existing invocation log. Grounding rejection
+preserves that output and adds citation coordinates/correspondence hashes. Existing
+central byte ceilings, UTF-8 truncation flags and credential redaction apply. No new
+environment setting or migration is required. The old separate raw local rejection
+writer has been retired; historical local artifacts remain untouched. Inspect the
+existing invocation-detail UI; this does not backfill historical invocation snapshots.
+
+Offline investigation recovered the Blocked failure from the legacy local artifact
+`.artifacts/semantic-analysis-rejections/d9450231-45f3-4ad8-9b31-dcc8d6ab7657.json`.
+It matches the retained run's exact evidence text/base/head and rejection positions,
+and its timestamp matches the invocation interval (the legacy file has no run ID).
+The model cited the correct `patch-f3` line 6 in `issue-list.tsx`, but appended one
+space to its quoted excerpt. The supplied line is 104 characters; returned excerpt
+is 105. The exact-text invariant correctly rejected it. No prompt, validator or
+inference configuration was changed, and no provider inference was performed.
+Regression fixtures/tests reproduce this historical output without network access.
+
+### Source-analysis v3 citation contract correction
+
+New source-analysis generation returns citation references only (`evidenceId`,
+`startLine`, `endLine`). DocSyde reconstructs each full inclusive range from the
+supplied evidence before storing/using canonical analysis. Positions remain one-based
+within evidence text, including patch headers/prefixes and all hunks. There is no
+whitespace normalization. Invalid IDs/bounds, unavailable evidence and empty/oversized
+canonical excerpts reject; the canonical excerpt cap remains 600 characters. Changed
+support and capability reachability checks still apply. Valid reference membership
+alone cannot establish semantic claim correctness.
+
+The historical Blocked fixture remains intact. Its correct references now produce
+canonical excerpts without the model's extra trailing space, while historical record
+validation still rejects the original malformed excerpt. No historical rows are
+rewritten. Invocation details distinguish retained model references from canonical
+run excerpts; malformed/schema-invalid output stays excluded. No setup change,
+migration, provider call or workflow rerun is needed. This supersedes the earlier
+investigation's no-prompt-change note: only the source-analysis prompt/schema now
+use references; downstream prompts and inference settings remain unchanged.
+
+Correction verification (offline/mocked): source suite 183 passed; AI suite 50;
+documentation suite 153; run unit suite 10; PostgreSQL/Chromium orchestration suite
+17. Documentation Chromium tests required execution outside the filesystem sandbox.
+All 19 inspected historical persisted run payloads parsed successfully without writes.
+Lint, TypeScript, production Webpack build and diff checks passed. No provider calls
+or external-app workflow rerun occurred during the correction.

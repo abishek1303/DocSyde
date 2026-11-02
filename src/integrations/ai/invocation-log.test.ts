@@ -40,7 +40,7 @@ const invocation = { runId: "851b8554-a0e8-4a8a-b09d-a1ee7434f437", stage: "sour
 const options = { input: "PRIVATE_SOURCE_PATCH", instructions: "PRIVATE_INSTRUCTIONS", schema: z.object({ value: z.string() }).strict(), invocation };
 const png = new Uint8Array([137,80,78,71,13,10,26,10,1]);
 
-test("text invocation metadata, explicit correlation and local validation do not retain payloads", async t => {
+test("source analysis retains bounded schema-valid debug through grounding rejection", async t => {
   const s = setup(t);
   t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: '{"value":"PRIVATE_OUTPUT"}', reasoning_content: "PRIVATE_REASONING" } }], usage: { prompt_tokens: 12, completion_tokens: 8 } }));
   const generated = await s.generateStructured({ ...options, postValidation: true });
@@ -54,7 +54,9 @@ test("text invocation metadata, explicit correlation and local validation do not
   await assert.rejects(s.validateInvocation(generated.invocationId, () => { throw rejection; }, "grounding-rejection"), error => error === rejection);
   assert.equal(s.rows.get(generated.invocationId)?.failureKind, "grounding-rejection");
   assert.equal(s.rows.get(generated.invocationId)?.completionReason, "stop");
-  assert.ok(!JSON.stringify([...s.rows.values()]).includes("PRIVATE"));
+  assert.ok(s.rows.get(generated.invocationId)?.requestPayload);
+  assert.ok(s.rows.get(generated.invocationId)?.responsePayload);
+  assert.ok(!JSON.stringify([...s.rows.values()]).includes("PRIVATE_REASONING"));
 });
 
 test("safe failure classification and usage survive incomplete, malformed, schema-invalid and refused output", async t => {
@@ -69,7 +71,10 @@ test("safe failure classification and usage survive incomplete, malformed, schem
   t.mock.method(globalThis, "fetch", async () => new Response("PRIVATE_PROVIDER_BODY", { status: 401 }));
   await assert.rejects(s.generateStructured(options));
   assert.equal([...s.rows.values()].at(-1)?.failureKind, "unauthorized");
-  assert.ok(!JSON.stringify([...s.rows.values()]).includes("PRIVATE"));
+  for (const row of s.rows.values()) {
+    assert.equal(row.responsePayload, null);
+    assert.ok(!JSON.stringify(row.diagnostic).includes("PRIVATE"));
+  }
 });
 
 test("vision records equivalent optional metadata without retaining bytes, output or reasoning", async t => {
@@ -220,5 +225,52 @@ test("allowlisted malformed and schema-invalid output is never retained", async 
     const row = [...s.rows.values()].at(-1)!;
     assert.equal(row.responsePayload, null); assert.equal(row.responseOmissionReason, "model-failure");
     assert.ok(!JSON.stringify(row).includes("UNSAFE"));
+  }
+});
+
+test("source citation rejection preserves schema-valid output and bounded correspondence details", async t => {
+  const s = setup(t);
+  const { default: fixture } = await import("@/features/sources/analysis/fixtures/blocked-status.json");
+  const { productChangeOutput } = await import("@/features/sources/analysis/product-change-analysis");
+  const { serializeProductEvidence } = await import("@/features/sources/analysis/product-change-evidence");
+  const { validateWithDiagnostics } = await import("@/features/sources/analysis/analysis-diagnostics");
+  const bundle = fixture.bundle as import("@/features/sources/analysis/product-change-analysis").ProductBundle;
+  const input = serializeProductEvidence(bundle);
+  t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(fixture.output) } }] }));
+  const result = await s.generateStructured({ ...options, input, schema: productChangeOutput, postValidation: true });
+  const before = s.rows.get(result.invocationId!)!.responsePayload;
+  await assert.rejects(s.validateInvocation(result.invocationId, () => validateWithDiagnostics(result.data, bundle, input), "grounding-rejection"), /citation-range-mismatch/);
+  const row = s.rows.get(result.invocationId!)!;
+  assert.equal(row.status, "failed"); assert.deepEqual(row.responsePayload, before);
+  const { invocationDebugView } = await import("@/features/documentation/runs/invocation-debug-view");
+  const view = invocationDebugView({ ...row, failureKind: row.failureKind ?? null });
+  assert.ok(view.request); assert.ok(view.response);
+  assert.equal(view.diagnostic?.code, "citation-range-mismatch");
+  assert.equal(view.diagnostic?.path, "findings[2].citations[0]");
+});
+
+test("source v3 logs model references separately from canonical excerpts and retains invalid-reference diagnostics", async t => {
+  const s = setup(t);
+  const { default: fixture } = await import("@/features/sources/analysis/fixtures/blocked-status.json");
+  const { productChangeGenerationOutput } = await import("@/features/sources/analysis/product-change-analysis");
+  const { serializeProductEvidence } = await import("@/features/sources/analysis/product-change-evidence");
+  const { validateWithDiagnostics } = await import("@/features/sources/analysis/analysis-diagnostics");
+  const { invocationDebugView } = await import("@/features/documentation/runs/invocation-debug-view");
+  const bundle = fixture.bundle as import("@/features/sources/analysis/product-change-analysis").ProductBundle;
+  const input = serializeProductEvidence(bundle);
+  for (const invalid of [false, true]) {
+    const output = { ...fixture.output, findings: fixture.output.findings.map(f => ({ ...f, citations: f.citations.map(({ evidenceId, startLine, endLine }) => ({ evidenceId, startLine, endLine })) })) };
+    if (invalid) output.findings[2].citations[0].evidenceId = "unknown";
+    t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(output) } }] }));
+    const generated = await s.generateStructured({ ...options, input, schema: productChangeGenerationOutput, postValidation: true });
+    const validated = s.validateInvocation(generated.invocationId, () => validateWithDiagnostics(generated.data, bundle, input, true), "grounding-rejection");
+    if (invalid) await assert.rejects(validated, /unknown-evidence/);
+    else assert.ok((await validated).findings[2].citations[0].excerpt.endsWith(";"));
+    const row = s.rows.get(generated.invocationId!)!;
+    const view = invocationDebugView({ ...row, failureKind: row.failureKind ?? null });
+    assert.equal(row.status, invalid ? "failed" : "succeeded");
+    assert.ok(!view.response!.output.content.includes('"excerpt"'));
+    assert.match(view.responseAvailability, /model-returned citation references/);
+    if (invalid) assert.equal(view.diagnostic?.code, "unknown-evidence");
   }
 });

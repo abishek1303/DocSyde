@@ -328,8 +328,11 @@ safely before fetch. No arbitrary provider fields are forwarded. See Baseten's
 The reasoning overview and detailed table conflict, and neither confirms the hackathon
 alias. Do not silently equate aliases or activate effort values without confirmation.
 
-New generation contracts align source citations (2), reasons (200), excerpts (500),
-and legacy draft blocks (800) to intended prompts. Historical accepted schemas remain
+New generation contracts align source citations (2), reasons (200), and legacy draft
+blocks (800) to intended prompts. Source-analysis-v3 citations return only supplied
+evidence IDs and inclusive tuple positions. DocSyde reconstructs canonical excerpts
+(up to the existing 600-character canonical limit) before downstream use. The prior
+500-character model-authored excerpt field is removed only from source generation. Historical accepted schemas remain
 compatible. Source and product impact have independent output-budget constants.
 Vision preserves 20 elements, 10 observations/limitations and all spatial fields;
 runtime decision preserves three targets/four citations; impact preserves six claims

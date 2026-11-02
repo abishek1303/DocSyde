@@ -75,7 +75,7 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
     let phase: string, output: unknown;
     if (!text) { phase = "vision"; output = { elements: [], observations: ["Title is required."], limitations: ["Visible state only"] }; }
     else if (instructions.includes("Interpret meaningful PRODUCT")) {
-      phase = "source"; output = { assessment: "product-change", findings: [{ kind: "field-requirement-changed", description: "A title is required", before: "Optional", after: "Required", support: "directly-supported", confidence: "high", confidenceReason: "Literal source", citations: [{ evidenceId: "patch-f1", startLine: 2, endLine: 2, excerpt: "+required" }], reachabilityEvidenceIds: [], assumptions: [], uncertainties: [] }], uncertainties: [] };
+      phase = "source"; output = { assessment: "product-change", findings: [{ kind: "field-requirement-changed", description: "A title is required", before: "Optional", after: "Required", support: "directly-supported", confidence: "high", confidenceReason: "Literal source", citations: [{ evidenceId: "patch-f1", startLine: 2, endLine: 2 }], reachabilityEvidenceIds: [], assumptions: [], uncertainties: [] }], uncertainties: [] };
     } else if (input.routeCandidates) {
       phase = "decision"; output = mode === "not-needed" ? { status: "not-needed", reason: "Source is sufficient for this change", staticEvidence: "sufficient", targets: [], uncertainties: [] }
         : { status: "inspect", reason: "Inspect rendered requirement", staticEvidence: "uncertain", targets: [{ pathname: "/requests/new", description: "Request form", visibleEvidence: ["Requirement label"], citations: [citation] }], uncertainties: [] };

@@ -1,0 +1,209 @@
+{
+  "bundle": {
+    "repository": "https://github.com/abishek1303/docksyde-demo-app-test-subject",
+    "base": "696c37bdaa67b1d39a3028e5bc7ed5655742f370",
+    "head": "52995911826a07247049aa9a914627ff3e9b9e50",
+    "inventory": [
+      {
+        "path": "src/client/components/create-issue.tsx",
+        "previousPath": null,
+        "kind": "modified"
+      },
+      {
+        "path": "src/client/components/issue-detail.tsx",
+        "previousPath": null,
+        "kind": "modified"
+      },
+      {
+        "path": "src/client/components/issue-list.tsx",
+        "previousPath": null,
+        "kind": "modified"
+      },
+      {
+        "path": "src/client/components/status-icon.tsx",
+        "previousPath": null,
+        "kind": "modified"
+      },
+      {
+        "path": "src/client/types.ts",
+        "previousPath": null,
+        "kind": "modified"
+      },
+      {
+        "path": "src/server/index.ts",
+        "previousPath": null,
+        "kind": "modified"
+      }
+    ],
+    "limited": false,
+    "notice": "Selected context only. Supplied patches may be incomplete. Runtime behavior, deployment and tests are unverified.",
+    "evidence": [
+      {
+        "id": "patch-f1",
+        "text": "@@ -3,7 +3,7 @@ import { X } from \"lucide-preact\";\n import { useApp } from \"../context\";\n import type { IssueStatus, Priority } from \"../types\";\n \n-const STATUSES: IssueStatus[] = [\"backlog\", \"todo\", \"in_progress\", \"done\"];\n+const STATUSES: IssueStatus[] = [\"backlog\", \"todo\", \"in_progress\", \"blocked\", \"done\"];\n const PRIORITIES: Priority[] = [\"none\", \"urgent\", \"high\", \"medium\", \"low\"];\n \n export function CreateIssue({ onClose }: { onClose: () => void }) {",
+        "path": "src/client/components/create-issue.tsx",
+        "side": "patch",
+        "commitId": null,
+        "status": "included",
+        "changed": true
+      },
+      {
+        "id": "patch-f2",
+        "text": "@@ -6,7 +6,7 @@ import { PriorityIcon, priorityLabel } from \"./priority-icon\";\n import { LabelPill } from \"./label-pill\";\n import type { IssueStatus, Priority } from \"../types\";\n \n-const STATUSES: IssueStatus[] = [\"backlog\", \"todo\", \"in_progress\", \"done\", \"cancelled\"];\n+const STATUSES: IssueStatus[] = [\"backlog\", \"todo\", \"in_progress\", \"blocked\", \"done\", \"cancelled\"];\n const PRIORITIES: Priority[] = [\"none\", \"urgent\", \"high\", \"medium\", \"low\"];\n \n export function IssueDetail() {",
+        "path": "src/client/components/issue-detail.tsx",
+        "side": "patch",
+        "commitId": null,
+        "status": "included",
+        "changed": true
+      },
+      {
+        "id": "patch-f3",
+        "text": "@@ -7,7 +7,7 @@ import { Pagination } from \"./pagination\";\n import { CreateIssue } from \"./create-issue\";\n import type { IssueStatus } from \"../types\";\n \n-const STATUS_ORDER: IssueStatus[] = [\"in_progress\", \"todo\", \"backlog\", \"done\", \"cancelled\"];\n+const STATUS_ORDER: IssueStatus[] = [\"in_progress\", \"blocked\", \"todo\", \"backlog\", \"done\", \"cancelled\"];\n \n export function IssueList() {\n   const { issues, issuesPag, setIssuesPage, issuesSearch, setIssuesSearch, selectIssue, stats } = useApp();",
+        "path": "src/client/components/issue-list.tsx",
+        "side": "patch",
+        "commitId": null,
+        "status": "included",
+        "changed": true
+      },
+      {
+        "id": "patch-f4",
+        "text": "@@ -4,6 +4,7 @@ const STATUS_COLORS: Record<IssueStatus, string> = {\n   backlog: \"#9ca3af\",\n   todo: \"#f2994a\",\n   in_progress: \"#2563eb\",\n+  blocked: \"#dc2626\",\n   done: \"#16a34a\",\n   cancelled: \"#9ca3af\",\n };\n@@ -12,6 +13,7 @@ const STATUS_LABELS: Record<IssueStatus, string> = {\n   backlog: \"Backlog\",\n   todo: \"Todo\",\n   in_progress: \"In Progress\",\n+  blocked: \"Blocked\",\n   done: \"Done\",\n   cancelled: \"Cancelled\",\n };\n@@ -21,6 +23,15 @@ export function StatusIcon({ status, size = 14 }: { status: IssueStatus; size?:\n   const half = size / 2;\n   const r = half - 1.5;\n \n+  if (status === \"blocked\") {\n+    return (\n+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill=\"none\" aria-label={STATUS_LABELS[status]}>\n+        <circle cx={half} cy={half} r={r} stroke={color} stroke-width=\"1.5\" />\n+        <line x1={size * 0.3} y1={half} x2={size * 0.7} y2={half} stroke={color} stroke-width=\"1.5\" stroke-linecap=\"round\" />\n+      </svg>\n+    );\n+  }\n+\n   if (status === \"done\") {\n     return (\n       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill=\"none\" aria-label={STATUS_LABELS[status]}>",
+        "path": "src/client/components/status-icon.tsx",
+        "side": "patch",
+        "commitId": null,
+        "status": "included",
+        "changed": true
+      },
+      {
+        "id": "patch-f5",
+        "text": "@@ -1,6 +1,6 @@\n export type View = \"issues\" | \"projects\";\n \n-export type IssueStatus = \"backlog\" | \"todo\" | \"in_progress\" | \"done\" | \"cancelled\";\n+export type IssueStatus = \"backlog\" | \"todo\" | \"in_progress\" | \"blocked\" | \"done\" | \"cancelled\";\n export type Priority = \"none\" | \"urgent\" | \"high\" | \"medium\" | \"low\";\n export type ProjectStatus = \"backlog\" | \"planned\" | \"in_progress\" | \"completed\" | \"cancelled\";\n ",
+        "path": "src/client/types.ts",
+        "side": "patch",
+        "commitId": null,
+        "status": "included",
+        "changed": true
+      },
+      {
+        "id": "patch-f6",
+        "text": "@@ -152,7 +152,7 @@ const listIssues = createRoute({\n       page: z.string().optional().openapi({ description: \"Page number (default: 1)\" }),\n       limit: z.string().optional().openapi({ description: \"Items per page (default: 50, max: 100)\" }),\n       search: z.string().optional().openapi({ description: \"Search by title or identifier\" }),\n-      status: z.string().optional().openapi({ description: \"Filter by status (todo, in_progress, done, backlog, cancelled)\" }),\n+      status: z.string().optional().openapi({ description: \"Filter by status (todo, in_progress, blocked, done, backlog, cancelled)\" }),\n       project_id: z.string().optional().openapi({ description: \"Filter by project ID\" }),\n     }),\n   },\n@@ -209,10 +209,11 @@ app.openapi(listIssues, async (c) => {\n        ORDER BY\n          CASE i.status\n            WHEN 'in_progress' THEN 0\n-           WHEN 'todo' THEN 1\n-           WHEN 'backlog' THEN 2\n-           WHEN 'done' THEN 3\n-           WHEN 'cancelled' THEN 4\n+           WHEN 'blocked' THEN 1\n+           WHEN 'todo' THEN 2\n+           WHEN 'backlog' THEN 3\n+           WHEN 'done' THEN 4\n+           WHEN 'cancelled' THEN 5\n          END,\n          CASE i.priority\n            WHEN 'urgent' THEN 0",
+        "path": "src/server/index.ts",
+        "side": "patch",
+        "commitId": null,
+        "status": "included",
+        "changed": true
+      }
+    ]
+  },
+  "output": {
+    "assessment": "product-change",
+    "findings": [
+      {
+        "kind": "capability-added",
+        "description": "New IssueStatus \"blocked\" is selectable when creating an issue and as part of the IssueStatus type system. CreateIssue now offers backlog, todo, in_progress, blocked, done.",
+        "before": "IssueStatus was \"backlog\" | \"todo\" | \"in_progress\" | \"done\" | \"cancelled\" without \"blocked\"; CreateIssue STATUSES did not include blocked.",
+        "after": "IssueStatus includes \"blocked\" and CreateIssue STATUSES is [\"backlog\",\"todo\",\"in_progress\",\"blocked\",\"done\"] allowing users to create blocked issues.",
+        "support": "directly-supported",
+        "confidence": "high",
+        "confidenceReason": "Patch directly adds \"blocked\" to type union and to CreateIssue status array with explicit excerpts.",
+        "citations": [
+          {
+            "evidenceId": "patch-f5",
+            "startLine": 5,
+            "endLine": 5,
+            "excerpt": "+export type IssueStatus = \"backlog\" | \"todo\" | \"in_progress\" | \"blocked\" | \"done\" | \"cancelled\";"
+          },
+          {
+            "evidenceId": "patch-f1",
+            "startLine": 6,
+            "endLine": 6,
+            "excerpt": "+const STATUSES: IssueStatus[] = [\"backlog\", \"todo\", \"in_progress\", \"blocked\", \"done\"];"
+          }
+        ],
+        "reachabilityEvidenceIds": [
+          "patch-f5",
+          "patch-f1"
+        ],
+        "assumptions": [],
+        "uncertainties": [
+          "No explicit button label or form submission flow text shown in patch; selection control UI not detailed."
+        ]
+      },
+      {
+        "kind": "workflow-changed",
+        "description": "IssueDetail status selector now includes \"blocked\" alongside existing statuses, allowing users to change an existing issue to Blocked (now 6 options including cancelled).",
+        "before": "IssueDetail STATUSES was [\"backlog\",\"todo\",\"in_progress\",\"done\",\"cancelled\"] without blocked.",
+        "after": "IssueDetail STATUSES is [\"backlog\",\"todo\",\"in_progress\",\"blocked\",\"done\",\"cancelled\"] with blocked available during editing.",
+        "support": "directly-supported",
+        "confidence": "high",
+        "confidenceReason": "Patch explicitly inserts \"blocked\" into IssueDetail STATUSES array.",
+        "citations": [
+          {
+            "evidenceId": "patch-f2",
+            "startLine": 6,
+            "endLine": 6,
+            "excerpt": "+const STATUSES: IssueStatus[] = [\"backlog\", \"todo\", \"in_progress\", \"blocked\", \"done\", \"cancelled\"];"
+          }
+        ],
+        "reachabilityEvidenceIds": [],
+        "assumptions": [],
+        "uncertainties": []
+      },
+      {
+        "kind": "workflow-changed",
+        "description": "Issue list groups and sorts issues with new Blocked tier positioned second after In Progress, before Todo/Backlog/Done/Cancelled, and server listIssues supports filtering by blocked.",
+        "before": "Client STATUS_ORDER was [\"in_progress\",\"todo\",\"backlog\",\"done\",\"cancelled\"] and server filter description listed todo,in_progress,done,backlog,cancelled with ORDER BY ranking without blocked.",
+        "after": "Client STATUS_ORDER is [\"in_progress\",\"blocked\",\"todo\",\"backlog\",\"done\",\"cancelled\"] and server status query description adds blocked and ORDER BY assigns WHEN 'blocked' THEN 1 pushing todo to 2 etc.",
+        "support": "directly-supported",
+        "confidence": "high",
+        "confidenceReason": "Both client STATUS_ORDER patch and server OpenAPI description plus SQL CASE ordering explicitly show blocked insertion.",
+        "citations": [
+          {
+            "evidenceId": "patch-f3",
+            "startLine": 6,
+            "endLine": 6,
+            "excerpt": "+const STATUS_ORDER: IssueStatus[] = [\"in_progress\", \"blocked\", \"todo\", \"backlog\", \"done\", \"cancelled\"]; "
+          },
+          {
+            "evidenceId": "patch-f6",
+            "startLine": 18,
+            "endLine": 18,
+            "excerpt": "+           WHEN 'blocked' THEN 1"
+          }
+        ],
+        "reachabilityEvidenceIds": [],
+        "assumptions": [],
+        "uncertainties": []
+      },
+      {
+        "kind": "behavior-modified",
+        "description": "StatusIcon renders distinct Blocked indicator: red #dc2626 circle with horizontal line, label \"Blocked\" via STATUS_LABELS[status] aria-label.",
+        "before": "STATUS_COLORS and STATUS_LABELS had no blocked entry and StatusIcon had no blocked branch; only done/cancelled etc handled.",
+        "after": "STATUS_COLORS blocked is \"#dc2626\", STATUS_LABELS blocked is \"Blocked\", and StatusIcon returns dedicated SVG with circle and horizontal line for status === \"blocked\".",
+        "support": "directly-supported",
+        "confidence": "high",
+        "confidenceReason": "Patch adds color, label entries and explicit blocked render branch with exact SVG.",
+        "citations": [
+          {
+            "evidenceId": "patch-f4",
+            "startLine": 5,
+            "endLine": 5,
+            "excerpt": "+  blocked: \"#dc2626\","
+          },
+          {
+            "evidenceId": "patch-f4",
+            "startLine": 13,
+            "endLine": 13,
+            "excerpt": "+  blocked: \"Blocked\","
+          }
+        ],
+        "reachabilityEvidenceIds": [],
+        "assumptions": [],
+        "uncertainties": []
+      }
+    ],
+    "uncertainties": [
+      "Runtime persistence, validation, migration of existing issues to blocked, and exact visible control type (dropdown/radio) not shown in patches.",
+      "Supplied patches may be incomplete per notice; additional UI text or documentation changes could exist outside selected context."
+    ]
+  }
+}

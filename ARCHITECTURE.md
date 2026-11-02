@@ -896,7 +896,8 @@ runs need no backfill. No telemetry service or reconciliation worker is added.
 
 Generation-only source analysis and legacy draft schemas enforce their prose limits
 without shrinking stored/historical contracts. Source generation permits two citations,
-200-character confidence reasons and 500-character excerpts. Legacy generated draft
+200-character confidence reasons; v3 citation references replace the earlier model-authored
+500-character excerpts (canonical excerpts retain their 600-character cap). Legacy generated draft
 blocks are limited to 800 characters while historical canonical blocks retain 1500.
 Other evidence counts/spatial fields and all completion ceilings are preserved. Product
 impact owns an independent 8192-token constant rather than sharing the source constant.
@@ -1022,3 +1023,34 @@ These callbacks preserve error identities, trace semantics, masking and storage 
 A stored-PNG event is not a retention announcement; canonical evidence remains gated
 by cleanup, manifest storage and successful run linkage. Historical v1 events remain
 readable. No event transport, screenshot path, provider behavior or SDK change is added.
+
+Source analysis now joins the existing bounded invocation-debug allowlist for the
+actual model-facing instructions, projected input/schema and schema-valid output.
+Its existing grounding validator remains unchanged. Feature-owned diagnostics attach
+fixed rejection codes, citation positions, returned/allowed coordinates, up to eight
+matching excerpt ranges and input/citation/evidence hashes to the original error.
+Citation identifiers/paths pass through the centralized redaction and byte-limited
+section format. Invocation readers use their existing strict snapshot validation.
+The earlier separate raw local semantic-rejection writer is retired; existing files
+remain untouched, with no historical SQL backfill. These snapshots are diagnostics,
+not evidence, future model input or authority. Malformed/schema-invalid output is
+never retained. Provider settings, prompts and all downstream stages are unchanged.
+
+## Source citation references and canonical excerpts
+
+Source-analysis generation v3 returns only evidenceId and inclusive startLine/endLine
+for each citation. Sources resolves these references against the exact supplied bundle
+and reconstructs excerpt text with split("\n").slice(start-1,end).join("\n") before
+existing canonical analysis validation and downstream use. IDs, availability, integer
+bounds, nonempty/bounded canonical excerpts, changed evidence and reachability remain
+validated. No trimming, source-coordinate reinterpretation or semantic truth guarantee
+is introduced. Whole reconstructed excerpts must fit the existing canonical 600-character
+limit; excessive ranges fail rather than truncate. In-bounds references prove evidence
+membership, not that the chosen lines substantiate a claim.
+
+Only new generation uses the reference schema. Historical canonical citation schemas
+and their excerpt correspondence validation remain unchanged; no stored record or
+experiment evidence is rewritten. The retained model-facing debug output is labeled
+as model-returned references, while canonical run analysis/provenance contains resolved
+excerpts. Source-analysis-v3 identifies this contract in invocation metadata. Other
+operations retain their current schemas, prompts and model configuration.

@@ -18,14 +18,15 @@ export const productChangeOutput = z.object({
   uncertainties: z.array(z.string().max(300)).max(4),
 }).strict();
 // Generation-only limits: historical evidence/results retain their original allowance.
-export const sourceGenerationLimits = { findings: 4, citations: 2, confidenceReason: 200, excerpt: 500 } as const;
+export const sourceGenerationLimits = { findings: 4, citations: 2, confidenceReason: 200 } as const;
 export const productChangeGenerationOutput = productChangeOutput.extend({
   findings: z.array(productChangeOutput.shape.findings.element.extend({
     confidenceReason: z.string().min(1).max(sourceGenerationLimits.confidenceReason),
-    citations: z.array(productCitation.extend({ excerpt: productCitation.shape.excerpt.max(sourceGenerationLimits.excerpt) })).min(1).max(sourceGenerationLimits.citations),
+    citations: z.array(productCitation.omit({ excerpt: true })).min(1).max(sourceGenerationLimits.citations),
     reachabilityEvidenceIds: productChangeOutput.shape.findings.element.shape.reachabilityEvidenceIds.max(sourceGenerationLimits.citations),
   })).max(sourceGenerationLimits.findings),
 });
+export type GeneratedProductAnalysis = z.infer<typeof productChangeGenerationOutput>;
 export type ProductAnalysis = z.infer<typeof productChangeOutput>;
 export type ProductEvidence = { id: string; path: string; side: "patch" | "base" | "head"; commitId: string | null; text: string | null; status: string; contentId?: string | null; changed: boolean };
 export type ProductBundle = { repository: string; base: string; head: string; evidence: ProductEvidence[]; inventory: { path: string; previousPath: string | null; kind: string }[]; limited: boolean; notice: string };

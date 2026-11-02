@@ -10,7 +10,7 @@ const optionsSchema = z.object({
 }).strict();
 export type InferenceOptions = z.infer<typeof optionsSchema>;
 const policies = {
-  "source-analysis": [8192, "source-analysis-v2"],
+  "source-analysis": [8192, "source-analysis-v3"],
   "source-summary": [8192, "source-summary-v1"],
   "runtime-decision": [4096, "runtime-decision-v2"],
   "visual-selection": [3072, "visual-selection-v3"],

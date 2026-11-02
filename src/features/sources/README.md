@@ -238,7 +238,9 @@ Output starts with assessment product-change/internal-only/insufficient-evidence
 findings and uncertainties. No-change is deterministic and skips AI; limited-evidence
 is separate coverage metadata and prohibits range-wide internal-only conclusions.
 Missing/unsupported text can yield qualified findings; transport failures stop analysis.
-Each citation has evidenceId, startLine, endLine and exact contiguous excerpt within that range. Patch
+New model citations contain only evidenceId, startLine and endLine. DocSyde resolves
+these against supplied evidence and adds the exact full-range excerpt to canonical
+analysis (nonempty, at most 600 characters; no truncation/normalization). Patch
 citations alone can suffice. Audience/surface are optional. New symbols do not prove
 reachable behavior: capability claims require cited caller/route/configuration context.
 Reference validation proves traceability, not semantic correctness or runtime behavior;
@@ -251,7 +253,8 @@ is 8,192. Evidence collection has a shared 60-second deadline and the operation 
 repair loops, tools, persistence, docs generation or autonomous investigation are added.
 Model/schema/citation failures show an error without generated findings, retaining
 evidence. Untrusted source is separate from trusted instructions; commit messages
-are excluded. Raw provider responses, credentials and source bodies are not logged.
+are excluded. Raw provider responses and credentials are excluded; approved model-facing source
+input and schema-valid output have bounded sanitized debug retention.
 
 `npm run sources:product:verify` defaults to cb08108 → e321954 with no extra paths;
 append explicit context paths for surrounding code. The CLI prints evidence metadata
@@ -262,8 +265,9 @@ Citation reliability: a larger-comparison failure quoted text from patch line 15
 but cited line 14, confusing source coordinates with the extra patch hunk header.
 The model payload now represents each entry with evidenceId and exact
 [lineNumber, text] tuples, rather than N| prefixes in a multiline string. The
-public citation contract and exact range/excerpt validation are unchanged; no
-nearby-line search, fuzzy matching, citation rewriting, or repair call is added.
+canonical/historical citation contract retains exact range/excerpt validation. New
+source-analysis-v3 generation returns references only; excerpt text is reconstructed
+from those exact positions. No nearby-line search, fuzzy matching or repair call is added.
 A regression rejects both that off-by-one reference and altered text. The existing
 8,192-token output budget is retained. Numbered tuples count toward the same
 64 KiB serialized-payload budget.
@@ -284,15 +288,15 @@ text, invalid line ranges and exact excerpt mismatch. Assessment/qualification
 failures have separate codes. These diagnostics expose no source or raw model output
 and do not change any acceptance rule. Failed analysis remains withheld.
 
-Evidence-validation rejections retain local diagnostics under ignored
-`.artifacts/semantic-analysis-rejections/<uuid>.json`: exact serialized semantic
-input (including immutable SHAs, source mappings and advisory snapshots), parsed
-model output and fixed validator rejection metadata. Successful runs and provider
-failures create no diagnostic files. Transport headers, credentials and provider
-envelopes are not captured. Files contain private repository source/user text;
-keep them local and delete when no longer needed. Files use owner-only permissions.
-Diagnostic write failure leaves the original rejection unchanged and emits a fixed
-warning; there is no retry, product evidence ingestion or diagnostic UI.
+Source-analysis uses centralized bounded invocation-debug retention for model-facing
+instructions/input/schema, schema-valid output and structured grounding diagnostics.
+The invocation view distinguishes model-returned references from canonical excerpts.
+Diagnostic coordinates/IDs, availability, excerpt size and correspondence hashes are
+retained without raw exception text. Historical raw local rejection files remain
+untouched; their separate writer has been retired. Existing credential redaction,
+byte ceilings and explicit truncation flags apply. No malformed/schema-invalid raw
+output, transport headers or environment dump is retained. Logs are diagnostics,
+never future evidence or model input. No historical backfill is performed.
 
 ## Run composition boundary
 
