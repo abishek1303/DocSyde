@@ -1,0 +1,390 @@
+{
+  "source": {
+    "bundle": {
+      "repository": "https://github.com/abishek1303/docksyde-demo-app-test-subject",
+      "base": "696c37bdaa67b1d39a3028e5bc7ed5655742f370",
+      "head": "52995911826a07247049aa9a914627ff3e9b9e50",
+      "inventory": [
+        {
+          "path": "src/client/components/create-issue.tsx",
+          "previousPath": null,
+          "kind": "modified"
+        },
+        {
+          "path": "src/client/components/issue-detail.tsx",
+          "previousPath": null,
+          "kind": "modified"
+        },
+        {
+          "path": "src/client/components/issue-list.tsx",
+          "previousPath": null,
+          "kind": "modified"
+        },
+        {
+          "path": "src/client/components/status-icon.tsx",
+          "previousPath": null,
+          "kind": "modified"
+        },
+        {
+          "path": "src/client/types.ts",
+          "previousPath": null,
+          "kind": "modified"
+        },
+        {
+          "path": "src/server/index.ts",
+          "previousPath": null,
+          "kind": "modified"
+        }
+      ],
+      "limited": false,
+      "notice": "Selected context only. Supplied patches may be incomplete. Runtime behavior, deployment and tests are unverified.",
+      "evidence": [
+        {
+          "id": "patch-f1",
+          "text": "@@ -3,7 +3,7 @@ import { X } from \"lucide-preact\";\n import { useApp } from \"../context\";\n import type { IssueStatus, Priority } from \"../types\";\n \n-const STATUSES: IssueStatus[] = [\"backlog\", \"todo\", \"in_progress\", \"done\"];\n+const STATUSES: IssueStatus[] = [\"backlog\", \"todo\", \"in_progress\", \"blocked\", \"done\"];\n const PRIORITIES: Priority[] = [\"none\", \"urgent\", \"high\", \"medium\", \"low\"];\n \n export function CreateIssue({ onClose }: { onClose: () => void }) {",
+          "path": "src/client/components/create-issue.tsx",
+          "side": "patch",
+          "commitId": null,
+          "status": "included",
+          "changed": true
+        },
+        {
+          "id": "patch-f2",
+          "text": "@@ -6,7 +6,7 @@ import { PriorityIcon, priorityLabel } from \"./priority-icon\";\n import { LabelPill } from \"./label-pill\";\n import type { IssueStatus, Priority } from \"../types\";\n \n-const STATUSES: IssueStatus[] = [\"backlog\", \"todo\", \"in_progress\", \"done\", \"cancelled\"];\n+const STATUSES: IssueStatus[] = [\"backlog\", \"todo\", \"in_progress\", \"blocked\", \"done\", \"cancelled\"];\n const PRIORITIES: Priority[] = [\"none\", \"urgent\", \"high\", \"medium\", \"low\"];\n \n export function IssueDetail() {",
+          "path": "src/client/components/issue-detail.tsx",
+          "side": "patch",
+          "commitId": null,
+          "status": "included",
+          "changed": true
+        },
+        {
+          "id": "patch-f3",
+          "text": "@@ -7,7 +7,7 @@ import { Pagination } from \"./pagination\";\n import { CreateIssue } from \"./create-issue\";\n import type { IssueStatus } from \"../types\";\n \n-const STATUS_ORDER: IssueStatus[] = [\"in_progress\", \"todo\", \"backlog\", \"done\", \"cancelled\"];\n+const STATUS_ORDER: IssueStatus[] = [\"in_progress\", \"blocked\", \"todo\", \"backlog\", \"done\", \"cancelled\"];\n \n export function IssueList() {\n   const { issues, issuesPag, setIssuesPage, issuesSearch, setIssuesSearch, selectIssue, stats } = useApp();",
+          "path": "src/client/components/issue-list.tsx",
+          "side": "patch",
+          "commitId": null,
+          "status": "included",
+          "changed": true
+        },
+        {
+          "id": "patch-f4",
+          "text": "@@ -4,6 +4,7 @@ const STATUS_COLORS: Record<IssueStatus, string> = {\n   backlog: \"#9ca3af\",\n   todo: \"#f2994a\",\n   in_progress: \"#2563eb\",\n+  blocked: \"#dc2626\",\n   done: \"#16a34a\",\n   cancelled: \"#9ca3af\",\n };\n@@ -12,6 +13,7 @@ const STATUS_LABELS: Record<IssueStatus, string> = {\n   backlog: \"Backlog\",\n   todo: \"Todo\",\n   in_progress: \"In Progress\",\n+  blocked: \"Blocked\",\n   done: \"Done\",\n   cancelled: \"Cancelled\",\n };\n@@ -21,6 +23,15 @@ export function StatusIcon({ status, size = 14 }: { status: IssueStatus; size?:\n   const half = size / 2;\n   const r = half - 1.5;\n \n+  if (status === \"blocked\") {\n+    return (\n+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill=\"none\" aria-label={STATUS_LABELS[status]}>\n+        <circle cx={half} cy={half} r={r} stroke={color} stroke-width=\"1.5\" />\n+        <line x1={size * 0.3} y1={half} x2={size * 0.7} y2={half} stroke={color} stroke-width=\"1.5\" stroke-linecap=\"round\" />\n+      </svg>\n+    );\n+  }\n+\n   if (status === \"done\") {\n     return (\n       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill=\"none\" aria-label={STATUS_LABELS[status]}>",
+          "path": "src/client/components/status-icon.tsx",
+          "side": "patch",
+          "commitId": null,
+          "status": "included",
+          "changed": true
+        },
+        {
+          "id": "patch-f5",
+          "text": "@@ -1,6 +1,6 @@\n export type View = \"issues\" | \"projects\";\n \n-export type IssueStatus = \"backlog\" | \"todo\" | \"in_progress\" | \"done\" | \"cancelled\";\n+export type IssueStatus = \"backlog\" | \"todo\" | \"in_progress\" | \"blocked\" | \"done\" | \"cancelled\";\n export type Priority = \"none\" | \"urgent\" | \"high\" | \"medium\" | \"low\";\n export type ProjectStatus = \"backlog\" | \"planned\" | \"in_progress\" | \"completed\" | \"cancelled\";\n ",
+          "path": "src/client/types.ts",
+          "side": "patch",
+          "commitId": null,
+          "status": "included",
+          "changed": true
+        },
+        {
+          "id": "patch-f6",
+          "text": "@@ -152,7 +152,7 @@ const listIssues = createRoute({\n       page: z.string().optional().openapi({ description: \"Page number (default: 1)\" }),\n       limit: z.string().optional().openapi({ description: \"Items per page (default: 50, max: 100)\" }),\n       search: z.string().optional().openapi({ description: \"Search by title or identifier\" }),\n-      status: z.string().optional().openapi({ description: \"Filter by status (todo, in_progress, done, backlog, cancelled)\" }),\n+      status: z.string().optional().openapi({ description: \"Filter by status (todo, in_progress, blocked, done, backlog, cancelled)\" }),\n       project_id: z.string().optional().openapi({ description: \"Filter by project ID\" }),\n     }),\n   },\n@@ -209,10 +209,11 @@ app.openapi(listIssues, async (c) => {\n        ORDER BY\n          CASE i.status\n            WHEN 'in_progress' THEN 0\n-           WHEN 'todo' THEN 1\n-           WHEN 'backlog' THEN 2\n-           WHEN 'done' THEN 3\n-           WHEN 'cancelled' THEN 4\n+           WHEN 'blocked' THEN 1\n+           WHEN 'todo' THEN 2\n+           WHEN 'backlog' THEN 3\n+           WHEN 'done' THEN 4\n+           WHEN 'cancelled' THEN 5\n          END,\n          CASE i.priority\n            WHEN 'urgent' THEN 0",
+          "path": "src/server/index.ts",
+          "side": "patch",
+          "commitId": null,
+          "status": "included",
+          "changed": true
+        }
+      ]
+    },
+    "bytes": 0,
+    "status": "analyzed",
+    "analysis": {
+      "findings": [
+        {
+          "kind": "capability-added",
+          "after": "IssueStatus includes 'blocked' and CreateIssue STATUSES is [backlog, todo, in_progress, blocked, done], allowing initial Blocked selection.",
+          "before": "IssueStatus and CreateIssue STATUSES were backlog, todo, in_progress, done (cancelled only in detail); Blocked could not be chosen at creation.",
+          "support": "directly-supported",
+          "citations": [
+            {
+              "endLine": 6,
+              "excerpt": "+const STATUSES: IssueStatus[] = [\"backlog\", \"todo\", \"in_progress\", \"blocked\", \"done\"];",
+              "startLine": 6,
+              "evidenceId": "patch-f1"
+            },
+            {
+              "endLine": 5,
+              "excerpt": "+export type IssueStatus = \"backlog\" | \"todo\" | \"in_progress\" | \"blocked\" | \"done\" | \"cancelled\";",
+              "startLine": 5,
+              "evidenceId": "patch-f5"
+            }
+          ],
+          "confidence": "high",
+          "assumptions": [],
+          "description": "Users can create a new issue directly in Blocked status. The Create Issue status selector now includes 'blocked' alongside backlog, todo, in_progress and done.",
+          "uncertainties": [],
+          "confidenceReason": "Patch directly adds blocked to type and CreateIssue constant",
+          "reachabilityEvidenceIds": [
+            "patch-f1"
+          ]
+        },
+        {
+          "kind": "capability-added",
+          "after": "IssueDetail STATUSES is [backlog, todo, in_progress, blocked, done, cancelled], enabling transition to Blocked.",
+          "before": "IssueDetail STATUSES were backlog, todo, in_progress, done, cancelled with no Blocked option.",
+          "support": "directly-supported",
+          "citations": [
+            {
+              "endLine": 6,
+              "excerpt": "+const STATUSES: IssueStatus[] = [\"backlog\", \"todo\", \"in_progress\", \"blocked\", \"done\", \"cancelled\"];",
+              "startLine": 6,
+              "evidenceId": "patch-f2"
+            },
+            {
+              "endLine": 5,
+              "excerpt": "+export type IssueStatus = \"backlog\" | \"todo\" | \"in_progress\" | \"blocked\" | \"done\" | \"cancelled\";",
+              "startLine": 5,
+              "evidenceId": "patch-f5"
+            }
+          ],
+          "confidence": "high",
+          "assumptions": [],
+          "description": "Users can change an existing issue to Blocked via the Issue Detail status control, which now lists blocked as a selectable status.",
+          "uncertainties": [],
+          "confidenceReason": "Patch directly inserts blocked into IssueDetail constant",
+          "reachabilityEvidenceIds": [
+            "patch-f2"
+          ]
+        },
+        {
+          "kind": "behavior-modified",
+          "after": "STATUS_LABELS blocked is 'Blocked' and StatusIcon renders a custom blocked SVG (circle + line) with stroke color.",
+          "before": "No STATUS_COLORS/LABELS/icon handling for blocked; other statuses had defined colors/icons.",
+          "support": "directly-supported",
+          "citations": [
+            {
+              "endLine": 13,
+              "excerpt": "+  blocked: \"Blocked\",",
+              "startLine": 13,
+              "evidenceId": "patch-f4"
+            },
+            {
+              "endLine": 21,
+              "excerpt": "+  if (status === \"blocked\") {",
+              "startLine": 21,
+              "evidenceId": "patch-f4"
+            }
+          ],
+          "confidence": "high",
+          "assumptions": [],
+          "description": "Blocked has a distinct visual: red (#dc2626) icon rendered as a circle with a horizontal line, aria-labeled 'Blocked' via STATUS_LABELS.",
+          "uncertainties": [],
+          "confidenceReason": "Patch adds label and conditional SVG branch for blocked",
+          "reachabilityEvidenceIds": []
+        },
+        {
+          "kind": "behavior-modified",
+          "after": "STATUS_ORDER inserts blocked second; API docs list blocked and SQL CASE uses WHEN 'blocked' THEN 1, WHEN 'todo' THEN 2, etc.",
+          "before": "STATUS_ORDER was in_progress, todo, backlog, done, cancelled; API status filter listed todo, in_progress, done, backlog, cancelled and ORDER BY had no blocked (todo=1).",
+          "support": "directly-supported",
+          "citations": [
+            {
+              "endLine": 6,
+              "excerpt": "+const STATUS_ORDER: IssueStatus[] = [\"in_progress\", \"blocked\", \"todo\", \"backlog\", \"done\", \"cancelled\"];",
+              "startLine": 6,
+              "evidenceId": "patch-f3"
+            },
+            {
+              "endLine": 18,
+              "excerpt": "+           WHEN 'blocked' THEN 1",
+              "startLine": 18,
+              "evidenceId": "patch-f6"
+            }
+          ],
+          "confidence": "high",
+          "assumptions": [],
+          "description": "Grouped issue display and API filtering/sorting now include Blocked ordered second after In Progress. Client STATUS_ORDER is in_progress, blocked, todo, backlog, done, cancelled and server ORDER BY places blocked at 1.",
+          "uncertainties": [],
+          "confidenceReason": "Both client order and server query patches show insertion of blocked",
+          "reachabilityEvidenceIds": []
+        }
+      ],
+      "assessment": "product-change",
+      "uncertainties": []
+    }
+  },
+  "runtime": [
+    {
+      "captureId": "a7f19767-beee-4ace-a7ad-2b60c28aef03",
+      "requestedPathname": "/",
+      "finalPathname": "/",
+      "capturedAt": "2026-11-02T06:16:47.840Z",
+      "screenshotSha256": "d1c1cc0fe95d91214a9529b5c69458156f27c89075c66e32e18142b2a09896f2",
+      "artifactKey": "65efd4ed-a7f6-4d20-b975-7c372bf9655e",
+      "vision": {
+        "model": "muse-spark-1.3",
+        "elapsedMs": 11247,
+        "data": {
+          "elements": [
+            {
+              "description": "STATUS label in right details panel",
+              "visibleText": "STATUS",
+              "bounds": {
+                "xMin": 0.831,
+                "yMin": 0.024,
+                "xMax": 0.863,
+                "yMax": 0.038
+              },
+              "certainty": "clear"
+            },
+            {
+              "description": "Black redaction box covering current status value under STATUS",
+              "visibleText": null,
+              "bounds": {
+                "xMin": 0.831,
+                "yMin": 0.044,
+                "xMax": 0.988,
+                "yMax": 0.079
+              },
+              "certainty": "clear"
+            },
+            {
+              "description": "Issue detail header showing Back control, TASK-1 and title",
+              "visibleText": "Back TASK-1 DocSyde runtime verification",
+              "bounds": {
+                "xMin": 0.185,
+                "yMin": 0.022,
+                "xMax": 0.425,
+                "yMax": 0.12
+              },
+              "certainty": "clear"
+            }
+          ],
+          "observations": [
+            "Issue detail view for TASK-1 titled DocSyde runtime verification is visible.",
+            "Right sidebar contains a STATUS field with its value obscured, showing no legible status text.",
+            "No Blocked text or red circle-line icon is legibly visible in the viewport."
+          ],
+          "limitations": [
+            "Status value is covered by black redaction, preventing verification that it is set to Blocked.",
+            "Status dropdown is not expanded, so selectable status options are not observable in viewport.",
+            "Icon color, shape, and aria-label cannot be verified from visible pixels alone."
+          ]
+        }
+      }
+    },
+    {
+      "captureId": "783b67f4-15e3-430d-b1e1-4e37a1563f42",
+      "requestedPathname": "/",
+      "finalPathname": "/",
+      "capturedAt": "2026-11-02T06:16:48.289Z",
+      "screenshotSha256": "d3a5c515b18c14fcf07d2cd2291806ee7df760af5d21783324e8a6e706905de9",
+      "artifactKey": "b450a273-e378-4610-a318-ab03963556db",
+      "vision": {
+        "model": "muse-spark-1.3",
+        "elapsedMs": 15935,
+        "data": {
+          "elements": [
+            {
+              "description": "Group header for In Progress status at top of issues list",
+              "visibleText": "In Progress 0",
+              "bounds": {
+                "xMin": 0.167,
+                "yMin": 0.077,
+                "xMax": 1,
+                "yMax": 0.114
+              },
+              "certainty": "clear"
+            },
+            {
+              "description": "Group header for Blocked status second after In Progress showing count 1",
+              "visibleText": "Blocked 1",
+              "bounds": {
+                "xMin": 0.167,
+                "yMin": 0.162,
+                "xMax": 1,
+                "yMax": 0.199
+              },
+              "certainty": "clear"
+            },
+            {
+              "description": "Single issue row under Blocked group with identifier and title",
+              "visibleText": "TASK-1 DocSyde runtime verification",
+              "bounds": {
+                "xMin": 0.18,
+                "yMin": 0.201,
+                "xMax": 0.397,
+                "yMax": 0.237
+              },
+              "certainty": "clear"
+            },
+            {
+              "description": "Circle with horizontal line status icon in Blocked group header",
+              "visibleText": null,
+              "bounds": null,
+              "certainty": "uncertain"
+            },
+            {
+              "description": "Circle with horizontal line status icon in Blocked issue row",
+              "visibleText": null,
+              "bounds": null,
+              "certainty": "uncertain"
+            },
+            {
+              "description": "Todo group header following Blocked group showing count 0",
+              "visibleText": "Todo 0",
+              "bounds": {
+                "xMin": 0.167,
+                "yMin": 0.24,
+                "xMax": 1,
+                "yMax": 0.28
+              },
+              "certainty": "clear"
+            },
+            {
+              "description": "Remaining group headers Backlog, Done, Cancelled after Todo",
+              "visibleText": "Backlog 0 Done 0 Cancelled 0",
+              "bounds": {
+                "xMin": 0.167,
+                "yMin": 0.328,
+                "xMax": 1,
+                "yMax": 0.526
+              },
+              "certainty": "clear"
+            }
+          ],
+          "observations": [
+            "Blocked group shows count 1 and is ordered second directly after In Progress group.",
+            "One issue labeled TASK-1 DocSyde runtime verification appears under the Blocked group.",
+            "Visible group order is In Progress, Blocked, Todo, Backlog, Done, Cancelled.",
+            "In Progress, Todo, Backlog, Done and Cancelled groups each show 0 with No issues text.",
+            "Blocked header and its issue row each show a small circular icon with horizontal line."
+          ],
+          "limitations": [
+            "Issue Detail status control is not visible in this viewport, so selectable status list cannot be confirmed.",
+            "Exact icon color hex, aria-label, STATUS_LABELS, STATUS_ORDER codes and server ORDER BY are not determinable from pixels alone.",
+            "Viewport only; offscreen content and API filtering/sorting behavior are unobserved."
+          ]
+        }
+      }
+    }
+  ],
+  "runtimeInspection": {
+    "reason": "analyzed",
+    "outcome": "completed",
+    "decision": "inspect",
+    "workflow": {
+      "id": "external-opentodo",
+      "sha256": "1dcf591a81c9ea582fd1f503d56761b2a4de7a8f3c9d8dc8eed1e78ca28b5e3c",
+      "version": "2"
+    },
+    "limitations": [
+      "Configured inspection scope (issue-status): Issue status selector and issue list grouped by status. Workflow can select Blocked and show its grouped row."
+    ],
+    "requestedTargets": [
+      "/",
+      "/"
+    ],
+    "uncoveredTargets": [],
+    "unresolvedQuestions": []
+  }
+}

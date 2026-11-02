@@ -64,3 +64,29 @@ test("unavailable or malformed optional usage never rejects valid generated cont
     assert.deepEqual((await generateStructured(options)).data, {value:"yes"});
   }
 });
+
+test("opt-in product-impact key diagnostics remain bounded; malformed JSON and other operations disclose no keys", async t => {
+  const { parseStructuredOutput } = await import("./structured-output");
+  const input = JSON.stringify({ value: "yes", ...Object.fromEntries(["impact", "analysis", "source", "runtime", "title", "metadata", "provenance", "result", "repository", "SECRET_KEY_NAME"].map(key => [key, "PRIVATE_VALUE"])) });
+  assert.throws(() => parseStructuredOutput(input, options.schema, true), error => {
+    assert.ok(error instanceof ModelError);
+    assert.equal(error.diagnostic?.issues?.[0].unexpectedKeys?.length, 8);
+    assert.equal(error.diagnostic?.issues?.[0].extraKeyCount, 10);
+    assert.equal(error.diagnostic?.issues?.[0].withheldKeyCount, 2);
+    assert.ok(Buffer.byteLength(JSON.stringify(error.diagnostic)) < 4096); return true;
+  });
+  assert.throws(() => parseStructuredOutput(input, options.schema), error => {
+    assert.ok(error instanceof ModelError); assert.equal(error.diagnostic?.schemaFailure, undefined);
+    assert.equal(error.diagnostic?.issues?.[0].unexpectedKeys, undefined); return true;
+  });
+  assert.throws(() => parseStructuredOutput("PRIVATE_MALFORMED", options.schema, true), error => {
+    assert.ok(error instanceof ModelError); assert.equal(error.diagnostic, undefined); return true;
+  });
+  const previous = process.env.BASETEN_API_KEY; process.env.BASETEN_API_KEY = "fixture";
+  t.after(() => { if(previous === undefined) delete process.env.BASETEN_API_KEY; else process.env.BASETEN_API_KEY = previous; });
+  t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: input } }] }));
+  await assert.rejects(generateStructured({ ...options, invocation: { stage: "impact-synthesis", operation: "product-impact" } }), error => {
+    assert.ok(error instanceof ModelError); assert.ok(error.diagnostic?.schemaFailure);
+    assert.equal(error.diagnostic?.issues?.[0].extraKeyCount, 10); return true;
+  });
+});

@@ -1054,3 +1054,14 @@ experiment evidence is rewritten. The retained model-facing debug output is labe
 as model-returned references, while canonical run analysis/provenance contains resolved
 excerpts. Source-analysis-v3 identifies this contract in invocation metadata. Other
 operations retain their current schemas, prompts and model configuration.
+
+Product-impact retains its five-field semantic output schema (assessment, summary,
+claims, contradictions, uncertainties). Its instructions now explicitly name this
+root and reject wrappers, echoed input/provenance and extra metadata. Canonical
+provenance/revision warnings remain server-owned and are attached only after strict
+schema and existing semantic validation. No output repair or permissive parsing is
+introduced. Product-impact alone opts into bounded schema-failure shape diagnostics:
+fixed public structural key names (at most eight per issue), total/withheld key counts,
+sanitized schema paths, schema/output hashes and output byte length. Arbitrary key
+names and all schema-invalid values remain excluded. Other operations preserve their
+current diagnostic projection and inference behavior. No migration or backfill.

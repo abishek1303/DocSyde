@@ -28,7 +28,7 @@ export async function generateStructured<S extends z.ZodType>(options: {
       throw error instanceof BasetenError ? new ModelError(error.code, error.retryAfterSeconds, error.diagnostic) : new ModelError("upstream");
     });
     try {
-      return { data: parseStructuredOutput(result.text, schema), model: result.model, elapsedMs: Date.now() - started, metadata: result.metadata };
+      return { data: parseStructuredOutput(result.text, schema, operation === "product-impact"), model: result.model, elapsedMs: Date.now() - started, metadata: result.metadata };
     } catch (error) {
       if (error instanceof ModelError) throw new ModelError(error.code, undefined, { ...result.metadata,
         kind: error.code === "invalid-json" ? "invalid-json" : "schema-mismatch", ...error.diagnostic });

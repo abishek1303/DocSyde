@@ -274,3 +274,20 @@ test("source v3 logs model references separately from canonical excerpts and ret
     if (invalid) assert.equal(view.diagnostic?.code, "unknown-evidence");
   }
 });
+
+test("product-impact invalid-root diagnostics survive logging without retaining output values", async t => {
+  const s = setup(t);
+  const payload = JSON.stringify({ value: "semantic result", impact: { token: "PRIVATE_VALUE" }, SECRET_KEY_NAME: "PRIVATE_VALUE" });
+  t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: payload } }], usage: { prompt_tokens: 12, completion_tokens: 8 } }));
+  await assert.rejects(s.generateStructured({ ...options, invocation: { ...invocation, operation: "product-impact", stage: "impact-synthesis" }, postValidation: true }), /schema-mismatch/);
+  const row = [...s.rows.values()][0];
+  assert.equal(row.status, "failed"); assert.equal(row.responsePayload, null);
+  assert.equal(row.responseOmissionReason, "model-failure");
+  const { modelDiagnosticSchema } = await import("./model-diagnostic");
+  const diagnostic = modelDiagnosticSchema.parse(row.diagnostic);
+  assert.deepEqual(diagnostic.issues?.[0].unexpectedKeys, ["impact"]);
+  assert.equal(diagnostic.issues?.[0].extraKeyCount, 2); assert.equal(diagnostic.issues?.[0].withheldKeyCount, 1);
+  assert.equal(diagnostic.schemaFailure?.outputBytes, Buffer.byteLength(payload));
+  assert.ok(!JSON.stringify(row.diagnostic).includes("PRIVATE_VALUE"));
+  assert.ok(!JSON.stringify(row.diagnostic).includes("SECRET_KEY_NAME"));
+});

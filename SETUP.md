@@ -1026,3 +1026,24 @@ documentation suite 153; run unit suite 10; PostgreSQL/Chromium orchestration su
 All 19 inspected historical persisted run payloads parsed successfully without writes.
 Lint, TypeScript, production Webpack build and diff checks passed. No provider calls
 or external-app workflow rerun occurred during the correction.
+
+## Product-impact root-shape hardening
+
+Product-impact expects exactly `assessment`, `summary`, `claims`, `contradictions`,
+`uncertainties`. The required semantic summary is used downstream; model-authored
+provenance/wrappers remain forbidden. Instructions now spell out the exact root.
+Strict schema/semantic checks, token budget (8192), models and dispatch are unchanged.
+
+Future product-impact schema failures retain bounded safe structural key names and
+counts, sanitized paths, schema/output SHA-256 and output byte length. Unknown key
+names and all schema-invalid output values remain excluded; raw failures are never
+backfilled. Existing invocation details display these diagnostics without new setup
+or migration. The historical root `unrecognized_keys` failure remains inconclusive
+about exact returned keys because those values/names were not retained at the time.
+See [the product-impact contract guide](src/features/sources/impact/README.md).
+
+Offline verification: product-impact tests 50 passed; AI tests 52; source compatibility
+186; documentation 153; PostgreSQL/Chromium run orchestration 17. Lint, TypeScript,
+production Webpack build and diff checks passed. TypeScript was rerun after the build
+finished to avoid concurrent regeneration of `.next/types`. All provider transport in
+tests was mocked; provider attempts were 0 and the external workflow was not rerun.
