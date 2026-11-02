@@ -69,7 +69,7 @@ test("maximum compact JSON has a small measured byte bound; bytes are not Muse t
   assert.ok(Buffer.byteLength(JSON.stringify(escaped)) <= 1841);
 });
 
-test("frozen A/B/C inputs remain unchanged; compact outputs and B-like extras use strict local validation", async t => {
+test("frozen A/B/C inputs remain unchanged; B-like extras normalize before strict local validation", async t => {
   const old = process.env.BASETEN_API_KEY; process.env.BASETEN_API_KEY = "offline-only";
   t.after(() => { if (old === undefined) delete process.env.BASETEN_API_KEY; else process.env.BASETEN_API_KEY = old; });
   t.mock.method(console, "warn", () => {});
@@ -94,7 +94,7 @@ test("frozen A/B/C inputs remain unchanged; compact outputs and B-like extras us
     // Mock choices exercise shape/correspondence only; they are not historical answers or relevance assertions.
     const result = await selectVisualCheckpoints(summary, limit);
     assert.deepEqual(result.selection, { version: 3, ...output as object }); assert.deepEqual(summary, before);
-    if (fixture.scenario === "B") { output = { ...output as object, explanation: "extra root field" }; await assert.rejects(selectVisualCheckpoints(summary, limit), /schema-mismatch/); }
+    if (fixture.scenario === "B") { output = { ...output as object, explanation: "extra root field" }; const normalized = await selectVisualCheckpoints(summary, limit); assert.deepEqual(normalized.selection, result.selection); }
     finish = "length"; const count = calls;
     await assert.rejects(selectVisualCheckpoints(summary, limit), /incomplete-output/); assert.equal(calls, count + 1); finish = "stop";
   }

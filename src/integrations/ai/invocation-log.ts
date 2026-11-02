@@ -22,7 +22,7 @@ function metadata(value?: ModelInvocationMetadata) {
 
 /** Retain only operation-approved snapshots; never transport bodies or raw responses. */
 export async function logStructuredInvocation<T extends { model: string; metadata?: ModelInvocationMetadata }>(
-  options: { invocation?: InvocationContext; provider: "baseten" | "meta"; postValidation?: boolean; input?: string; instructions?: string; schema?: string; validatedOutput?: (result: T) => unknown; settings?: ResolvedInference; acceptedResponse?: (result: T) => ApprovedInvocationResponse | undefined },
+  options: { invocation?: InvocationContext; provider: "baseten" | "meta"; postValidation?: boolean; attempt?: number; input?: string; instructions?: string; schema?: string; validatedOutput?: (result: T) => unknown; settings?: ResolvedInference; acceptedResponse?: (result: T) => ApprovedInvocationResponse | undefined },
   invoke: () => Promise<T>,
 ): Promise<T & { invocationId?: string }> {
   const id = randomUUID(), context = options.invocation ?? { stage: "standalone", operation: options.provider === "meta" ? "runtime-vision" : "structured-generation" };
@@ -42,6 +42,7 @@ export async function logStructuredInvocation<T extends { model: string; metadat
     inserted = true;
   } catch (error) { if (error instanceof ReliabilityIsolationError) throw error; warn(id); }
   requireInferenceLog(inserted);
+  if (options.attempt === 2 && !inserted) throw new ModelError("invocation-log-unavailable");
   const started = Date.now();
   try {
     const result = await invoke();
@@ -57,13 +58,15 @@ export async function logStructuredInvocation<T extends { model: string; metadat
         const debug = debugPolicy(context.operation).output && options.validatedOutput ? debugOutput(context.operation, options.validatedOutput(result)) : undefined;
         if (debug) response = { payload: debug, reason: null };
         await updateAiModelInvocation(id, { ...metadata(result.metadata), model: result.model.slice(0, 300), elapsedMs,
-          status: options.postValidation ? "structured-success" : "succeeded", responsePayload: response.payload, responseOmissionReason: response.reason });
+          status: options.postValidation ? "structured-success" : "succeeded",
+          ...(result.metadata?.boundary ? { diagnostic: { kind: "structured-output", attempt: options.attempt ?? 1, boundary: result.metadata.boundary } } : {}), responsePayload: response.payload, responseOmissionReason: response.reason });
       } catch (error) { if (error instanceof ReliabilityIsolationError) throw error; warn(id); stopInferenceBudget(); }
     }
     return { ...result, invocationId: inserted ? id : undefined };
   } catch (error) {
-    stopInferenceBudget();
+    if (!(error instanceof ModelError && error.diagnostic?.boundary?.retryReason)) stopInferenceBudget();
     const elapsedMs = Date.now() - started;
+    let failureLogged = false;
     if (inserted) {
       const diagnostic = error instanceof ModelError ? modelDiagnosticSchema.safeParse(error.diagnostic) : undefined;
       const safe = diagnostic?.success ? diagnostic.data : undefined;
@@ -71,7 +74,13 @@ export async function logStructuredInvocation<T extends { model: string; metadat
       const knownCodes = new Set(["invalid-json", "schema-mismatch", "incomplete-output", "refused", "invalid-response", "timeout", "cancelled", "missing-credentials", "invalid-request", "unauthorized", "forbidden", "billing", "model-unavailable", "rate-limited", "upstream"]);
       const code = error instanceof ModelError && knownCodes.has(error.code) ? error.code : "provider-failure";
       try { await updateAiModelInvocation(id, { ...metadata(safe), model: safe?.model ?? configured.slice(0, 300),
-        elapsedMs, status: "failed", failureKind: code, diagnostic: safe ?? null, responsePayload: null, responseOmissionReason: "model-failure" }); } catch (error) { if (error instanceof ReliabilityIsolationError) throw error; warn(id); }
+        elapsedMs, status: "failed", failureKind: code, diagnostic: safe ?? null, responsePayload: null, responseOmissionReason: "model-failure" }); failureLogged = true; } catch (error) { if (error instanceof ReliabilityIsolationError) throw error; warn(id); }
+    }
+    // Never issue a paid format retry if its predecessor could not be retained.
+    if (!failureLogged && error instanceof ModelError && error.diagnostic?.boundary?.retryReason) {
+      const boundary = { ...error.diagnostic.boundary };
+      delete boundary.retryReason;
+      throw new ModelError(error.code, error.retryAfterSeconds, { ...error.diagnostic, boundary });
     }
     throw error;
   }

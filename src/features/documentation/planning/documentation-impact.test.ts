@@ -228,9 +228,9 @@ test("malformed ProductImpact graphs and zero claims reject before any retrieval
   assert.equal(p.list.mock.callCount(), 0); assert.equal(p.get.mock.callCount(), 0); assert.equal(p.fetch.mock.callCount(), 0);
 });
 
-test("strict malformed/unknown output and count/text bounds fail without repair calls", async t => {
+test("malformed output, invalid decisions and count/text bounds fail without semantic repair", async t => {
   const document = draftFixture();
-  for (const out of ["{", { ...decision(document), extra: true }, { ...decision(document), qualifications: {} },
+  for (const out of ["{", { ...decision(document), decisions: [{ ...decision(document).decisions[0], action: "invented" }] },
     { ...decision(document), decisions: Array(9).fill(decision(document).decisions[0]) },
     { ...decision(document), uncertainties: Array(7).fill("Too many") },
     { ...decision(document), decisions: [{ ...decision(document).decisions[0], reason: "x".repeat(501) }] },
@@ -258,5 +258,13 @@ test("cancellation stops before retrieval, between reads and during the single m
     const pending = new Promise<Response>((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(init.signal!.reason), { once: true })); active.abort(); return pending;
   });
   await assert.rejects(p.planDocumentationImpact({ impact: impact() }, { signal: active.signal }), /cancelled/);
+  assert.equal(p.fetch.mock.callCount(), 1);
+});
+
+ test("planning ignores provider metadata without losing candidate or claim validation", async t => {
+  const document = draftFixture(), expected = decision(document);
+  const p = setup(t, [document], { result: { ...expected, metadata: { confidence: 1 } } });
+  const result = await p.planDocumentationImpact({ impact: impact() });
+  assert.deepEqual(result.plan.decisions, expected.decisions);
   assert.equal(p.fetch.mock.callCount(), 1);
 });

@@ -3,6 +3,17 @@
 Living document: update this as we build. Last updated October 31, 2026.
 For architectural decisions, use [ARCHITECTURE.md](ARCHITECTURE.md).
 
+## Text-model output reliability
+
+Text generation now conservatively extracts one JSON payload and normalizes supported
+provider wrappers/extra fields before strict canonical validation. Invalid JSON or
+ambiguous wrapper formatting can make one logged format-only retry with the same
+model/input/settings; truncation and semantic/grounding failures never retry.
+Single-attempt experiment scopes stay single-attempt. No new configuration or migration.
+See [boundary policy and stage audit](src/integrations/ai/structured-output-boundary.md).
+Offline checks: `npm run ai:test`, `npm run sources:test`, `npm run documentation:test`,
+`npm run documentation:runs:test` (the latter needs local PostgreSQL and Chromium).
+
 ## Targeted documentation transformation
 
 ```sh
@@ -23,7 +34,7 @@ omitting the plan adds one existing planning call. It never repeats source analy
 Normal transformation cost is one generation call plus one new-wording support check.
 Deterministic minimum batching handles large required context: 32 KiB per request,
 128 KiB aggregate generation input, at most eight generation calls plus one check.
-No-change/unresolved make no transformation/support calls. There are no repair loops.
+No-change/unresolved make no transformation/support calls. There are no semantic repair loops; eligible text format failures may retry once under the boundary policy above.
 Outputs retain every decision and distinguish incomplete generation/support, review
 readiness, canonical save compatibility and approval. Ordinary revisions produce
 self-contained v2 candidates; ambiguous placement/conflicts/limits remain explicit.

@@ -285,9 +285,9 @@ test("product-impact invalid-root diagnostics survive logging without retaining 
   assert.equal(row.responseOmissionReason, "model-failure");
   const { modelDiagnosticSchema } = await import("./model-diagnostic");
   const diagnostic = modelDiagnosticSchema.parse(row.diagnostic);
-  assert.deepEqual(diagnostic.issues?.[0].unexpectedKeys, ["impact"]);
-  assert.equal(diagnostic.issues?.[0].extraKeyCount, 2); assert.equal(diagnostic.issues?.[0].withheldKeyCount, 1);
-  assert.equal(diagnostic.schemaFailure?.outputBytes, Buffer.byteLength(payload));
+  assert.equal(diagnostic.boundary?.normalization, "rejected");
+  assert.equal(diagnostic.boundary?.outputBytes, Buffer.byteLength(payload));
+  assert.equal(s.rows.size, 2);
   assert.ok(!JSON.stringify(row.diagnostic).includes("PRIVATE_VALUE"));
   assert.ok(!JSON.stringify(row.diagnostic).includes("SECRET_KEY_NAME"));
 });
@@ -308,4 +308,50 @@ test("runtime decision v3 retains compact IR and unknown-target diagnostics with
   assert.deepEqual(JSON.parse(view.response!.output.content), output);
   assert.equal(view.diagnostic?.path, "targets[0].targetRef");
   assert.match(view.responseAvailability, /compact routing references/);
+});
+
+test("format retry has identical input/model/settings/schema and only one corrective instruction", async t => {
+  const s=setup(t);
+  const requests: Record<string, unknown>[]=[];
+  const fetch=t.mock.method(globalThis,"fetch",async(_url:unknown,init?:RequestInit)=>{
+    requests.push(JSON.parse(String(init?.body)));
+    return Response.json({choices:[{finish_reason:"stop",message:{content:requests.length===1?'Broken JSON':'{"value":"yes"}'}}]});
+  });
+  const result=await s.generateStructured(options);
+  assert.equal(fetch.mock.callCount(),2);assert.equal(result.data.value,"yes");assert.equal(result.metadata?.boundary?.attempt,2);
+  const first=requests[0],second=requests[1];
+  assert.equal(first.model,second.model);assert.equal(first.max_tokens,second.max_tokens);
+  const a=first.messages as {content:string}[],b=second.messages as {content:string}[];
+  assert.deepEqual(a[1],b[1]);assert.equal(b[0].content,a[0].content+'\nReturn only one valid JSON object matching the requested structure. No prose or wrapper.');
+});
+for(const [content,reason,calls] of [["broken","stop",2],['{"value":3}',"stop",1],['{"value":"yes"}',"length",1]] as const) test(`bounded retry ${reason} ${content}`,async t=>{
+  const s=setup(t);
+  const fetch=t.mock.method(globalThis,"fetch",async()=>Response.json({choices:[{finish_reason:reason,message:{content}}]}));
+  await assert.rejects(s.generateStructured(options));assert.equal(fetch.mock.callCount(),calls);
+});
+test("product-impact supported wrapper and metadata succeed without retry",async t=>{
+  const s=setup(t);
+  const fetch=t.mock.method(globalThis,"fetch",async()=>Response.json({choices:[{finish_reason:"stop",message:{content:'```json\n{"impact":{"value":"yes","metadata":{}}}\n```'}}]}));
+  const result=await s.generateStructured({...options,invocation:{stage:"impact-synthesis",operation:"product-impact"}});
+  assert.deepEqual(result.data,{value:"yes"});assert.equal(fetch.mock.callCount(),1);
+  assert.equal(result.metadata?.boundary?.wrapper,"impact");assert.equal(result.metadata?.boundary?.ignoredCount,1);
+});
+
+test("accepted recovery metadata survives into usage UI; semantic rejection never retries",async t=>{
+  const s=setup(t);
+  const fetch=t.mock.method(globalThis,"fetch",async()=>Response.json({choices:[{finish_reason:"stop",message:{content:'Answer: {"value":"yes","metadata":{"token":"PRIVATE"}}'}}]}));
+  const result=await s.generateStructured({...options,postValidation:true});
+  const row=s.rows.get(result.invocationId!)!;
+  const {invocationDebugView}=await import("@/features/documentation/runs/invocation-debug-view");
+  const view=invocationDebugView({...row,failureKind:null});
+  assert.match(view.boundaryMessage!,/normalized provider fields/);
+  assert.match(view.boundaryMessage!,/surrounded/);
+  assert.ok(!JSON.stringify(row.diagnostic).includes("PRIVATE"));
+  await assert.rejects(s.validateInvocation(result.invocationId,()=>{throw Error("invented reference");},"grounding-rejection"));
+  assert.equal(fetch.mock.callCount(),1);
+});
+test("format retry is suppressed when first attempt cannot be logged",async t=>{
+  const s=setup(t,"insert");
+  const fetch=t.mock.method(globalThis,"fetch",async()=>Response.json({choices:[{finish_reason:"stop",message:{content:'broken'}}]}));
+  await assert.rejects(s.generateStructured(options),/invalid-json/);assert.equal(fetch.mock.callCount(),1);
 });

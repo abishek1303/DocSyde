@@ -184,11 +184,11 @@ test("runtime projection is strict, bounded and locally validated before inferen
   assert.equal(p.fetch.mock.callCount(), 0);
 });
 
-test("malformed/unknown output, missing support and bounds fail local validation", async t => {
-  const variants: unknown[] = ["{", { ...output(), extra: true }, { ...output(), summary: " " }, { ...output(), claims: Array(7).fill(output().claims[0]) },
+test("malformed output, missing support and bounds fail local validation", async t => {
+  const variants: unknown[] = ["{", { ...output(), summary: " " }, { ...output(), claims: Array(7).fill(output().claims[0]) },
     { ...output(), uncertainties: Array(7).fill("Too many") }, { ...output(), claims: [{ ...output().claims[0], description: "x".repeat(501) }] },
     { ...output(), claims: [{ ...output().claims[0], references: [] }] }, { ...output(), claims: [] },
-    { ...output(), claims: [{ ...output().claims[0], citations: [] }] }];
+    { ...output(), claims: [{ ...output().claims[0], kind: "invented-kind" }] }];
   for (const [index, value] of variants.entries()) await t.test(String(index), async t => {
     const p = provider(t, value); await assert.rejects(synthesizeProductImpact({ source: source() })); assert.equal(p.fetch.mock.callCount(), 1);
   });

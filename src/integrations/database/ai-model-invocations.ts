@@ -13,7 +13,11 @@ export async function insertAiModelInvocation(row: Row) {
 export async function updateAiModelInvocation(id: string, values: Partial<Omit<Row, "id" | "createdAt" | "runId" | "stage" | "operation" | "provider">>, validationOnly = false, operation?: string) {
   await getDatabase().transaction(async tx => {
     await tx.execute(sql`SET LOCAL statement_timeout = '5000ms'`);
-    await tx.update(aiModelInvocations).set(values).where(and(eq(aiModelInvocations.id, id),
+    // Preserve safe boundary metadata when feature validation adds a rejection.
+    const updates = validationOnly && values.diagnostic ? { ...values,
+      diagnostic: sql`(coalesce(${aiModelInvocations.diagnostic}, '{}'::jsonb) - 'kind' - 'attempt') || ${JSON.stringify(values.diagnostic)}::jsonb`,
+    } : values;
+    await tx.update(aiModelInvocations).set(updates).where(and(eq(aiModelInvocations.id, id),
       validationOnly ? eq(aiModelInvocations.status, "structured-success") : undefined,
       operation ? eq(aiModelInvocations.operation, operation) : undefined));
   });

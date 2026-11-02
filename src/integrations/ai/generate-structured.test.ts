@@ -86,7 +86,7 @@ test("opt-in product-impact key diagnostics remain bounded; malformed JSON and o
   t.after(() => { if(previous === undefined) delete process.env.BASETEN_API_KEY; else process.env.BASETEN_API_KEY = previous; });
   t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: input } }] }));
   await assert.rejects(generateStructured({ ...options, invocation: { stage: "impact-synthesis", operation: "product-impact" } }), error => {
-    assert.ok(error instanceof ModelError); assert.ok(error.diagnostic?.schemaFailure);
-    assert.equal(error.diagnostic?.issues?.[0].extraKeyCount, 10); return true;
+    assert.ok(error instanceof ModelError); assert.equal(error.diagnostic?.boundary?.normalization, "rejected");
+    assert.equal(error.diagnostic?.boundary?.attempt, 1); return true;
   });
 });

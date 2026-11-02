@@ -60,14 +60,13 @@ test("zero budget, no eligible checkpoints and model skip never invoke vision", 
   });
 });
 
-test("fabricated/duplicate references, invalid decisions and excessive selections fail without repair or vision", async t => {
+test("fabricated/duplicate references, invalid selected fields and excessive selections fail without repair or vision", async t => {
   const mutations: ((value: ReturnType<typeof selection>) => unknown)[] = [
     value => ({ ...value, selected: [{ ...value.selected[0], checkpointId: randomUUID() }] }),
     value => ({ ...value, selected: [{ ...value.selected[0], sourceRefs: ["source-4"] }] }),
     value => ({ ...value, selected: [{ ...value.selected[0], sourceRefs: ["source-1", "source-1"] }] }),
     value => ({ ...value, selected: [value.selected[0], value.selected[0]] }),
-    value => ({ ...value, decision: "skip" }), value => ({ ...value, uncertainties: [] }),
-    value => ({ ...value, extra: "ignored instruction" }), () => "```json invalid```",
+    value => ({ ...value, selected: null }), () => "```json invalid```",
     value => value, // Four selected violates the schema maximum.
   ];
   for (const [index, mutate] of mutations.entries()) await t.test(String(index), async t => {
@@ -245,7 +244,7 @@ test("equivalent legacy/v3 choices produce identical vision context, canonical P
 });
 
 test("selection root failures and length completions emit failure with no validated IDs or vision start/retry", async t => {
-  for (const kind of ["root-extra", "unknown-id", "length"] as const) await t.test(kind, async t => {
+  for (const kind of ["missing-core", "unknown-id", "length"] as const) await t.test(kind, async t => {
     const f = visualTraceFixture(1), p = provider(t), events: import("@/integrations/browser/runtime-observation").RuntimeObservationInput[] = [];
     let calls = 0;
     t.mock.method(globalThis, "fetch", async (url: unknown, init?: RequestInit) => {
@@ -253,7 +252,7 @@ test("selection root failures and length completions emit failure with no valida
       const input: SelectionInput = JSON.parse(JSON.parse(String(init?.body)).messages[1].content);
       const output = selection(input);
       if (kind === "unknown-id") output.selected[0].checkpointId = randomUUID();
-      return Response.json({ choices: [{ finish_reason: kind === "length" ? "length" : "stop", message: { content: JSON.stringify(kind === "root-extra" ? { ...output, explanation: "B-like fixture only" } : output) } }] });
+      return Response.json({ choices: [{ finish_reason: kind === "length" ? "length" : "stop", message: { content: JSON.stringify(kind === "missing-core" ? { explanation: "No selected field" } : output) } }] });
     });
     const result = await analyzeRuntimeVisuals({ source: visualSourceFixture(), trace: f.trace, description: "Inspect" }, f.storage, undefined, undefined, { event: event => { events.push(event); }, preview() { assert.fail(); } });
     assert.equal(result.reason, "selection-failed"); assert.equal(result.selection, undefined); assert.equal(calls, 1);

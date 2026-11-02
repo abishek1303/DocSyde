@@ -24,6 +24,8 @@ export class InferenceBudgetError extends Error {
 export function withInferenceBudget<T>(runId: string, expected: Record<string, FrozenInference>, action: () => Promise<T>, beforeCall?: () => Promise<void>) {
   return scope.run({ runId, expected, calls: 0, operations: new Set(), stopped: false, beforeCall }, action);
 }
+// Explicit single-attempt experiment budgets take precedence over format retry.
+export function formatRetryAllowed() { return !scope.getStore(); }
 export function stopInferenceBudget() { const budget = scope.getStore(); if (budget) budget.stopped = true; }
 export function assertInferenceTransport() {
   if (reliabilityContext()?.mode === "scenario") {

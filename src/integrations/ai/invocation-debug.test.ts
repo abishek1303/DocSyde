@@ -86,3 +86,15 @@ test("source snapshots redact credential forms and enforce central bounds and tr
   assert.ok(response.output.truncated); assert.ok(response.output.redacted);
   assert.ok(response.output.retainedBytes <= DEBUG_LIMITS.output);
 });
+
+test("usage view distinguishes direct, recovered, normalized, retried and semantic rejection states", async () => {
+  const { newBoundaryTrace } = await import("./model-boundary");
+  const base = { ...newBoundaryTrace('{}', 1), strictParse: true, boundary: "accepted" as const, normalization: "accepted" as const, canonical: "accepted" as const };
+  const view = (boundary: typeof base) => invocationDebugView({ operation: "source-analysis", status: "succeeded", failureKind: null, diagnostic: { kind: "structured-output", boundary } });
+  assert.match(view(base).boundaryMessage!, /accepted directly/);
+  assert.match(view({ ...base, extraction: "fence" }).boundaryMessage!, /recovered JSON/);
+  assert.match(view({ ...base, ignoredCount: 1 }).boundaryMessage!, /normalized provider fields/);
+  assert.match(view({ ...base, attempt: 2 }).boundaryMessage!, /format retry/);
+  const semantic = invocationDebugView({operation:"source-analysis",status:"failed",failureKind:"grounding-rejection",diagnostic:{kind:"grounding-rejection",validator:"post-validation",code:"validator-rejected",boundary:base}});
+  assert.match(semantic.validation,/Semantic/);assert.ok(semantic.boundaryMessage);
+});

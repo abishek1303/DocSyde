@@ -419,3 +419,12 @@ input/output and 128 KiB column bounds and sanitization. Fixed diagnostics ident
 unknown/duplicate checkpoint, excessive count and unknown/duplicate source references.
 Schema-valid output survives correspondence rejection; malformed, incomplete and
 schema-invalid provider content remains excluded. Unknown operations remain denied.
+
+### Text boundary recovery and format retry
+
+Text stages use conservative single-payload JSON extraction followed by operation-specific
+model-facing normalization and the existing strict schemas/grounding checks. Formatting
+alone may trigger one logged retry; length and semantic/grounding failures do not.
+The Meta models, ceilings and reasoning/sampling configuration are unchanged.
+See the [stage audit and exact failure policy](src/integrations/ai/structured-output-boundary.md)
+and [code review diff](src/integrations/ai/structured-output-boundary-review.md).

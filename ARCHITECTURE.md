@@ -61,6 +61,12 @@ Prefer typed, structured outputs from models rather than free-form text when the
 
 Validate generated structures before using them.
 
+Text-provider formatting is handled at the AI integration boundary: conservative JSON
+extraction, operation-specific model-facing projection, then unchanged strict canonical
+validation and feature-owned grounding. At most one logged format-only retry is allowed;
+truncation and semantic failures never retry, and explicit single-attempt experiment
+budgets remain single-attempt. See the [boundary policy](src/integrations/ai/structured-output-boundary.md).
+
 ---
 
 ## Core Components

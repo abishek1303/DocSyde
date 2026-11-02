@@ -74,7 +74,7 @@ test("trusted flow distinguishes rejected output from limited eligible findings 
         analyses++;
         const finding = { ...result.analysis!.findings[0], kind: "internal-change", citations: [{ evidenceId: "patch-f1", startLine: mode === "citation" ? 2 : 1, endLine: mode === "citation" ? 2 : 1 }] };
         const data = { assessment: mode === "internal" ? "internal-only" : "insufficient-evidence", findings: [finding], uncertainties: ["Limited source context"] };
-        return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(mode === "schema" ? { ...data, $schema: "not-data" } : data) } }] });
+        return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(mode === "schema" ? { ...data, assessment: "invented" } : data) } }] });
       }
       drafts++;
       return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(proposal) } }] });

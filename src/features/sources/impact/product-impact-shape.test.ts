@@ -66,10 +66,18 @@ test("Blocked synthesis uses common schema-bearing dispatch; canonical provenanc
   assert.equal(result.impact.provenance.source.head, source.bundle.head);
   assert.equal(result.impact.provenance.captures.length, 2);
   assert.ok(!("provenance" in valid));
-  for (const output of invalid) {
+  const equivalent = [{ impact: valid }, { result: valid }, { ...valid, title: "Blocked" },
+    { ...valid, source: fixture.source, provenance: {} }, { ...valid, claims: [{ ...valid.claims[0], metadata: {} }] }];
+  for (const output of equivalent) {
+    returned = output;
+    const accepted = await synthesizeProductImpact({ source, runtime, runtimeInspection });
+    assert.deepEqual(accepted.impact, result.impact);
+  }
+  // Missing semantic fields and mixed competing payloads still reject, never repair.
+  for (const output of [{ summary: valid.summary }, { ...valid, result: {} }]) {
     returned = output;
     await assert.rejects(synthesizeProductImpact({ source, runtime, runtimeInspection }), error => error instanceof ModelError && error.code === "schema-mismatch");
   }
-  assert.equal(calls, invalid.length + 1);
+  assert.equal(calls, equivalent.length + 3);
   assert.ok(!result.impact.uncertainties.includes(RUNTIME_REVISION_WARNING)); // Source-only claims do not invent visual support.
 });
