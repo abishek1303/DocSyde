@@ -1,5 +1,5 @@
 import "server-only";
-import { observe, observePreview, type RuntimeObserver } from "./runtime-observation";
+import { observe, observePreview, type RuntimeObserver, type RuntimeFailureCode } from "./runtime-observation";
 import { reliabilityContext, ReliabilityIsolationError, type ReliabilityRuntimeIdentity } from "@/integrations/reliability/execution-context";
 import { reliabilityBrowserOptions } from "@/integrations/reliability/subprocess-environment";
 import { closeBrowserWithin } from "@/integrations/reliability/process-ownership";
@@ -7,7 +7,7 @@ import { verifyRuntimeIdentity } from "@/integrations/reliability/runtime-identi
 import { access } from "node:fs/promises";
 import { constants } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
-import { chromium, type Page } from "playwright";
+import { chromium, errors, type Page } from "playwright";
 import { parseHostContext } from "@/sdk/context-client";
 import type { ArtifactStorage } from "@/integrations/storage/artifact-storage";
 import { captureOrigin, executeCaptureStep } from "./capture";
@@ -45,10 +45,15 @@ export async function captureRuntimeTrace(raw: RuntimeWorkflowInput, storage: Ar
   const pending = new Map<string, Buffer>();
   let totalBytes = 0;
   const controller = AbortSignal.any([AbortSignal.timeout(options.limits.timeoutMs), ...(signal ? [signal] : [])]);
-  const browser = await chromium.launch(experiment ? await reliabilityBrowserOptions(experiment) : {});
+  observe(observer, { kind: "browser-launch-started", phase: "browser" });
+  const browser = await chromium.launch(experiment ? await reliabilityBrowserOptions(experiment) : {}).catch(error => {
+    observe(observer, { kind: "failure", phase: "browser", code: "browser-launch-failed" }); throw error;
+  });
+  observe(observer, { kind: "browser-launched", phase: "browser" });
   const abort = () => { void browser.close().catch(() => {}); };
   controller.addEventListener("abort", abort, { once: true });
   let page: Page;
+  let failurePoint: RuntimeFailureCode = "browser-context-failed";
   try {
     controller.throwIfAborted();
     const context = await browser.newContext({ viewport: options.viewport, deviceScaleFactor: 1, reducedMotion: "reduce", serviceWorkers: "block" });
@@ -61,14 +66,21 @@ export async function captureRuntimeTrace(raw: RuntimeWorkflowInput, storage: Ar
     page.on("pageerror", () => { trace.coverage.pageErrors = Math.min(1000, trace.coverage.pageErrors + 1); });
     // Native dialogs are not page pixels. Never retain their messages or values.
     page.on("dialog", dialog => { trace.coverage.dismissedDialogs = Math.min(1000, trace.coverage.dismissedDialogs + 1); void dialog.dismiss().catch(() => {}); });
-    observe(observer, { kind: "navigation-started", phase: "browser" });
+    failurePoint = "navigation-failed";
+    observe(observer, { kind: "navigation-started", phase: "browser", pathname: trace.requestedPathname.slice(0, 512) });
     const response = await page.goto(target.href, { waitUntil: "domcontentloaded" });
     if (!response?.ok()) throw new Error("Navigation failed.");
     trace.coverage.navigationStatus = response.status();
-    observe(observer, { kind: "navigation-completed", phase: "browser" });
-    if (options.readySelector) await page.locator(options.readySelector).waitFor({ state: "visible" });
+    observe(observer, { kind: "navigation-completed", phase: "browser", pathname: runtimePath(page.url(), secrets).slice(0, 512) });
+    if (options.readySelector) {
+      failurePoint = "page-readiness-failed";
+      observe(observer, { kind: "page-readiness-started", phase: "browser" });
+      await page.locator(options.readySelector).waitFor({ state: "visible" });
+      observe(observer, { kind: "page-readiness-completed", phase: "browser" });
+    }
 
     async function boundary(trigger: RuntimeTrace["states"][number]["trigger"], actionIndex: number | null) {
+      failurePoint = "state-capture-failed";
       controller.throwIfAborted();
       if (new URL(page.url()).origin !== base.origin) throw new Error("Workflow left its origin.");
       trace.coverage.stateBoundaries++;
@@ -204,23 +216,30 @@ export async function captureRuntimeTrace(raw: RuntimeWorkflowInput, storage: Ar
     for (const [index, step] of options.steps.entries()) {
       controller.throwIfAborted();
       observe(observer, { kind: "action-started", phase: "browser", action: step.type, actionIndex: index });
+      failurePoint = "action-failed";
       if (step.type !== "checkpoint") await executeCaptureStep(page, step);
       observe(observer, { kind: "action-completed", phase: "browser", action: step.type, actionIndex: index });
       await boundary(step.type, index);
     }
     await boundary("final", null);
     controller.throwIfAborted();
-  } catch {
+  } catch (error) {
+    observe(observer, { kind: "failure", phase: "browser", code: controller.aborted ? "cancelled" : failurePoint === "action-failed" && error instanceof errors.TimeoutError ? "action-timeout" : failurePoint });
     throw new Error(controller.aborted ? "Runtime workflow cancelled or timed out." : "Runtime workflow failed; check readiness, selectors and local application.");
   } finally {
     controller.removeEventListener("abort", abort);
-    if (experiment) await closeBrowserWithin(browser); else await browser.close();
+    try { if (experiment) await closeBrowserWithin(browser); else await browser.close(); }
+    catch (error) { observe(observer, { kind: "failure", phase: "browser", code: "browser-cleanup-failed" }); throw error; }
+    observe(observer, { kind: "browser-stopped", phase: "browser" });
   }
   controller.throwIfAborted();
   // Match final-capture semantics: cleanup precedes storage; failures never infer.
   const artifacts = new Map<string, string>();
-  for (const [sha256, png] of pending) { controller.throwIfAborted(); artifacts.set(sha256, (await storage.store(png)).key); }
-  for (const cp of trace.checkpoints) if (cp.screenshot) cp.screenshot.artifactKey = artifacts.get(cp.screenshot.sha256)!;
+  for (const [sha256, png] of pending) { controller.throwIfAborted(); artifacts.set(sha256, (await storage.store(png).catch(error => { observe(observer, { kind: "failure", phase: "evidence", code: "artifact-storage-failed" }); throw error; })).key); }
+  for (const cp of trace.checkpoints) if (cp.screenshot) {
+    cp.screenshot.artifactKey = artifacts.get(cp.screenshot.sha256)!;
+    observe(observer, { kind: "screenshot-stored", phase: "evidence", captureId: cp.captureId });
+  }
   controller.throwIfAborted();
   trace.finishedAt = new Date().toISOString();
   return runtimeTraceSchema.parse(trace);

@@ -5,19 +5,23 @@ const id = z.uuid();
 const phase = z.enum(["browser", "evidence", "selection", "vision", "lifecycle"]);
 const base = { version: z.literal(1), inspectionId: id, seq: z.number().int().positive(), at: z.iso.datetime(), phase };
 const action = z.enum(["click", "fill", "select", "check", "uncheck", "press", "wait", "waitFor", "checkpoint"]);
+const pathname = z.string().max(512).refine(value => value.startsWith("/") && runtimePath(value) === value && !/[?#]/.test(value));
 const limit = z.enum(["masking-failed", "image-budget", "screenshot-failed"]);
 export const runtimeObservationSchema = z.discriminatedUnion("kind", [
   z.object({ ...base, kind: z.literal("runtime-session-starting") }).strict(),
-  ...([ "runtime-session-started", "runtime-session-stopped", "navigation-started", "navigation-completed", "visual-selection-started", "vision-analysis-started"] as const).map(kind => z.object({ ...base, kind: z.literal(kind) }).strict()),
+  ...([ "runtime-session-started", "runtime-session-stopped", "application-readiness-started", "application-readiness-completed", "browser-launch-started", "browser-launched", "browser-stopped", "page-readiness-started", "page-readiness-completed", "visual-selection-started", "vision-analysis-started"] as const).map(kind => z.object({ ...base, kind: z.literal(kind) }).strict()),
+  ...(["navigation-started", "navigation-completed"] as const).map(kind => z.object({ ...base, kind: z.literal(kind), pathname: pathname.optional() }).strict()),
+  z.object({ ...base, kind: z.literal("screenshot-stored"), captureId: id }).strict(),
   ...(["action-started", "action-completed"] as const).map(kind => z.object({ ...base, kind: z.literal(kind), action, actionIndex: z.number().int().nonnegative() }).strict()),
-  z.object({ ...base, kind: z.literal("state-captured"), stateId: id.nullable(), pathname: z.string().max(512).refine(value => value.startsWith("/") && runtimePath(value) === value && !/[?#]/.test(value)) }).strict(),
+  z.object({ ...base, kind: z.literal("state-captured"), stateId: id.nullable(), pathname }).strict(),
   z.object({ ...base, kind: z.literal("checkpoint-created"), captureId: id, eligible: z.boolean(), limitation: limit.nullable() }).strict(),
   z.object({ ...base, kind: z.literal("preview-available"), captureId: id, revision: z.number().int().positive() }).strict(),
   z.object({ ...base, kind: z.literal("canonical-evidence-retained"), captures: z.array(id).max(24) }).strict(),
   z.object({ ...base, kind: z.literal("visual-selection-completed"), selected: z.array(id).max(3), skipped: z.boolean() }).strict(),
   z.object({ ...base, kind: z.literal("vision-analysis-completed"), captureId: id }).strict(),
-  ...(["warning", "failure"] as const).map(kind => z.object({ ...base, kind: z.literal(kind), code: z.enum(["run-failed", "capture-failed", "cleanup-failed", "selection-failed", "vision-failed", "cancelled", "interrupted", "not-retained", "truncated"]) }).strict()),
+  ...(["warning", "failure"] as const).map(kind => z.object({ ...base, kind: z.literal(kind), code: z.enum(["runtime-start-failed", "application-readiness-failed", "browser-launch-failed", "browser-context-failed", "navigation-failed", "page-readiness-failed", "state-capture-failed", "action-failed", "action-timeout", "browser-cleanup-failed", "artifact-storage-failed", "run-linkage-failed", "run-failed", "capture-failed", "cleanup-failed", "selection-failed", "vision-failed", "cancelled", "interrupted", "not-retained", "truncated"]) }).strict()),
 ]);
+export type RuntimeFailureCode = Extract<z.infer<typeof runtimeObservationSchema>, { kind: "failure" | "warning" }>["code"];
 export type RuntimeObservation = z.infer<typeof runtimeObservationSchema>;
 export type RuntimeObservationInput = RuntimeObservation extends infer E ? E extends RuntimeObservation ? Omit<E, "version" | "inspectionId" | "seq" | "at"> : never : never;
 export type RuntimeObserver = { event(event: RuntimeObservationInput): void; preview(captureId: string, bytes: Uint8Array): void };

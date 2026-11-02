@@ -1,4 +1,5 @@
 import "server-only";
+import { observe, type RuntimeObserver } from "@/integrations/browser/runtime-observation";
 import { reliabilityContext, ReliabilityIsolationError, type ReliabilityRuntimeIdentity } from "@/integrations/reliability/execution-context";
 import { verifyRuntimeIdentity } from "@/integrations/reliability/runtime-identity";
 import { reliabilityEnvironment } from "@/integrations/reliability/subprocess-environment";
@@ -14,8 +15,8 @@ export function localUrl(value: string): URL {
   if (!['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) || !["http:", "https:"].includes(url.protocol) || url.username || url.password) throw new Error("Expected a loopback HTTP URL");
   return url;
 }
-type Options = { baseUrl: string; readinessPath?: string; startupTimeoutMs?: number; signal?: AbortSignal; fixtureIdentity?: ReliabilityRuntimeIdentity };
-async function ready(options: Options, failed: () => boolean) {
+type Options = { baseUrl: string; readinessPath?: string; startupTimeoutMs?: number; signal?: AbortSignal; fixtureIdentity?: ReliabilityRuntimeIdentity; observer?: RuntimeObserver };
+async function waitForReady(options: Options, failed: () => boolean) {
   const base = localUrl(options.baseUrl), url = new URL(options.readinessPath ?? "/", base);
   if (url.origin !== base.origin) throw new Error("Readiness must use the runtime origin");
   const timeout = options.startupTimeoutMs ?? 60_000;
@@ -28,6 +29,12 @@ async function ready(options: Options, failed: () => boolean) {
     await delay(50);
   }
   throw new Error("Runtime readiness timed out");
+}
+async function ready(options: Options, failed: () => boolean) {
+  observe(options.observer, { kind: "application-readiness-started", phase: "lifecycle" });
+  try { await waitForReady(options, failed); }
+  catch (error) { observe(options.observer, { kind: "failure", phase: "lifecycle", code: "application-readiness-failed" }); throw error; }
+  observe(options.observer, { kind: "application-readiness-completed", phase: "lifecycle" });
 }
 export async function attachRuntime(options: Options): Promise<RuntimeSession> {
   const context = reliabilityContext();

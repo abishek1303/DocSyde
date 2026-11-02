@@ -146,3 +146,53 @@ test("action, storage and cancellation failures never produce a completed trace"
     assert.equal(f.state.closed, true);
   });
 });
+
+test("real canonical browser emits ordered launch/navigation/action/checkpoint/storage events without sensitive content", async t => {
+  const f = await fixture(t), events: import("./runtime-observation").RuntimeObservationInput[] = [];
+  const trace = await captureRuntimeTrace({ baseUrl: f.baseUrl, path: "/safe?token=private", secrets: ["private-value"], steps: [
+    { type: "fill", selector: "#name", value: "private-value" }, { type: "click", selector: "#open" }, { type: "waitFor", selector: "dialog[open]" },
+  ] }, f.storage, undefined, undefined, { event(event) { events.push(event); }, preview() {} });
+  assert.equal(f.state.launches, 1); assert.equal(f.state.contexts, 1);
+  const kinds = events.map(e => e.kind);
+  assert.ok(kinds.indexOf("browser-launch-started") < kinds.indexOf("browser-launched"));
+  assert.ok(kinds.indexOf("browser-launched") < kinds.indexOf("navigation-started"));
+  assert.ok(kinds.indexOf("navigation-started") < kinds.indexOf("navigation-completed"));
+  assert.ok(kinds.indexOf("navigation-completed") < kinds.indexOf("state-captured"));
+  assert.ok(kinds.indexOf("browser-stopped") < kinds.indexOf("screenshot-stored"));
+  assert.equal(events.filter(e => e.kind === "action-started").length, 3);
+  assert.equal(events.filter(e => e.kind === "action-completed").length, 3);
+  const stored = events.filter(e => e.kind === "screenshot-stored");
+  assert.equal(stored.length, trace.checkpoints.filter(cp => cp.screenshot).length);
+  for (const event of stored) {
+    assert.ok(event.kind === "screenshot-stored");
+    const cp = trace.checkpoints.find(cp => cp.captureId === event.captureId)!;
+    assert.ok(cp.eligible); assert.ok(f.bytes.has(cp.screenshot!.artifactKey));
+  }
+  for (const secret of ["#name", "#open", "private-value", "token=", "account-secret", "private initial value"]) assert.ok(!JSON.stringify(events).includes(secret));
+});
+
+for (const failure of ["browser", "navigation", "readiness", "action", "storage", "cleanup"] as const) test(`safe ${failure} failure event preserves canonical errors and cleanup`, async t => {
+  const f = await fixture(t), events: import("./runtime-observation").RuntimeObservationInput[] = [], original = new Error("UNSAFE token=private exception /Users/private/path");
+  if (failure === "browser") t.mock.method(chromium, "launch", async () => { throw original; });
+  else f.prepare(page => {
+    if (failure === "navigation") t.mock.method(page, "goto", async () => { throw original; });
+    if (failure === "cleanup") { const browser = page.context().browser()!, close = browser.close.bind(browser); t.mock.method(browser, "close", async () => { await close(); throw original; }); }
+    if (failure === "readiness" || failure === "action") {
+      const locator = page.locator("#missing"), real = page.locator.bind(page);
+      t.mock.method(page, "locator", (...args: Parameters<typeof page.locator>) => args[0] === "#missing" ? locator : real(...args));
+      t.mock.method(locator, failure === "readiness" ? "waitFor" : "click", async () => { throw new (await import("playwright")).errors.TimeoutError("UNSAFE selector #missing"); });
+    }
+  });
+  if (failure === "storage") t.mock.method(f.storage, "store", async () => { throw original; });
+  await assert.rejects(captureRuntimeTrace({ baseUrl: f.baseUrl, ...(failure === "readiness" ? { readySelector: "#missing" } : {}), steps: failure === "action" ? [{ type: "click", selector: "#missing" }] : [] }, f.storage, undefined, undefined, { event: event => { events.push(event); }, preview() {} }), error => {
+    if (["browser", "storage", "cleanup"].includes(failure)) assert.equal(error, original);
+    else assert.ok(error instanceof Error && error.message === "Runtime workflow failed; check readiness, selectors and local application.");
+    return true;
+  });
+  const code = { browser: "browser-launch-failed", navigation: "navigation-failed", readiness: "page-readiness-failed", action: "action-timeout", storage: "artifact-storage-failed", cleanup: "browser-cleanup-failed" }[failure];
+  assert.ok(events.some(e => e.kind === "failure" && e.code === code));
+  assert.ok(!events.some(e => e.kind === "canonical-evidence-retained"));
+  assert.ok(!JSON.stringify(events).includes("UNSAFE")); assert.ok(!JSON.stringify(events).includes("#missing"));
+  assert.equal(f.bytes.size, 0);
+  if (failure !== "browser") assert.ok(f.state.closed);
+});

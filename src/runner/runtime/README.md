@@ -150,3 +150,11 @@ Runner/capture changes, browser sessions or screenshots are added. The same cano
 PNG hashes, finding filter and question reach the unchanged vision prompt/schema.
 Run `npm run runtime:visual:test` with mocked providers for the existing lifecycle,
 grounding and visual-workflow tests; focused selector tests are documented in SETUP.md.
+
+The optional internal observer also reports application health readiness without
+changing readiness retries/timeouts or child cleanup. A failed launch/attach reports
+runtime-start-failed; health failure adds application-readiness-failed. Browser-specific
+failures remain Browser-owned. The run UI selects the most specific retained failure
+rather than replacing it with a later generic stage failure. Existing errors and run
+dispositions remain unchanged. The production inspection proof uses the real immutable
+Request Desk app in a temporary directory, with no new refs, experiments or AI calls.

@@ -24,9 +24,11 @@ export async function captureWorkflowWithRuntime(
     if (runtime.mode === "attach") await verifyRuntimeIdentity(runtime.options.baseUrl, identity);
   }
   const validatedWorkflow = runtimeWorkflowSchema.parse({ ...workflow, baseUrl: runtime.options.baseUrl });
-  const options = { ...runtime.options, fixtureIdentity: identity, signal: AbortSignal.any([...(signal ? [signal] : []), ...(runtime.options.signal ? [runtime.options.signal] : [])]) };
+  const options = { ...runtime.options, observer, fixtureIdentity: identity, signal: AbortSignal.any([...(signal ? [signal] : []), ...(runtime.options.signal ? [runtime.options.signal] : [])]) };
   observe(observer, { kind: "runtime-session-starting", phase: "lifecycle" });
-  const session = runtime.mode === "launch" ? await launchRuntime({ ...runtime.options, ...options }) : await attachRuntime(options);
+  const session = await (runtime.mode === "launch" ? launchRuntime({ ...runtime.options, ...options }) : attachRuntime(options)).catch(error => {
+    observe(observer, { kind: "failure", phase: "lifecycle", code: "runtime-start-failed" }); throw error;
+  });
   observe(observer, { kind: "runtime-session-started", phase: "lifecycle" });
   let trace;
   try {

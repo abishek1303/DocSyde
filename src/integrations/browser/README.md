@@ -114,3 +114,14 @@ Documentation owns the bounded global registry and authorized image readers.
 to compare disabled, enabled, throwing, failed SQL and stalled SQL observation paths,
 including canonical PNG bytes, hashes, states, coverage, model summary inputs, storage
 order and session/screenshot counts. Preview mutation cannot change evidence.
+
+The same canonical browser emits browser-launch-started/launched/stopped, sanitized
+navigation, page-readiness and screenshot-stored boundaries. Screenshot references are
+capture UUIDs resolved through retained manifest membership; raw storage keys/paths
+never enter presentation events. A stored screenshot is not yet retained evidence.
+Fixed safe failure codes identify browser launch/context, navigation/readiness, action
+failure/timeout, state sampling, cleanup and artifact storage. No exception text is
+retained, and original exceptions/trace behavior are preserved. Action display uses
+step number and action type, not DOM text, selectors or editable values. The runtime
+pane reuses existing checkpoint copies and canonical PNGs; no new screenshots or
+browser sessions are introduced by observation.

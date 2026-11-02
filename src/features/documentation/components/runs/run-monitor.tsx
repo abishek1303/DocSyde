@@ -105,7 +105,8 @@ export function RunMonitor({ initial }: { initial: RunView }) {
         {!following && <div className="flex justify-end px-5 pt-4">
           <Button variant="ghost" size="sm" onClick={() => setSelectedStage(null)}>Follow pipeline</Button>
         </div>}
-        {selected && <StageActivity key={`${id}:${selected.key}`} runId={id} stage={selected} label={labelFor(selected.key)} response={selectedResponse} summary={summaryFor(selected)} />}
+        {selected?.key === "runtime-inspection" ? <RuntimeInspectionPane runId={id} terminal={!["pending", "running"].includes(run.status)} /> : selected && <StageActivity key={`${id}:${selected.key}`} runId={id} stage={selected} label={labelFor(selected.key)} response={selectedResponse} summary={summaryFor(selected)} />}
+        {selected?.key !== "runtime-inspection" && run.activeStage === "runtime-inspection" && <RuntimeInspectionPane runId={id} terminal={!["pending", "running"].includes(run.status)} />}
         {modelFailure && selected?.key === failure?.stage && <p className="px-6 pb-6 text-sm"><Link href={`/runs/${id}/model-failure/${encodeURIComponent(failure.stage)}?${query}`} className="text-primary underline underline-offset-4">View model failure details</Link></p>}
         {failureDescription && !modelFailure && selected?.key === failure?.stage && <p className="px-6 pb-6 text-sm leading-6 text-muted-foreground">{failureDescription.nextStep}</p>}
         {following && !["pending", "running"].includes(run.status) && (run.retainedProposal || run.hasDraft || (run.savedAt && run.documentId)) && <div className="px-5 pb-5">
@@ -114,7 +115,6 @@ export function RunMonitor({ initial }: { initial: RunView }) {
         </div>}
       </section>
     </div>
-    <RuntimeInspectionPane runId={id} terminal={!["pending", "running"].includes(run.status)} />
     <Link href={`/ai-model-usage?${query}&runId=${id}`} className="inline-block text-sm text-primary underline underline-offset-4">View AI model usage log</Link>
   </div>;
 }

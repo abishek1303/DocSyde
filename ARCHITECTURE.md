@@ -1008,3 +1008,17 @@ new envelopes and historical projections. Logs remain diagnostics, never evidenc
 Candidate projection/eligibility/deduplication/compaction and capture are unchanged.
 The existing vision context, prompt/schema, other AI stages, and runtime-inspection
 registry/routes/pane remain unchanged; existing observer events follow validated IDs.
+
+The runtime inspection view is rendered inside the selected/active runtime stage,
+using the existing observation reader and independent polling rather than a generic
+failure card. Presentation maps typed events to fixed human-readable labels and
+failure explanations; DOM labels, selectors, input values and exception text are
+never collected for the UI. The same canonical browser now announces its actual
+launch/close, navigation (sanitized pathname), page readiness and stored checkpoint
+references. Runner announces application health readiness. Fixed diagnostics distinguish
+health, browser launch/context, navigation, page readiness, action/timeout, state capture,
+browser/runtime cleanup, artifact storage and guarded manifest linkage failures.
+These callbacks preserve error identities, trace semantics, masking and storage order.
+A stored-PNG event is not a retention announcement; canonical evidence remains gated
+by cleanup, manifest storage and successful run linkage. Historical v1 events remain
+readable. No event transport, screenshot path, provider behavior or SDK change is added.

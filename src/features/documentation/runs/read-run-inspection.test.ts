@@ -41,6 +41,12 @@ test("inspection routes validate retained membership, hashes, selected/vision li
   const compact = { ...visual, selection: { selection: { version: 3, selected: visual.selection.selection.selected.map(({ checkpointId, sourceRefs, question }) => ({ checkpointId, sourceRefs, question })) } } };
   await link("runtime-analysis", compact);
   assert.deepEqual(await reader.getRunInspection(id), view, "pane badges and observations are identical for equivalent v2/v3 retained evidence");
+  record.runtime = { decision: "inspect", outcome: "attempted-and-failed", reason: "selection-failed", requestedTargets: [], uncoveredTargets: [], unresolvedQuestions: [], limitations: [] };
+  assert.deepEqual((await reader.getRunInspection(id))!.diagnostic, { code: "selection-failed", source: "retained-run" });
+  assert.equal((await reader.getRunInspection(id))!.snapshot, null, "Historical outcomes do not manufacture observation events");
+  record.runtime.reason = "arbitrary raw error text";
+  assert.equal((await reader.getRunInspection(id))!.diagnostic, undefined);
+  delete record.runtime;
   f.bytes.set(checkpoint.screenshot!.artifactKey, Uint8Array.of(0));
   await assert.rejects(reader.getRunInspectionScreenshot(id, checkpoint.captureId), /integrity/);
   visual.selection.selection.selected[0].checkpointId = randomUUID(); await link("runtime-analysis", visual);

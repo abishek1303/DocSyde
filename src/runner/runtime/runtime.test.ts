@@ -39,3 +39,15 @@ test("a redirecting runtime URL is occupied even when its health endpoint is rea
     } finally { await session?.stop(); }
   } finally { await new Promise<void>((resolve) => server.close(() => resolve())); }
 });
+
+test("health readiness emits safe ordered metadata without altering timeout errors", async t => {
+  const events: import("@/integrations/browser/runtime-observation").RuntimeObservationInput[] = [];
+  const server = createServer((_req, res) => { res.writeHead(503).end("private health details"); });
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise<void>(resolve => server.close(() => resolve())));
+  const address = server.address(); assert.ok(address && typeof address !== "string");
+  await assert.rejects(attachRuntime({ baseUrl: `http://127.0.0.1:${address.port}`, startupTimeoutMs: 30, observer: { event: event => { events.push(event); }, preview() {} } }), /Runtime readiness timed out/);
+  assert.deepEqual(events.map(e => e.kind), ["application-readiness-started", "failure"]);
+  assert.ok(events[1].kind === "failure" && events[1].code === "application-readiness-failed");
+  assert.ok(!JSON.stringify(events).includes("private health details"));
+});

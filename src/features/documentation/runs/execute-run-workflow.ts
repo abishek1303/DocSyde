@@ -91,8 +91,8 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
       await check();
       const storeManifest = async (kind: "runtime-trace" | "runtime-analysis", value: unknown) => {
         const bytes = Buffer.from(JSON.stringify(value));
-        const artifact = { kind, ...(await configured.storage.store(bytes)), sha256: createHash("sha256").update(bytes).digest("hex") };
-        await checkpoint(r => ({ ...r, artifacts: [...r.artifacts, artifact] }));
+        const artifact = { kind, ...(await configured.storage.store(bytes).catch(error => { observe(observer, { kind: "failure", phase: "evidence", code: "artifact-storage-failed" }); throw error; })), sha256: createHash("sha256").update(bytes).digest("hex") };
+        await checkpoint(r => ({ ...r, artifacts: [...r.artifacts, artifact] })).catch(error => { observe(observer, { kind: "failure", phase: "evidence", code: "run-linkage-failed" }); throw error; });
       };
       await storeManifest("runtime-trace", { runtime: captured.runtime, trace: captured.trace });
       const retainedCaptures = captured.trace.checkpoints.filter(cp => cp.eligible && cp.screenshot).map(cp => cp.captureId);

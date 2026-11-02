@@ -19,11 +19,18 @@ if (process.env.DOCSYDE_INSPECTION_PROOF_ID) {
   const id = process.env.DOCSYDE_INSPECTION_PROOF_ID;
   const observer = startRunInspection(id, process.env.DOCSYDE_INSPECTION_PROOF_TOKEN);
   const server = createServer((_req, res) => { res.setHeader('Content-Type', 'text/html'); res.end('<h1>Offline inspection</h1><input value="masked"><button id="open" onclick="document.querySelector(\'p\').hidden=false">Open</button><p hidden>Captured details</p>'); });
-  server.listen(0, '127.0.0.1', async () => {
+  async function capture(baseUrl) {
     const storage = createLocalStorage(process.env.DOCSYDE_STORAGE_DIRECTORY);
     try {
-      const workflow = { steps: Array.from({ length: 12 }, () => ({ type: 'checkpoint' })) };
-      const captured = await captureWorkflowWithRuntime({ runtime: { mode: 'attach', options: { baseUrl: `http://127.0.0.1:${server.address().port}` } }, workflow }, storage, undefined, undefined, observer);
+      const workflow = process.env.DOCSYDE_INSPECTION_PROOF_APP_URL ? {
+        path: '/requests/new', readySelector: '#request-form', steps: [
+          { type: 'fill', selector: '#title', value: 'private inspection title' },
+          { type: 'click', selector: 'button[type=submit]' },
+          { type: 'waitFor', selector: '#request-detail' },
+          ...Array.from({ length: 10 }, () => ({ type: 'checkpoint' })),
+        ],
+      } : { steps: Array.from({ length: 12 }, () => ({ type: 'checkpoint' })) };
+      const captured = await captureWorkflowWithRuntime({ runtime: { mode: 'attach', options: { baseUrl, ...(process.env.DOCSYDE_INSPECTION_PROOF_APP_URL ? { readinessPath: '/health' } : {}) } }, workflow }, storage, undefined, undefined, observer);
       const bytes = Buffer.from(JSON.stringify(captured));
       const artifact = { kind: 'runtime-trace', ...(await storage.store(bytes)), sha256: createHash('sha256').update(bytes).digest('hex') };
       const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -33,5 +40,7 @@ if (process.env.DOCSYDE_INSPECTION_PROOF_ID) {
       finishRunInspection(id);
     } catch (error) { console.error('Offline capture proof failed', error); process.exitCode = 1; }
     finally { server.close(); }
-  });
+  }
+  if (process.env.DOCSYDE_INSPECTION_PROOF_APP_URL) void capture(process.env.DOCSYDE_INSPECTION_PROOF_APP_URL);
+  else server.listen(0, '127.0.0.1', () => { void capture(`http://127.0.0.1:${server.address().port}`); });
 }

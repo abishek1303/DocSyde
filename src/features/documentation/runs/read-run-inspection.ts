@@ -56,7 +56,12 @@ export async function getRunInspection(rawId: unknown): Promise<InspectionView |
       analysis.push({ observations: evidence.vision.data.observations.map(text => redactRuntimeText(text)), limitations: evidence.vision.data.limitations.map(text => redactRuntimeText(text)) });
     }
   }
-  return { snapshot, captures, analysis, status: "schemaVersion" in run.record ? run.record.disposition ?? run.record.runtime?.outcome ?? run.record.status : run.record.status };
+  // Old runs may have no observation history. Surface only an exact retained server outcome;
+  // never reconstruct events or infer capture failures from arbitrary exception/model text.
+  const retainedReason = "schemaVersion" in run.record && run.record.runtime?.outcome === "attempted-and-failed" ? run.record.runtime.reason : null;
+  const diagnostic: InspectionView["diagnostic"] = retainedReason === "selection-failed" || retainedReason === "vision-failed" || retainedReason === "cancelled"
+    ? { code: retainedReason, source: "retained-run" as const } : undefined;
+  return { ...(diagnostic ? { diagnostic } : {}), snapshot, captures, analysis, status: "schemaVersion" in run.record ? run.record.disposition ?? run.record.runtime?.outcome ?? run.record.status : run.record.status };
 }
 export async function getRunInspectionPreview(rawId: unknown, rawRevision: unknown) {
   const id = z.uuid().parse(rawId), revision = z.coerce.number().int().positive().parse(rawRevision);

@@ -2,10 +2,11 @@ import "dotenv/config";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawn } from "node:child_process";
+import { promisify } from "node:util";
+import { execFile, spawn } from "node:child_process";
 import { Pool } from "pg";
 import { chromium } from "playwright";
 import { persistRunInspection, loadRunInspection } from "@/integrations/database/run-inspections";
@@ -16,7 +17,25 @@ import type { InspectionView } from "@/features/documentation/runs/run-inspectio
 test("SQL ownership/stale revision and production next start cross-module capture/HTTP/UI proof, no providers", { timeout: 120000 }, async t => {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL }), id = randomUUID(), token = randomUUID();
   const directory = await mkdtemp(join(tmpdir(), "docsyde-inspection-"));
-  const record = runRecordV2.parse({ schemaVersion: 2, input: { owner: "inspection-proof", repo: "offline", base: "a".repeat(40), head: "b".repeat(40), paths: [], associations: [] }, title: "Offline inspection proof", status: "finished", disposition: "interrupted", reason: "offline-proof", activeStage: null, execution: { token, heartbeatAt: new Date().toISOString(), cancelRequestedAt: null }, startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), summary: "Offline inspection proof", stages: initialWorkflowStages(), artifacts: [], models: [], warnings: [] });
+  // Build the real immutable Request Desk baseline without creating refs or experiments.
+  const exec = promisify(execFile), root = process.cwd(), appDirectory = join(directory, 'app');
+  await mkdir(appDirectory);
+  const archive = join(directory, 'request-desk.tar');
+  await exec('git', ['archive', '--format=tar', `--output=${archive}`, '45799b2fae07f1326296b8ba85fae51476fd153d', 'test-app']);
+  await exec('tar', ['-xf', archive, '-C', appDirectory]);
+  const app = join(appDirectory, 'test-app');
+  await exec(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '-p', join(root, 'infra/local/sdk/tsconfig.json'), '--outDir', join(app, '.artifacts/sdk')]);
+  await exec(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '-p', join(app, 'tsconfig.json'), '--typeRoots', join(root, 'node_modules/@types')]);
+  const host = spawn(process.execPath, [join(app, 'dist/src/server.js')], { cwd: app, env: { PATH: process.env.PATH, NODE_ENV: 'test', DOCSYDE_DELIVERY_ENDPOINT: 'http://127.0.0.1:45981/api/documentation/context' }, stdio: 'ignore' });
+  t.after(async () => { host.kill('SIGTERM'); if (host.exitCode === null) await new Promise<void>(resolve => host.once('exit', () => resolve())); });
+  let healthy = false;
+  for (let i = 0; i < 100; i++) {
+    if (host.exitCode !== null) assert.fail('Owned Request Desk could not start; port 45873 may already be occupied.');
+    try { if ((await fetch('http://127.0.0.1:45873/health')).ok) { healthy = true; break; } } catch { /* Wait for owned local app. */ }
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  assert.ok(healthy);
+  const record = runRecordV2.parse({ schemaVersion: 2, input: { owner: "inspection-proof", repo: "offline", base: "a".repeat(40), head: "b".repeat(40), paths: [], associations: [] }, title: "Offline inspection proof", status: "finished", disposition: "interrupted", reason: "offline-proof", activeStage: null, execution: { token, heartbeatAt: new Date().toISOString(), cancelRequestedAt: null }, startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), summary: "Offline inspection proof", stages: initialWorkflowStages().map(stage => stage.key === "runtime-inspection" ? { ...stage, status: "failed", summary: "Inspection stopped.", finishedAt: new Date().toISOString() } : stage), artifacts: [], models: [], warnings: [] });
   await pool.query('INSERT INTO docsyde.documentation_runs(id,repository,status,payload) VALUES ($1,$2,$3,$4)', [id, 'https://github.com/inspection-proof/offline', record.status, record]);
   t.after(async () => { await pool.query('DELETE FROM docsyde.documentation_runs WHERE id=$1', [id]); await pool.end(); await rm(directory, { recursive: true, force: true }); });
   const before = (await pool.query('SELECT payload,updated_at FROM docsyde.documentation_runs WHERE id=$1', [id])).rows[0];
@@ -39,7 +58,7 @@ test("SQL ownership/stale revision and production next start cross-module captur
   await assert.rejects(observationPool.query('SELECT pg_sleep(2)'), /statement timeout/);
   assert.ok(Date.now() - timeoutStarted < 1500);
   await pool.query('DELETE FROM docsyde.documentation_run_inspections WHERE run_id=$1', [id]);
-  const server = spawn(process.execPath, ['--require', join(process.cwd(), 'infra/local/inspection/capture-preload.cjs'), 'node_modules/next/dist/bin/next', 'start', '-p', '45981', '-H', '127.0.0.1'], { cwd: process.cwd(), env: { ...process.env, NODE_OPTIONS: '', NODE_ENV: 'production', BASETEN_API_KEY: '', META_API_KEY: '', GITHUB_TOKEN: '', DOCSYDE_RELIABILITY_CONTEXT: '', DOCSYDE_RELIABILITY_MANIFEST: '', DOCSYDE_ANALYSIS_REPOSITORIES: 'inspection-proof/offline', DOCSYDE_INSPECTION_PROOF_ID: id, DOCSYDE_INSPECTION_PROOF_TOKEN: token, DOCSYDE_STORAGE_DIRECTORY: directory }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const server = spawn(process.execPath, ['--require', join(process.cwd(), 'infra/local/inspection/capture-preload.cjs'), 'node_modules/next/dist/bin/next', 'start', '-p', '45981', '-H', '127.0.0.1'], { cwd: process.cwd(), env: { ...process.env, NODE_OPTIONS: '', NODE_ENV: 'production', BASETEN_API_KEY: '', META_API_KEY: '', GITHUB_TOKEN: '', DOCSYDE_RELIABILITY_CONTEXT: '', DOCSYDE_RELIABILITY_MANIFEST: '', DOCSYDE_ANALYSIS_REPOSITORIES: 'inspection-proof/offline', DOCSYDE_INSPECTION_PROOF_APP_URL: 'http://127.0.0.1:45873', DOCSYDE_INSPECTION_PROOF_ID: id, DOCSYDE_INSPECTION_PROOF_TOKEN: token, DOCSYDE_STORAGE_DIRECTORY: directory }, stdio: ['ignore', 'pipe', 'pipe'] });
   let output = ''; server.stdout.on('data', chunk => { output += chunk; }); server.stderr.on('data', chunk => { output += chunk; });
   t.after(async () => { server.kill('SIGTERM'); if (server.exitCode === null) await new Promise<void>(resolve => server.once('exit', () => resolve())); });
   const base = 'http://127.0.0.1:45981'; let view: InspectionView | undefined; let lastResponse = '';
@@ -63,6 +82,7 @@ test("SQL ownership/stale revision and production next start cross-module captur
   try {
     const page = await browser.newPage(); await page.goto(`${base}/runs/${id}`);
     await page.getByRole('heading', { name: 'Runtime inspection', exact: true }).waitFor();
+    assert.equal(await page.locator('#stage-output').getByRole('region', { name: 'Runtime inspection' }).count(), 1);
     await page.getByText('Earlier activity', { exact: false }).click();
     await page.getByRole('heading', { name: 'Captured evidence', exact: true }).waitFor();
     assert.equal(await page.getByRole('img', { name: 'Latest masked runtime capture' }).count(), 1);
@@ -83,10 +103,26 @@ test("SQL ownership/stale revision and production next start cross-module captur
       await page.reload();
       const pane = page.getByRole('region', { name: 'Runtime inspection' });
       await pane.getByText(mode === 'failed' ? /selection: failure/ : /selection: visual selection completed/).waitFor();
+      if (mode === 'failed') assert.match(await pane.getByRole('alert').innerText(), /Visual selection failed[\s\S]*Vision was not started/);
       assert.equal(await pane.getByText(/vision analysis started/).count() > 0, mode === 'vision-started');
       assert.equal(await pane.getByText('Selected for analysis', { exact: true }).count(), mode === 'failed' ? 0 : 1);
       await page.unroute('**/inspection');
     }
+    // One active fixture updates through the existing one-second polling, without page reload.
+    const active = runRecordV2.parse({ ...record, artifacts: (await pool.query('SELECT payload FROM docsyde.documentation_runs WHERE id=$1', [id])).rows[0].payload.artifacts, status: 'running', disposition: null, finishedAt: null, activeStage: 'runtime-inspection', stages: record.stages.map(stage => stage.key === 'runtime-inspection' ? { ...stage, status: 'running', finishedAt: null } : stage) });
+    await pool.query('UPDATE docsyde.documentation_runs SET status=$2,payload=$3 WHERE id=$1', [id, 'running', active]);
+    let revision = 100;
+    await page.route('**/inspection', route => route.fulfill({ json: { ...view, snapshot: { ...view.snapshot, revision: revision++, events: [{ version: 1, inspectionId: view.snapshot!.inspectionId, seq: revision, at: new Date().toISOString(), phase: 'browser', kind: revision < 103 ? 'browser-launch-started' : 'browser-launched' }] } } }));
+    await page.reload();
+    await page.getByText('Launching browser', { exact: true }).first().waitFor();
+    await page.getByText('Browser launched', { exact: true }).first().waitFor({ timeout: 10000 });
+    await page.unroute('**/inspection');
+    await pool.query('UPDATE docsyde.documentation_runs SET status=$2,payload=$3 WHERE id=$1', [id, 'finished', { ...active, status: 'finished', disposition: 'interrupted', finishedAt: new Date().toISOString(), activeStage: null, stages: record.stages }]);
+    await page.route('**/inspection/screenshots/*', route => route.fulfill({ status: 404 }));
+    await page.reload();
+    await page.getByText('Screenshot unavailable. The event timeline remains available.', { exact: true }).waitFor();
+    await page.getByRole('heading', { name: 'Inspection timeline' }).waitFor();
+    await page.unroute('**/inspection/screenshots/*');
   } finally { await browser.close(); }
   const linked = (await pool.query('SELECT payload FROM docsyde.documentation_runs WHERE id=$1', [id])).rows[0].payload;
   const tampered = structuredClone(linked); tampered.artifacts[0].sha256 = '0'.repeat(64);

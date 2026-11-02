@@ -901,3 +901,21 @@ A/B/C selector inputs are sanitized test fixtures under
 `infra/local/runner/visual-selection-inputs.json`, derived from retained request inputs
 with UUID relationships preserved. Mock responses test contracts and are not historical
 model answers or evidence that live inference reliability has been established.
+
+The runtime stage now opens its inspection view in the pipeline's activity area.
+It shows fixed action/health/browser/readiness labels, sanitized pathnames, checkpoint
+references and specific failure codes. Targets are described by configured action and
+step number; raw selectors, editable values and page labels are not exposed. A failed
+screenshot fetch leaves the timeline available. No additional setup or migration is
+required; historical runs retain their existing observation/artifact readers.
+
+`node --conditions=react-server --import tsx --test infra/local/inspection/inspection.integration.ts`
+now builds the immutable Request Desk baseline into a temporary fixture and verifies
+real capture callbacks through production HTTP/UI, active polling, failures, missing
+images and historical reload. It needs free loopback ports 45873 and 45981, Chromium,
+local PostgreSQL and a completed Webpack build. AI credentials are cleared and provider
+transport is forbidden. It creates no scenario refs or frozen experiment.
+
+For old runs without event history, the reader may show an exact retained
+selection-failed/vision-failed/cancelled runtime outcome, explicitly labeled as a
+retained run diagnostic. It does not synthesize events or infer errors from raw text.
