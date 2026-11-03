@@ -112,5 +112,7 @@ export function validateDocumentationDocument(raw: unknown): DocumentationDocume
     requireIntegrity(document.provenance.limited === document.provenance.contexts.some(source => source.limited));
     requireIntegrity(document.provenance.contexts.every(source => source.limitations.every(limit => document.provenance.limitations.includes(limit))));
   }
+  const imageIds = document.sections.flatMap(section => (section.images ?? []).map(image => image.id));
+  requireIntegrity(new Set(imageIds).size === imageIds.length);
   return document;
 }

@@ -1,5 +1,7 @@
 import "server-only";
 import { assertReliabilitySideEffect } from "@/integrations/reliability/execution-context";
+import { deliveredImage } from "../images/document-image";
+import { assertDocumentImages } from "../images/document-image-operations";
 import { z } from "zod";
 import { repositoryCoordinates, repositoryLocation } from "@/integrations/github/repository-identity";
 import { assertAllowedRepository } from "@/features/sources/repository-access";
@@ -30,6 +32,7 @@ export async function publishDocumentation(raw: unknown) {
   const saved = await getDocumentationDraft(input.draftId);
   if (saved.status !== "found") throw new Error("Only valid persisted documents can be published.");
   if (repositoryLocation(savedDocumentCoordinates(saved.document.provenance.repository)) !== repository) throw new Error("Document repository mismatch.");
+  await assertDocumentImages(saved.document);
   if (input.observedId) {
     const current = await findPublication(repository, input.route);
     if (current?.id === input.observedId && current.draftId === input.draftId) return { status: "published" as const, publication: current };
@@ -65,7 +68,7 @@ export async function getContextualDocumentation(raw: unknown): Promise<Delivery
     id: row.publication.id, documentId: document.id, publishedAt: row.publication.publishedAt.toISOString(),
     title: document.title,
     sections: document.sections.map(section => ({
-      id: section.id, title: section.title,
+      id: section.id, title: section.title, ...(section.images?.length ? { images: section.images.map(image => deliveredImage(image, document.id, repository)) } : {}),
       blocks: section.content.map(block => ({ markdown: block.markdown })),
       qualifications: section.qualifications.map(q => ({ support: q.support, confidence: q.confidence, confidenceReason: q.confidenceReason, assumptions: q.assumptions, uncertainties: q.uncertainties })),
     })),

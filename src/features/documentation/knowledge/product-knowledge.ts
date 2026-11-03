@@ -2,12 +2,13 @@ import "server-only";
 import { selectedRepository } from "@/features/sources/run-preparation";
 import { getUnderstanding } from "@/features/sources/product-knowledge";
 import { documentationHub, currentPublishedDocumentation, documentSourceHead } from "../library/library-operations";
+import { deliveredImage } from "../images/document-image";
 import type { DocumentationDocument } from "../documents/document";
 import { emptyKnowledge, knowledgeToolName, knowledgeResultSchema, projectInput, surfaceInput, KNOWLEDGE_MAX_BYTES, type KnowledgeResult } from "./knowledge-contract";
 
 function published(document: DocumentationDocument, route: string, publishedAt: string): KnowledgeResult["documents"][number] {
   return { documentId: document.id, title: document.title, route, version: { publishedAt, sourceRevision: documentSourceHead(document) },
-    sections: document.sections.map(section => ({ title: section.title, blocks: section.content.map(block => block.markdown) })),
+    sections: document.sections.map(section => ({ title: section.title, blocks: section.content.map(block => block.markdown), ...(section.images?.length ? { images: section.images.map(image => deliveredImage(image, document.id, document.provenance.repository)) } : {}) })),
     limitations: [...new Set(document.provenance.limitations)].slice(0, 6).map(value => value.slice(0, 500)) };
 }
 /** Shared application query for MCP and its UI. No inference, pending artifacts, indexing, or mutations. */

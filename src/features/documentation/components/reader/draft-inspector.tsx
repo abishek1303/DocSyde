@@ -1,3 +1,6 @@
+import type { ReactNode } from "react";
+import { DocumentationImage } from "./documentation-image";
+import { publishedImageUrl, type DocumentImage } from "../../images/document-image";
 import { BookOpen, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { badgeVariants } from "@/components/ui/badge";
@@ -7,7 +10,7 @@ import { DraftMarkdown } from "./draft-markdown";
 const disclosureStyle = "group rounded-xl border bg-card p-4 text-sm";
 const summaryStyle = "flex cursor-pointer list-none items-center justify-between gap-3 font-medium focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden";
 
-export function DraftInspector({ document, savedAt, published = false, appearance = "card", showMetadata = true, showContents = true, showTitle = true, highlightedSections = [], preview = false, headingLevel = "h1", anchorPrefix = "section" }: { document: DocumentationDocument; headingLevel?: "h1" | "h2"; anchorPrefix?: string; showMetadata?: boolean; showContents?: boolean; showTitle?: boolean; highlightedSections?: string[]; preview?: boolean; savedAt?: string; published?: boolean; appearance?: "card" | "help" }) {
+export function DraftInspector({ document, savedAt, published = false, appearance = "card", showMetadata = true, showContents = true, showTitle = true, imageSources, renderImageActions, highlightedSections = [], preview = false, headingLevel = "h1", anchorPrefix = "section" }: { document: DocumentationDocument; headingLevel?: "h1" | "h2"; anchorPrefix?: string; showMetadata?: boolean; showContents?: boolean; showTitle?: boolean; imageSources?: Record<string, string>; renderImageActions?: (image: DocumentImage) => ReactNode; highlightedSections?: string[]; preview?: boolean; savedAt?: string; published?: boolean; appearance?: "card" | "help" }) {
   const contexts = document.associations.flatMap(id => document.context.filter(choice => choice.id === id));
   const date = savedAt ? new Date(savedAt) : null;
   const savedLabel = date && Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Los_Angeles" }).format(date) + " PT" : null;
@@ -47,6 +50,7 @@ export function DraftInspector({ document, savedAt, published = false, appearanc
               <DraftMarkdown content={block.markdown} />
             </div>)}
           </div>
+          {section.images?.map(image => <DocumentationImage key={`${image.id}:${imageSources?.[image.id] ?? document.id}`} image={image} src={imageSources?.[image.id] ?? publishedImageUrl(document.id, image.id, document.provenance.repository)} actions={renderImageActions?.(image)} />)}
           {showMetadata && (inferred || caveats.length > 0) && <aside className="space-y-2 rounded-lg border border-warning/30 bg-warning-background p-4 text-sm leading-6 text-warning">
             <p className="font-medium">What to keep in mind</p>{inferred && <p>Some details are inferred or have limited support. Check the sources before relying on them.</p>}{caveats.length > 0 && <ul className="list-disc space-y-1 pl-5">{caveats.map(text => <li key={text}>{text}</li>)}</ul>}</aside>}
           {showMetadata && <details className={disclosureStyle}>

@@ -13,6 +13,7 @@ import { runRecordV2 } from "@/features/documentation/runs/run-record";
 import { getDatabase, closeDatabase } from "@/integrations/database/client";
 import { documentationRuns, documentationDrafts, documentationReviews, documentationPublications } from "@/integrations/database/schema";
 import { getDocumentationReview, retainDocumentationProposal } from "@/features/documentation/review/review-proposal-operations";
+import { getPendingWorkspace } from "@/features/documentation/review/pending-workspace";
 import { draftFixture } from "./draft-fixture";
 import { reviewProposalFixture } from "./review-fixtures";
 import { initialStages } from "@/features/documentation/drafts/run-progress";
@@ -89,7 +90,7 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
     } else if (input.visualReferences) {
       phase = "impact";
       assert.ok(input.runtimeInspection, "Coverage context reaches synthesis");
-      output = { assessment: mode === "unresolved" ? "insufficient-evidence" : "product-change", summary: "Request requirements changed", claims: [{ description: "A title is required", kind: "behavior-change", confidence: "high", confidenceReason: "Literal source", before: "Optional", after: "Required", uncertainties: [], references: ["source-1"] }], contradictions: [], uncertainties: [] };
+      output = { assessment: mode === "unresolved" ? "insufficient-evidence" : "product-change", summary: "Request requirements changed", claims: [{ description: "A title is required", kind: "behavior-change", confidence: "high", confidenceReason: "Literal source", before: "Optional", after: "Required", uncertainties: [], references: ["source-1", ...input.visualReferences.slice(0, 1).map((ref: { id: string }) => ref.id)] }], contradictions: [], uncertainties: [] };
     } else if (input.candidateCoverage) {
       phase = "planning";
       assert.ok(input.impact.runtimeInspection, "Coverage reaches planning");
@@ -99,7 +100,11 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
       phase = "support"; output = { verdicts: input.units.map((unit: SupportUnit) => ({ unitId: unit.id, verdict: mode === "unsupported" || mode === "partial" && unit.decisionId === "decision-2" ? "unsupported" : "supported", reason: "Fixture source requirement" })) };
     } else {
       assert.ok(input.authorizations, "Legacy draft generation is never invoked");
-      phase = "transformation"; output = { entries: input.authorizations.map((auth: TransformationAuthorization) => transformationEntryFixture(auth, input.documents)) };
+      phase = "transformation"; output = { entries: input.authorizations.map((auth: TransformationAuthorization) => {
+        const entry = transformationEntryFixture(auth, input.documents);
+        if (mode === "illustrated" && entry.change.kind === "add-document") entry.change.associations = auth.associations.map(choice => choice.id);
+        return entry;
+      }) };
     }
     count(phase);
     if (phase === phaseToHold && held) {
@@ -112,7 +117,7 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
     if (mode === "provider-failure" && phase === "source" || mode === "support-failure" && phase === "support") return Response.json({}, { status: 500 });
     return Response.json({ model: "mock-run", choices: [{ finish_reason: "stop", message: { content: JSON.stringify(output) } }] });
   });
-  const create = async () => { const id = await createDocumentationRun({ ...repo, base, head: same ? base : head, paths: [] }); ids.push(id); return id; };
+  const create = async () => { const id = await createDocumentationRun({ ...repo, base, head: same ? base : head, paths: [], ...(mode === "illustrated" ? { associations: [{ id: "route-illustrated", kind: "route", value: "/requests/new", origin: "operator" }] } : {}) }); ids.push(id); return id; };
   const read = async (id: string) => { const run = await getDocumentationRun(id); assert.ok(run); return runRecordV2.parse(run.record); };
   const wait = async (id: string) => {
     for (let i = 0; i < 1000; i++) { const record = await read(id); if (record.status === "finished") { if (record.retainedProposal) proposalIds.push(record.retainedProposal.proposalId); await new Promise(resolve => setTimeout(resolve, 10)); return record; } await new Promise(resolve => setTimeout(resolve, 20)); }
@@ -236,6 +241,13 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
     mode = "actionable"; const visual = await run();
     assert.equal(visual.record.disposition, "awaiting-review", JSON.stringify({ reason: visual.record.reason, runtime: visual.record.runtime })); assert.equal(visual.record.runtime?.outcome, "completed");
     assert.equal(visual.record.artifacts.length, 2); assert.equal(counts.selection, 1); assert.equal(counts.vision, 1);
+    mode = "illustrated";
+    const illustrated = await run();
+    assert.equal(illustrated.record.disposition, "awaiting-review");
+    const preview = await getPendingWorkspace({ repository: `${repo.owner}/${repo.repo}` });
+    const illustratedGroup = preview.groups.find(group => group.changes.some(change => change.proposalId === illustrated.record.retainedProposal!.proposalId));
+    assert.equal(illustratedGroup?.document?.sections[0].images?.length, 1, "the existing full workflow yields a relevant image without an extra inference stage");
+    mode = "actionable";
     await configure(["/requests/new"], true); const previousImpact = counts.impact;
     const failed = await run(); assert.equal(failed.record.disposition, "failed"); assert.equal(failed.record.runtime?.outcome, "attempted-and-failed"); assert.equal(counts.impact, previousImpact);
   });

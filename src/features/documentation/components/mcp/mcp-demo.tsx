@@ -1,4 +1,5 @@
 "use client";
+import { DocumentationImage } from "../reader/documentation-image";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +31,7 @@ export function McpDemo({ repository, enabled, initialRoute }: { repository: str
       <p role={result.status === "available" || result.status === "no-live-documentation" ? "status" : "alert"} className="text-sm text-muted-foreground">{result.message}</p>
       {result.documents.map(document => <article key={`${document.documentId}:${document.route}`} className="mx-auto max-w-3xl space-y-5">
         <div className="space-y-2"><p className="text-xs font-medium text-primary">Approved · Live documentation</p><h3 className="text-2xl font-semibold">{document.title}</h3><p className="break-words text-xs text-muted-foreground">{document.route} · Published {new Date(document.version.publishedAt).toLocaleString()}</p></div>
-        {document.sections.map((section, index) => <section key={index} className="space-y-3 break-words text-base leading-8 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-x-auto"><h4 className="border-b pb-3 text-lg font-semibold">{section.title}</h4>{section.blocks.map((text, i) => <DraftMarkdown key={i} content={text} />)}</section>)}
+        {document.sections.map((section, index) => <section key={index} className="space-y-3 break-words text-base leading-8 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_pre]:overflow-x-auto"><h4 className="border-b pb-3 text-lg font-semibold">{section.title}</h4>{section.blocks.map((text, i) => <DraftMarkdown key={i} content={text} />)}{section.images?.map(image => <DocumentationImage key={image.id} image={image} src={image.url} />)}</section>)}
         <details className="text-sm"><summary className="cursor-pointer text-muted-foreground">Source and coverage</summary><div className="mt-3 space-y-2 text-xs leading-6 text-muted-foreground">{document.version.sourceRevision && <p>Repository revision {document.version.sourceRevision.slice(0, 12)}</p>}{document.limitations.map((text, i) => <p key={i}>{text}</p>)}</div></details>
       </article>)}
       {result.orientation && <details className="rounded-lg border p-4 text-sm"><summary className="cursor-pointer font-medium">Repository orientation · Advisory snapshot</summary><div className="mt-4 space-y-3 leading-7"><p className="text-muted-foreground">This snapshot may lag live documentation. It does not establish current product behavior.</p><p>{result.orientation.purpose}</p><p>Audience: {result.orientation.audience}</p><p className="text-xs text-muted-foreground">As of {new Date(result.orientation.asOf).toLocaleString()}</p>{result.orientation.gaps.length > 0 && <ul className="list-disc pl-5">{result.orientation.gaps.map((gap, i) => <li key={i}>{gap}</li>)}</ul>}</div></details>}

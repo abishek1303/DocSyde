@@ -101,3 +101,22 @@ npm run mcp:integration:test
 These tests create and clean their own repositories/documents, clear AI credentials in the test server, and never publish connected demo documents. Scripts named `*:verify` may spend credits or retain artifacts; read the relevant integration guide before running them. Keep screenshots, storage, and compiled SDK output under ignored `.artifacts/`.
 
 Stop local infrastructure with `docker compose -f infra/local/compose.yaml down`. Do not add `-v` unless you intend to delete all local database data. For deeper implementation details, use [ARCHITECTURE.md](ARCHITECTURE.md), [MODEL_USAGE.md](MODEL_USAGE.md), and the linked feature/integration guides.
+
+## Screenshots in documentation
+
+No new credentials or model calls are required. Pending Changes suggests a stored,
+masked Playwright checkpoint only when validated claim/selection references and an
+exact document route connect it to the affected section. Remove an image or restore
+it before **Publish N changes**. Text-only publication remains valid.
+
+Images are references in canonical sections; PNG bytes stay in
+`DOCSYDE_STORAGE_DIRECTORY`. Preserve/back up this directory together with PostgreSQL:
+Archive retains the original image references, not duplicate files. Missing PNGs
+show a readable fallback. There is no automatic artifact deletion or remote storage
+migration in this slice.
+
+After the production build, run `npm run documentation:images:test` for real masked
+Playwright capture, browser review/publish, Archive, SDK/MCP, ownership, and missing
+image checks. Source/vision responses in these fixtures are mocked; no paid calls
+are made. Runtime screenshots illustrate observed state, not proof of automatic
+behavior or source-revision correspondence.

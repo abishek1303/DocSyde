@@ -7,12 +7,13 @@ export type DeliveryQualification = {
   assumptions: string[];
   uncertainties: string[];
 };
+export type DeliveryImage = { id: string; url: string; alt: string; caption?: string; width: number; height: number };
 export type DeliveryPublication = {
   id: string;
   documentId: string;
   publishedAt: string;
   title: string;
-  sections: { id: string; title: string; blocks: { markdown: string }[]; qualifications: DeliveryQualification[] }[];
+  sections: { id: string; title: string; blocks: { markdown: string }[]; qualifications: DeliveryQualification[]; images?: DeliveryImage[] }[];
   limitations: string[];
 };
 export type DeliveryResponse = { version: 1; publication: DeliveryPublication | null };
@@ -34,6 +35,12 @@ function qualification(value: unknown): DeliveryQualification {
   if ((q.support !== "directly-supported" && q.support !== "inferred") || (q.confidence !== "low" && q.confidence !== "medium" && q.confidence !== "high")) throw new Error("Invalid documentation response.");
   return { support: q.support, confidence: q.confidence, confidenceReason: string(q.confidenceReason), assumptions: array(q.assumptions, string), uncertainties: array(q.uncertainties, string) };
 }
+function image(value: unknown): DeliveryImage {
+  const entry = record(value), url = string(entry.url);
+  if (!/^\/api\/documentation\/images\/[0-9a-f-]{36}\/[0-9a-f-]{36}\?repository=/.test(url) || !Number.isInteger(entry.width) || !Number.isInteger(entry.height)
+    || Number(entry.width) < 1 || Number(entry.height) < 1 || Number(entry.width) > 8192 || Number(entry.height) > 8192) throw new Error("Invalid documentation image.");
+  return { id: string(entry.id), url, alt: string(entry.alt), ...(entry.caption === undefined ? {} : { caption: string(entry.caption) }), width: Number(entry.width), height: Number(entry.height) };
+}
 export function parseDeliveryResponse(value: unknown): DeliveryResponse {
   const response = record(value);
   if (response.version !== 1) throw new Error("Invalid documentation response.");
@@ -43,7 +50,7 @@ export function parseDeliveryResponse(value: unknown): DeliveryResponse {
     id: string(p.id), documentId: string(p.documentId), publishedAt: string(p.publishedAt), title: string(p.title),
     sections: array(p.sections, value => {
       const s = record(value);
-      return { id: string(s.id), title: string(s.title), blocks: array(s.blocks, b => ({ markdown: string(record(b).markdown) })), qualifications: array(s.qualifications, qualification) };
+      return { id: string(s.id), title: string(s.title), blocks: array(s.blocks, b => ({ markdown: string(record(b).markdown) })), qualifications: array(s.qualifications, qualification), ...(s.images === undefined ? {} : { images: array(s.images, image) }) };
     }),
     limitations: array(p.limitations, string),
   } };
@@ -63,5 +70,7 @@ export async function retrieveDocumentation(input: {
   url.searchParams.set("route", context.route);
   const response = await fetch(url, { signal: input.signal, cache: "no-store", credentials: "omit" });
   if (!response.ok) throw new Error("Could not load contextual documentation.");
-  return parseDeliveryResponse(await response.json());
+  const result = parseDeliveryResponse(await response.json());
+  for (const section of result.publication?.sections ?? []) for (const image of section.images ?? []) image.url = new URL(image.url, url.origin).href;
+  return result;
 }

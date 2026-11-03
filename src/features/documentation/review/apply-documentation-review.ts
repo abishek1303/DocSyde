@@ -1,5 +1,6 @@
 import "server-only";
 import { assertReliabilitySideEffect } from "@/integrations/reliability/execution-context";
+import { assertDocumentImages } from "../images/document-image-operations";
 import { randomUUID } from "node:crypto";
 import { documentationReviewTransaction, findDocumentationReview, type ReviewTransaction } from "@/integrations/database/documentation-reviews";
 import { documentationHash } from "../documents/document-identity";
@@ -66,6 +67,7 @@ async function publishUnit(scope: ReviewTransaction, proposal: DocumentationChan
   if (!row) { receipt.reason = "saved-document-missing"; return receipt; }
   try {
     const candidate = validateDocumentationDocument(row.document);
+    await assertDocumentImages(candidate);
     const ids = review.selection.decisions.filter(c => c.choice === "approve").map(c => c.decisionId);
     const unit = approvedDocumentUnits(proposal, ids).find(u => u.unitId === target.unitId)!;
     const expected = materializeApprovedUnit(proposal, review.operationId, unit.results);

@@ -63,7 +63,8 @@
     "reliability:server:test": "node --conditions=react-server --import tsx --test infra/local/reliability/docsyde-lifecycle.integration.ts",
     "reliability:host:test": "node --conditions=react-server --import tsx --test infra/local/reliability/host-lifecycle.integration.ts",
     "sources:understanding:test": "node --conditions=react-server --import tsx --test src/features/sources/context/understanding.test.ts infra/local/documentation/repository-understanding.test.ts infra/local/documentation/repository-discovery.test.ts",
-    "documentation:pending:test": "node --conditions=react-server --import tsx --test infra/local/documentation/pending-publishing.test.ts"
+    "documentation:pending:test": "node --conditions=react-server --import tsx --test infra/local/documentation/pending-publishing.test.ts",
+    "documentation:images:test": "node --conditions=react-server --import tsx --test infra/local/documentation/document-images*.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

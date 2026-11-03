@@ -39,3 +39,14 @@ test("SDK validates structured blocks and projects only the delivery contract", 
   assert.ok(!JSON.stringify(response).includes("secret"));
   assert.equal(response.publication?.sections[0].blocks[0].markdown, "**escaped text**");
 });
+
+test("SDK images remain optional, reject private/external paths, and resolve against DocSyde", async t => {
+  const image = { id: "11111111-1111-4111-8111-111111111111", url: "/api/documentation/images/11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222?repository=owner%2Frepo", alt: "Issue detail screen", width: 1000, height: 700 };
+  const payload = { version: 1, publication: { id: "p", documentId: "d", publishedAt: "now", title: "Title", sections: [{ id: "s", title: "Section", blocks: [], qualifications: [], images: [image] }], limitations: [] } };
+  assert.deepEqual(parseDeliveryResponse(payload).publication!.sections[0].images, [image]);
+  for (const url of ["file:///private/image.png", "/runs/private/preview/1", "https://example.com/private.png", "//example.com/image.png"]) {
+    const invalid = structuredClone(payload); invalid.publication.sections[0].images[0].url = url; assert.throws(() => parseDeliveryResponse(invalid));
+  }
+  t.mock.method(globalThis, "fetch", async () => Response.json(payload));
+  assert.equal((await retrieveDocumentation(input)).publication!.sections[0].images![0].url, `http://127.0.0.1:3000${image.url}`);
+});

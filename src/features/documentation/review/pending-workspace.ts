@@ -14,16 +14,18 @@ import type { DocumentationDocument } from "../documents/document";
 import { readRetainedReview } from "./review-proposal-operations";
 import { intrinsicReviewReady } from "./materialize-approved-changes";
 import { acceptedReviewSchema, normalizeReviewSelection, type AcceptedReview } from "./documentation-review";
+import { assertDocumentImages, proposalImageSuggestions, type ImageSuggestion } from "../images/document-image-operations";
+import { previewImageUrl, publishedImageUrl, type DocumentImage } from "../images/document-image";
 import { materializePendingEdits } from "./pending-materialization";
 
-export const pendingInput = z.object({ repository: z.string().min(3).max(250), excluded: z.array(z.string().min(1).max(150)).max(1600).default([]) }).strict();
+export const pendingInput = z.object({ repository: z.string().min(3).max(250), excluded: z.array(z.string().min(1).max(150)).max(1600).default([]), removedImages: z.array(z.uuid()).max(600).default([]) }).strict();
 export const pendingPublishInput = pendingInput.extend({ expectedHash: z.string().regex(/^[a-f0-9]{64}$/) });
 type State = ReturnType<typeof readRetainedReview>;
 type Entry = { state: State; result: State["proposal"]["results"][number]; key: string; unavailable: string | null; excluded: boolean; issue: string | null };
-type Group = { key: string; baseline?: DocumentationDocument; entries: Entry[]; document: DocumentationDocument | null; issue: string | null };
+type Group = { key: string; baseline?: DocumentationDocument; entries: Entry[]; document: DocumentationDocument | null; issue: string | null; imageChoices: { image: DocumentImage; sectionTitle: string; removed: boolean; url: string }[] };
 export type PendingWorkspace = {
   repository: string; hash: string; count: number; blocked: boolean;
-  groups: { key: string; title: string; document: DocumentationDocument | null; highlighted: string[]; issue: string | null;
+  groups: { key: string; title: string; document: DocumentationDocument | null; images: Group["imageChoices"]; imageSources: Record<string, string>; highlighted: string[]; issue: string | null;
     changes: { key: string; label: string; reason: string; unavailable: string | null; excluded: boolean; issue: string | null; proposalId: string }[] }[];
 };
 const keyFor = (state: State, decisionId: string) => `${state.proposal.proposalId}:${decisionId}`;
@@ -40,6 +42,10 @@ async function prepare(raw: unknown) {
     if (page.length <= 20) break;
   }
   const states = [...rows.values()].map(readRetainedReview).sort((a, b) => a.registeredAt.localeCompare(b.registeredAt) || a.proposal.proposalId.localeCompare(b.proposal.proposalId));
+  const suggestions = new Map<string, ImageSuggestion[]>();
+  for (const state of states) {
+    try { suggestions.set(state.proposal.proposalId, await proposalImageSuggestions(state.proposal)); } catch { suggestions.set(state.proposal.proposalId, []); }
+  }
   const groups = new Map<string, Group>(), excluded = new Set(input.excluded), observations: unknown[] = [];
   for (const state of states) for (const result of state.proposal.results) {
     if (!["add", "revise"].includes(result.decision.action)) continue;
@@ -61,7 +67,7 @@ async function prepare(raw: unknown) {
       if ((live?.id ?? null) !== target.observedId || (target.observedId && live?.draftId !== target.baselineId)) unavailable ??= "Live documentation changed after this proposal. Run a new analysis.";
     }
     const key = baseline?.id ?? `${state.proposal.proposalId}:${unitId}`;
-    const group = groups.get(key) ?? { key, baseline, entries: [], document: baseline ?? null, issue: null };
+    const group = groups.get(key) ?? { key, baseline, entries: [], document: baseline ?? null, issue: null, imageChoices: [] };
     group.entries.push({ state, result, key: keyFor(state, result.decisionId), unavailable, excluded: excluded.has(keyFor(state, result.decisionId)), issue: null });
     groups.set(key, group);
   }
@@ -83,23 +89,29 @@ async function prepare(raw: unknown) {
         routeOwners.set(target.route, group);
       }
     }
+    group.imageChoices = [
+      ...(group.baseline?.sections.flatMap(section => (section.images ?? []).map(image => ({ image, sectionTitle: section.title, removed: input.removedImages.includes(image.id), url: publishedImageUrl(group.baseline!.id, image.id, repository) }))) ?? []),
+      ...selected.flatMap(entry => (suggestions.get(entry.state.proposal.proposalId) ?? []).filter(suggestion => suggestion.decisionId === entry.result.decisionId).map(suggestion => ({ image: suggestion.image, sectionTitle: suggestion.sectionTitle, removed: input.removedImages.includes(suggestion.image.id), url: previewImageUrl(suggestion.image) }))),
+    ];
     if (!group.issue && selected.length) {
       const edits = states.flatMap(state => {
         const results = selected.filter(entry => entry.state === state).map(entry => entry.result);
         return results.length ? [{ proposal: state.proposal, results }] : [];
       });
-      try { group.document = materializePendingEdits(edits, group.baseline); }
+      try { group.document = materializePendingEdits(edits, group.baseline, { suggestions, removedImages: input.removedImages }); }
       catch { group.issue = "These updates cannot be combined within the document contract. Exclude a conflicting change or run a new analysis."; }
     }
   }
-  const hash = documentationHash({ repository, proposals: states.map(state => [state.proposal.proposalId, state.proposalHash, state.review, state.expiresAt]), observations });
+  const imageIds = new Set([...suggestions.values()].flatMap(items => items.map(item => item.image.id)).concat([...groups.values()].flatMap(group => group.baseline?.sections.flatMap(section => (section.images ?? []).map(image => image.id)) ?? [])));
+  if (input.removedImages.some(id => !imageIds.has(id))) throw new Error("changed");
+  const hash = documentationHash({ images: [...suggestions], repository, proposals: states.map(state => [state.proposal.proposalId, state.proposalHash, state.review, state.expiresAt]), observations });
   return { input, repository, states, groups: [...groups.values()], hash };
 }
 function presentation(data: Awaited<ReturnType<typeof prepare>>): PendingWorkspace {
   return { repository: data.input.repository, hash: data.hash, count: data.groups.flatMap(group => group.entries).filter(included).length,
     blocked: data.groups.some(group => group.issue && group.entries.some(included)),
     groups: data.groups.map(group => ({ key: group.key, title: group.document?.title ?? group.baseline?.title ?? group.entries[0].state.proposal.candidates[0]?.document.title ?? "Documentation",
-      document: group.document, issue: group.issue,
+      document: group.document, images: group.imageChoices, imageSources: Object.fromEntries(group.imageChoices.map(choice => [choice.image.id, choice.url])), issue: group.issue,
       highlighted: group.document?.sections.filter(section => documentationHash(section) !== documentationHash(group.baseline?.sections.find(old => old.id === section.id) ?? null)).map(section => section.id) ?? [],
       changes: group.entries.map(entry => ({ key: entry.key, label: group.baseline?.sections.find(section => section.id === entry.result.decision.sectionId)?.title ?? (entry.result.change && "section" in entry.result.change ? entry.result.change.section.title : "Document update"),
         reason: entry.result.decision.updateIntent || entry.result.decision.reason, unavailable: entry.unavailable, excluded: entry.excluded, issue: entry.issue, proposalId: entry.state.proposal.proposalId })) })) };
@@ -110,7 +122,7 @@ export async function publishPendingWorkspace(raw: unknown): Promise<PendingPubl
   assertReliabilitySideEffect("product-mutation");
   try {
     const parsed = pendingPublishInput.parse(raw);
-    const data = await prepare({ repository: parsed.repository, excluded: parsed.excluded }), view = presentation(data);
+    const data = await prepare({ repository: parsed.repository, excluded: parsed.excluded, removedImages: parsed.removedImages }), view = presentation(data);
     if (data.hash !== parsed.expectedHash) return { status: "changed", message: "Pending or live documentation changed. Reload and review the current preview." };
     if (!view.count || view.blocked) return { status: "blocked", message: "Resolve or exclude the conflicting changes before publishing." };
     const activeGroups = data.groups.filter(group => group.entries.some(included));
@@ -125,6 +137,7 @@ export async function publishPendingWorkspace(raw: unknown): Promise<PendingPubl
         if (current.proposalHash !== state.proposalHash || documentationHash(current.review) !== documentationHash(state.review) || (!current.review && Date.now() >= scope.row.expiresAt.getTime())) throw new Error("changed");
       }
       for (const group of activeGroups) {
+        await assertDocumentImages(group.document!);
         const scope = byId.get(group.entries.find(included)!.state.proposal.proposalId)!;
         if (group.baseline) {
           const baseline = await scope.baseline(group.baseline.id);

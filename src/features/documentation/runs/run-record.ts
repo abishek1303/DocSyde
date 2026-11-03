@@ -1,10 +1,10 @@
 import "server-only";
-import { inspectionSupportSchema } from "@/features/sources/product-analysis";
+import { inspectionSupportSchema } from "@/features/sources/product-evidence";
 import { modelDiagnosticSchema } from "@/integrations/ai/model-diagnostic";
 import { z } from "zod";
-import { productChangeInput, storedProductResult, generationContextSnapshot } from "@/features/sources/product-analysis";
+import { productChangeInput, storedProductResult, generationContextSnapshot } from "@/features/sources/product-evidence";
 import { WORKFLOW_STEPS, workflowStage, runDisposition } from "./run-workflow-state";
-import { runtimeInspectionContextSchema, inspectionDecisionSchema, productImpactSchema, validateProductImpact } from "@/features/sources/product-analysis";
+import { runtimeInspectionContextSchema, inspectionDecisionSchema, productImpactSchema, validateProductImpact } from "@/features/sources/product-evidence";
 import { documentationHash } from "../documents/document-identity";
 import { validateDocumentationImpactPlan } from "../planning/validate-documentation-impact-plan";
 import { documentationImpactPlanSchema } from "../planning/documentation-impact";

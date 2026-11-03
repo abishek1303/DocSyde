@@ -53,3 +53,10 @@ export async function admitDocumentationRun(id: string, repository: string, clai
     return "claimed" as const;
   });
 }
+
+export async function findRunForProposal(repository: string, proposalId: string) {
+  const [row] = await getDatabase().select({ id: documentationRuns.id }).from(documentationRuns)
+    .where(and(eq(documentationRuns.repository, repository), sql`${documentationRuns.payload}->'retainedProposal'->>'proposalId' = ${proposalId}`))
+    .orderBy(desc(documentationRuns.createdAt)).limit(1);
+  return row ?? null;
+}

@@ -48,3 +48,18 @@ canonical Markdown field. Qualifications and limitations remain visible. Interna
 provenance, source excerpts, generation and advisory data are excluded server-side.
 Request Desk displays every Markdown block as escaped plain text consistently.
 Build emits both ESM entries and `.d.ts` contracts under ignored `.artifacts/sdk`.
+
+## Approved documentation images
+
+Version-1 section delivery may include optional `images`: `{ id, url, alt,
+caption?, width, height }`. Existing text-only responses and older consumers remain
+valid. `retrieveDocumentation` resolves these URLs against the DocSyde endpoint,
+so host applications may render them directly with descriptive alt text and an
+aspect ratio. They point only to document-scoped PNG delivery, never storage keys,
+filesystem paths, or pending preview URLs. The same references are included in MCP
+section results (relative to the DocSyde HTTP origin).
+
+Only live or previously published snapshots may retrieve their own images. Pending
+screenshots use a separate same-origin local review endpoint and are not agent/SDK
+truth. Publication and Archive retain exact immutable references; keeping the local
+artifact directory is required to keep those images available.

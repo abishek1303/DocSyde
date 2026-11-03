@@ -3,14 +3,12 @@ import { prepareReliabilityRun } from "./reliability-baseline";
 import { assertReliabilitySideEffect } from "@/integrations/reliability/execution-context";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { insertDocumentationRun, findDocumentationRun, selectDocumentationRuns, selectLatestDocumentationRuns } from "@/integrations/database/documentation-runs";
+import { insertDocumentationRun, selectDocumentationRuns, selectLatestDocumentationRuns } from "@/integrations/database/documentation-runs";
 import { assertAllowedRepository, pinChangeInput, readSelectedChange } from "@/features/sources/product-analysis";
 import { initializeRunCoordinator } from "./run-coordinator";
 import { initialWorkflowStages } from "./run-workflow-state";
 import { runInput, runRecord, type RunRecord, type RunView } from "./run-record";
-import { RUN_STEPS } from "../drafts/run-progress";
-import { getDocumentationDraft } from "../documents/operations";
-import { validateDocumentationDocument } from "../documents/document-validation";
+import { readStoredDocumentationRun } from "./read-run-record";
 
 import { projectStageResponsePreviews } from "./run-response-projection";
 
@@ -33,19 +31,7 @@ export async function createDocumentationRun(raw: unknown) {
 
 export async function getDocumentationRun(rawId: unknown) {
   await initializeRunCoordinator();
-  const id = z.uuid().parse(rawId);
-  const row = await findDocumentationRun(id);
-  if (!row) return null;
-  const record = runRecord.parse(row.payload);
-  assertAllowedRepository(record.input.owner, record.input.repo);
-  if (row.repository !== repositoryIdentity(record.input) || row.status !== record.status || (!("schemaVersion" in record) && record.stages.some((stage, index) => stage.key !== RUN_STEPS[index].key))) throw new Error("Stored run failed integrity checks.");
-  let savedAt: string | null = null;
-  if (!("schemaVersion" in record) && record.result?.document) {
-    record.result.document = validateDocumentationDocument(record.result.document);
-    const saved = await getDocumentationDraft(record.result.document.id, row.repository);
-    if (saved.status === "found") savedAt = saved.savedAt.toISOString();
-  }
-  return { id, createdAt: row.createdAt.toISOString(), record, savedAt };
+  return readStoredDocumentationRun(rawId);
 }
 export function runView(run: NonNullable<Awaited<ReturnType<typeof getDocumentationRun>>>, { includeResponses = true }: { includeResponses?: boolean } = {}): RunView {
   const record = run.record;

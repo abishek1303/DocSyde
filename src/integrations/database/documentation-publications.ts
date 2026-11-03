@@ -61,3 +61,10 @@ export async function publicationsForDrafts(repository: string, ids: string[]) {
   if (!ids.length) return [];
   return getDatabase().select().from(publications).where(and(eq(publications.repository, repository), inArray(publications.draftId, ids))).limit(65);
 }
+
+/** Published or formerly published snapshots may deliver their own approved images. */
+export async function hasPublishedDocument(repository: string, documentId: string) {
+  const condition = (table: typeof publications | typeof history) => and(eq(table.repository, repository), eq(table.draftId, documentId));
+  if ((await getDatabase().select({ id: publications.id }).from(publications).where(condition(publications)).limit(1)).length) return true;
+  return (await getDatabase().select({ id: history.id }).from(history).where(condition(history)).limit(1)).length > 0;
+}

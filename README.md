@@ -2,7 +2,7 @@
 
 DocSyde keeps product documentation synchronized with product changes—for people and AI agents.
 
-The demo follows a source change through grounded analysis, optional Playwright screenshots and Meta vision, product-impact interpretation, documentation proposals, and human review. Approval and publication are separate. Published documentation is available in the product reader, host SDK, and read-only MCP interface.
+The demo follows a source change through grounded analysis, optional Playwright screenshots and Meta vision, product-impact interpretation, documentation proposals, and human review. Approval and publication are separate. Selected masked screenshots can illustrate reviewed sections inline. Published documentation is available in the product reader, host SDK, and read-only MCP interface.
 
 ## Run locally
 

@@ -9,6 +9,7 @@ import type { PendingWorkspace } from "../../review/pending-workspace";
 
 export function PendingPublishWorkspace({ initial }: { initial: PendingWorkspace }) {
   const [view, setView] = useState(initial), [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const [removedImages, setRemovedImages] = useState<string[]>(initial.groups.flatMap(group => group.images.filter(choice => choice.removed).map(choice => choice.image.id)));
   const router = useRouter();
   const affected = view.groups.filter(group => group.changes.some(change => !change.unavailable && !change.excluded)).length;
   async function toggle(key: string) {
@@ -16,15 +17,24 @@ export function PendingPublishWorkspace({ initial }: { initial: PendingWorkspace
     const excluded = rejected.includes(key) ? rejected.filter(value => value !== key) : [...rejected, key];
     setBusy(true); setError("");
     try {
-      const next = await previewPendingChanges({ repository: view.repository, excluded });
+      const next = await previewPendingChanges({ repository: view.repository, excluded, removedImages });
       if (next) setView(next); else setError("The pending workspace changed. Reload to see the current documentation.");
     } catch { setError("The preview could not be updated. Please try again."); }
+    finally { setBusy(false); }
+  }
+  async function toggleImage(id: string) {
+    const next = removedImages.includes(id) ? removedImages.filter(value => value !== id) : [...removedImages, id];
+    setBusy(true); setError("");
+    try {
+      const updated = await previewPendingChanges({ repository: view.repository, excluded: view.groups.flatMap(group => group.changes).filter(change => change.excluded).map(change => change.key), removedImages: next });
+      if (updated) { setView(updated); setRemovedImages(next); } else setError("The screenshot preview changed. Reload before publishing.");
+    } catch { setError("The screenshot selection could not be updated."); }
     finally { setBusy(false); }
   }
   async function publish() {
     setBusy(true); setError("");
     try {
-      const result = await publishPendingChanges({ repository: view.repository, expectedHash: view.hash, excluded: view.groups.flatMap(group => group.changes).filter(change => change.excluded).map(change => change.key) });
+      const result = await publishPendingChanges({ repository: view.repository, expectedHash: view.hash, removedImages, excluded: view.groups.flatMap(group => group.changes).filter(change => change.excluded).map(change => change.key) });
       if (result.status === "published") { router.push(`/docs?${new URLSearchParams({ repository: view.repository, published: "1" })}`); router.refresh(); }
       else setError(result.message);
     } catch { setError("Publication could not be confirmed. Reload before trying again."); }
@@ -49,7 +59,8 @@ export function PendingPublishWorkspace({ initial }: { initial: PendingWorkspace
         </li>)}</ul>
       </div>
       {group.issue && <p role="alert" className="rounded-lg border border-destructive/30 p-4 text-sm">{group.issue}</p>}
-      {group.document && <div className="mx-auto max-w-3xl" aria-label={`Combined preview: ${group.title}`}><DraftInspector document={group.document} headingLevel="h2" anchorPrefix={`pending-${group.key}`} showMetadata={false} showContents={false} showTitle={false} appearance="help" highlightedSections={group.highlighted} /></div>}
+      {group.images.filter(choice => choice.removed).map(choice => <button type="button" key={choice.image.id} disabled={busy} onClick={() => toggleImage(choice.image.id)} className="rounded text-sm text-primary underline focus-visible:outline-2 focus-visible:outline-ring">Restore screenshot for {choice.sectionTitle}</button>)}
+      {group.document && <div className="mx-auto max-w-3xl" aria-label={`Combined preview: ${group.title}`}><DraftInspector document={group.document} headingLevel="h2" anchorPrefix={`pending-${group.key}`} showMetadata={false} showContents={false} showTitle={false} appearance="help" highlightedSections={group.highlighted} imageSources={group.imageSources} renderImageActions={image => <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => toggleImage(image.id)} aria-label={`Remove screenshot: ${image.alt}`}>Remove image</Button>} /></div>}
     </section>)}
   </div>;
 }

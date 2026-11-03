@@ -1,5 +1,6 @@
 import type { AnalysisRejection } from "@/features/sources/product-analysis";
 import { z } from "zod";
+import { documentImageSchema } from "../images/document-image";
 const ref = z.string().min(1).max(100);
 export const associationChoice = z.object({ id: ref, kind: z.enum(["route", "feature", "workflow", "ui-surface", "audience"]), value: z.string().min(1).max(300), origin: z.enum(["operator", "finding"]), findingRef: ref.optional() }).strict();
 export const qualifications = z.object({ support: z.enum(["directly-supported", "inferred"]), confidence: z.enum(["low", "medium", "high"]), confidenceReason: z.string(), assumptions: z.array(z.string()), uncertainties: z.array(z.string()) }).strict();
@@ -21,7 +22,7 @@ const citation = z.object({ evidenceId: ref, startLine: z.number().int().min(1),
 export const provenanceFinding = z.object({ id: ref, kind: z.string(), description: z.string(), before: z.string().nullable(), after: z.string().nullable(), qualifications, citations: z.array(citation) }).strict();
 export const provenance = z.object({ analysisId: z.uuid(), repository: z.string().url(), base: z.string().regex(/^[a-f0-9]{40}$/i), head: z.string().regex(/^[a-f0-9]{40}$/i), assessment: z.string(), limited: z.boolean(), limitations: z.array(z.string()), facts: z.array(fact), findings: z.array(provenanceFinding), evidence: z.array(z.object({ id: ref, path: z.string(), side: z.enum(["patch", "base", "head"]), commitId: z.string().nullable(), contentId: z.string().nullable() }).strict()) }).strict();
 export const documentV1Schema = z.object({ id: z.uuid(), schemaVersion: z.literal(1), status: z.literal("draft"), title: draftProposal.shape.title, associations: z.array(ref),
-  sections: z.array(draftProposal.shape.sections.element.extend({ id: z.uuid(), findingRefs: z.array(ref), qualifications: z.array(z.object({ findingRef: ref, ...qualifications.shape }).strict()) }).strict()),
+  sections: z.array(draftProposal.shape.sections.element.extend({ id: z.uuid(), images: z.array(documentImageSchema).max(3).optional(), findingRefs: z.array(ref), qualifications: z.array(z.object({ findingRef: ref, ...qualifications.shape }).strict()) }).strict()),
   context: z.array(associationChoice), provenance, generation: z.object({ model: z.string(), createdAt: z.string().datetime(), repositoryContextUsed: z.string().max(500).nullable().optional(), runContextUsed: z.string().max(300).nullable().optional() }).strict(),
 }).strict();
 export const V2_MAX_CONTEXTS = 8;

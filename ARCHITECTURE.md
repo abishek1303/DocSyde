@@ -1194,3 +1194,29 @@ published or excluded without changing those historical approvals. Historical re
 remain readable, and no persisted artifacts need rewriting.
 Latest Docs, SDK and MCP continue reading live publications only. AI and run
 orchestration are unchanged; the completed-run review link opens this workspace.
+
+## Runtime illustrations in canonical documentation
+
+Canonical v1/v2 sections accept an optional bounded image-reference list, preserving
+all historical text-only JSON and hashes. Image bytes stay in the existing artifact
+store. Deterministic review materialization selects at most one image per changed
+section and three per proposal, using validated vision captures linked to the
+section's claims (direct visual references or validated screenshot-to-source
+selection references) plus exact route coverage. Only eligible retained masked
+checkpoints qualify; transient previews never supply documentation images. No model,
+prompt, inference stage or orchestration change is introduced.
+
+Image removal/restoration is part of the consolidated preview. Image choices affect
+canonical snapshot identity; every publication path verifies source-run/proposal,
+section content, file hash/dimensions, and artifact existence before publishing.
+Archived canonical references remain immutable. Published image delivery authorizes
+the requested repository/document against active or archived publication records,
+then returns only that document's PNG. Pending delivery is local/same-origin and
+separate. SDK/MCP project safe image URLs/alt text/captions, not artifact keys or
+internal run metadata. Missing files degrade to a reader fallback.
+
+Read-only run/evidence modules share existing integrity checks without initializing
+the coordinator or loading inference capabilities. Normal run APIs retain their
+existing execution initialization. No new table, migration, image store, or garbage
+collector is introduced; the existing storage directory must be preserved with the
+database. Runtime observations remain distinct from verified source-revision evidence.

@@ -14,7 +14,7 @@ export const knowledgeResultSchema = z.object({
   message: text, repository: z.string().max(250), authority: z.literal("current-live-publications"),
   documents: z.array(z.object({ documentId: z.uuid(), title: z.string().max(160), route: z.string().max(300),
     version: z.object({ publishedAt: z.iso.datetime(), sourceRevision: z.string().regex(/^[a-f0-9]{40}$/i).nullable() }).strict(),
-    sections: z.array(z.object({ title: z.string().max(160), blocks: z.array(z.string().max(1500)).max(2) }).strict()).max(4),
+    sections: z.array(z.object({ title: z.string().max(160), blocks: z.array(z.string().max(1500)).max(2), images: z.array(z.object({ id: z.uuid(), url: z.string().max(800).regex(/^\/api\/documentation\/images\//), alt: z.string().max(240), caption: z.string().max(300).optional(), width: z.number().int().positive().max(8192), height: z.number().int().positive().max(8192) }).strict()).max(3).optional() }).strict()).max(4),
     limitations: z.array(text).max(6),
   }).strict()).max(5),
   orientation: z.object({ authority: z.literal("advisory-repository-understanding"), revision: z.string().max(40), asOf: z.iso.datetime(),

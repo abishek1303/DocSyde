@@ -1,4 +1,5 @@
 // Trusted deterministic producer fixture. Not an unsigned proposal import API.
+import type { ProductImpact } from "@/features/sources/product-evidence";
 import { randomUUID } from "node:crypto";
 import { draftFixture } from "./draft-fixture";
 import { transformationImpactFixture, transformationPlanFixture, transformationDecisionFixture, transformationEntryFixture } from "./transformation-fixtures";
@@ -9,8 +10,8 @@ import { transformationSupportUnits } from "@/features/documentation/transformat
 import type { DocumentationChangeProposal, DecisionResult } from "@/features/documentation/transformation/documentation-change-proposal";
 import type { DocumentationDocument } from "@/features/documentation/documents/document";
 
-export function reviewProposalFixture(baseline: DocumentationDocument = draftFixture(), extras = true, sectionIndex = 0): DocumentationChangeProposal {
-  const proposalId = randomUUID(), createdAt = new Date().toISOString(), impact = transformationImpactFixture();
+export function reviewProposalFixture(baseline: DocumentationDocument = draftFixture(), extras = true, sectionIndex = 0, runtimeImpact?: ProductImpact): DocumentationChangeProposal {
+  const proposalId = randomUUID(), createdAt = new Date().toISOString(), impact = runtimeImpact ?? transformationImpactFixture();
   impact.provenance.source.repository = baseline.provenance.repository;
   const decisions = [transformationDecisionFixture(baseline.id, baseline.sections[sectionIndex].id)];
   if (extras) decisions.push(transformationDecisionFixture(baseline.id, null, "add"), transformationDecisionFixture(baseline.id, null, "no-change"), transformationDecisionFixture(null, null, "unresolved"));
