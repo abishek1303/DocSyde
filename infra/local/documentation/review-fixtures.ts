@@ -9,10 +9,10 @@ import { transformationSupportUnits } from "@/features/documentation/transformat
 import type { DocumentationChangeProposal, DecisionResult } from "@/features/documentation/transformation/documentation-change-proposal";
 import type { DocumentationDocument } from "@/features/documentation/documents/document";
 
-export function reviewProposalFixture(baseline: DocumentationDocument = draftFixture(), extras = true): DocumentationChangeProposal {
+export function reviewProposalFixture(baseline: DocumentationDocument = draftFixture(), extras = true, sectionIndex = 0): DocumentationChangeProposal {
   const proposalId = randomUUID(), createdAt = new Date().toISOString(), impact = transformationImpactFixture();
   impact.provenance.source.repository = baseline.provenance.repository;
-  const decisions = [transformationDecisionFixture(baseline.id, baseline.sections[0].id)];
+  const decisions = [transformationDecisionFixture(baseline.id, baseline.sections[sectionIndex].id)];
   if (extras) decisions.push(transformationDecisionFixture(baseline.id, null, "add"), transformationDecisionFixture(baseline.id, null, "no-change"), transformationDecisionFixture(null, null, "unresolved"));
   const plan = transformationPlanFixture(impact, decisions);
   const results: DecisionResult[] = decisions.map((decision, i) => ({ decisionId: `decision-${i + 1}`, decision, generation: i < (extras ? 2 : 1) ? "generated" : "not-required",

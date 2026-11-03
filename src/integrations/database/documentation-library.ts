@@ -41,12 +41,12 @@ export async function selectSavedLibraryVersions(repository: string, offset: num
     unpublished ? sql`NOT EXISTS (SELECT 1 FROM ${live} WHERE ${live.draftId} = ${drafts.id}) AND NOT EXISTS (SELECT 1 FROM ${history} WHERE ${history.draftId} = ${drafts.id})` : undefined,
   )).orderBy(desc(drafts.savedAt), desc(drafts.id)).limit(21).offset(offset);
 }
-export async function selectHubReviews(repository: string, offset: number) {
+export async function selectHubReviews(repository: string, offset: number, includeExpired = false) {
   const { documentationPublications: live, documentationRuns: runs } = await import("./schema");
   return getDatabase().select({ row: reviews, runId: runs.id, runTitle: sql<string | null>`${runs.payload}->>'title'` }).from(reviews)
     .leftJoin(runs, and(eq(runs.repository, repository), sql`${runs.payload}->'retainedProposal'->>'proposalId' = ${reviews.id}::text`))
     .where(and(eq(reviews.repository, repository), sql`(
-      (${reviews.review} IS NULL AND ${reviews.expiresAt} > now()) OR
+      (${reviews.review} IS NULL AND (${includeExpired} OR ${reviews.expiresAt} > now())) OR
       (${reviews.review} IS NOT NULL AND EXISTS (
         SELECT 1 FROM jsonb_array_elements(${reviews.review}->'selection'->'decisions') choice
         WHERE choice->>'choice' = 'approve' AND NOT EXISTS (
@@ -58,6 +58,8 @@ export async function selectHubReviews(repository: string, offset: number) {
         SELECT 1 FROM jsonb_array_elements(${reviews.review}->'saves') receipt,
           jsonb_array_elements(${reviews.targets}) target
         WHERE receipt->>'status' = 'saved' AND receipt->>'unitId' = target->>'unitId'
+          AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(${reviews.review}->'publications') published_receipt
+            WHERE published_receipt->>'targetId' = target->>'id' AND published_receipt->>'status' = 'published')
           AND NOT EXISTS (SELECT 1 FROM ${live} current_publication
             WHERE current_publication.repository = ${repository}
               AND current_publication.route = target->>'route'

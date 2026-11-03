@@ -28,7 +28,10 @@ export const saveReceiptSchema = z.object({
 export const publicationReceiptSchema = z.object({
   targetId: z.uuid(), intent: z.enum(["replace", "publish"]),
   status: z.enum(["published", "conflict", "blocked"]), expectedId: z.uuid().nullable(),
-  actualId: z.uuid().nullable(), actualDocumentId: z.uuid().nullable(), at: z.iso.datetime(), reason: z.string().max(500).nullable(),
+  actualId: z.uuid().nullable(), actualDocumentId: z.uuid().nullable(),
+  // Optional on historical receipts. A consolidated publish may select a subset of an already approved unit.
+  decisionIds: z.array(decisionIdSchema).min(1).max(8).optional(),
+  excludedDecisionIds: z.array(decisionIdSchema).max(8).optional(), at: z.iso.datetime(), reason: z.string().max(500).nullable(),
 }).strict();
 export const acceptedReviewSchema = z.object({
   operationId: z.uuid(), selectionHash: hash, selection: reviewSelectionSchema, acceptedAt: z.iso.datetime(),

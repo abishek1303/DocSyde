@@ -28,13 +28,13 @@ function Navigation() {
     { label: "Logs", href: "/ai-model-usage", icon: ClipboardList, active: pathname.startsWith("/ai-model-usage") || pathname.includes("/model-failure/") },
   ];
   return <>
-    <Link href={`/${suffix}`} aria-label="DocSyde overview" className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+    <Link href={`/${suffix}`} aria-label="DocSyde overview" className="hidden size-10 shrink-0 md:flex items-center justify-center rounded-lg bg-primary text-primary-foreground">
       <ScanLine className="size-5" aria-hidden="true" />
     </Link>
-    <nav aria-label="Main navigation" className="flex min-w-0 flex-1 justify-around gap-1 overflow-x-auto md:overflow-visible md:mt-8 md:flex-col md:justify-start md:gap-3">
-      {links.map(({ label, href, icon: Icon, active }) => <Link key={href} href={`${href}${suffix}`} aria-label={label} aria-current={active ? "page" : undefined} className="group relative flex min-h-11 flex-col items-center justify-center gap-1 rounded-lg px-1.5 py-2 text-muted-foreground transition-colors duration-150 motion-reduce:transition-none hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:bg-accent aria-[current=page]:text-primary md:size-11 md:p-0">
+    <nav aria-label="Main navigation" className="grid w-full min-w-0 flex-1 grid-cols-6 gap-1 md:mt-8 md:flex md:flex-col md:justify-start md:gap-3 md:overflow-visible">
+      {links.map(({ label, href, icon: Icon, active }) => <Link key={href} href={`${href}${suffix}`} aria-label={label} aria-current={active ? "page" : undefined} className="group relative flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-1.5 text-muted-foreground transition-colors duration-150 motion-reduce:transition-none hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-[current=page]:bg-accent aria-[current=page]:text-primary md:size-11 md:p-0">
         <Icon className="size-5" aria-hidden="true" />
-        <span className="whitespace-nowrap text-[10px] md:hidden">{label === "Understand product" ? "Understand" : label}</span>
+        <span className="whitespace-nowrap text-[9px] sm:text-[10px] md:hidden">{label === "Understand product" ? "Understand" : label === "Your runs" ? "Runs" : label}</span>
         <span aria-hidden="true" className="pointer-events-none absolute left-full z-50 ml-3 hidden whitespace-nowrap rounded-md border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-sm group-hover:block group-focus-visible:block max-md:invisible">{label}</span>
       </Link>)}
     </nav>
@@ -42,7 +42,7 @@ function Navigation() {
 }
 
 export function ApplicationHeader() {
-  return <aside className="sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b bg-card px-3 py-3 md:fixed md:inset-y-0 md:left-0 md:w-20 md:flex-col md:border-r md:border-b-0 md:py-6">
+  return <aside className="relative z-40 order-last flex shrink-0 items-center gap-2 border-t bg-card px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] md:fixed md:inset-y-0 md:left-0 md:order-none md:w-20 md:flex-col md:border-t-0 md:border-r md:px-3 md:py-6">
     <Suspense fallback={<span className="sr-only">Loading navigation</span>}>
       <Navigation />
     </Suspense>

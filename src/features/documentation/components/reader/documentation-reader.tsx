@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 type Section = { id: string; title: string };
-export function DocumentationReader({ title, sections, children, backHref, view }: { title: string; sections: Section[]; children: ReactNode; backHref: string; view: "Latest" | "Archive" }) {
+export function DocumentationReader({ title, sections, children, backHref, view, navigation, breadcrumb }: { navigation?: ReactNode; breadcrumb?: ReactNode; title: string; sections: Section[]; children: ReactNode; backHref: string; view: "Latest" | "Archive" }) {
   const viewport = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(sections[0]?.id ?? "");
   const [query, setQuery] = useState("");
@@ -22,6 +22,7 @@ export function DocumentationReader({ title, sections, children, backHref, view 
     const target = document.getElementById(`section-${id}`);
     if (!pane || !target || !pane.contains(target)) return;
     pane.scrollTo({ top: target.getBoundingClientRect().top - pane.getBoundingClientRect().top + pane.scrollTop - 24, behavior: behavior() });
+    window.history.replaceState(window.history.state, "", `#section-${id}`);
     setActive(id);
     setMenuOpen(false);
     setSectionsOpen(false);
@@ -42,7 +43,7 @@ export function DocumentationReader({ title, sections, children, backHref, view 
     pane.addEventListener("scroll", updateActive, { passive: true });
     return () => pane.removeEventListener("scroll", updateActive);
   }, [sections]);
-  const topicNavigation = <div className="flex min-h-0 flex-1 flex-col gap-6">
+  const topicNavigation = navigation ? <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{navigation}</div> : <div className="flex min-h-0 flex-1 flex-col gap-6">
     <div className="relative shrink-0">
       <Search aria-hidden="true" className="pointer-events-none absolute top-3 left-3 size-4 text-muted-foreground" />
       <Input aria-label="Search documents" placeholder="Find a document…" value={query} onChange={event => setQuery(event.target.value)} className="pl-9" />
@@ -81,13 +82,13 @@ export function DocumentationReader({ title, sections, children, backHref, view 
             <nav aria-label="On this page" className="absolute inset-x-0 top-full z-10 mt-2 max-h-64 overflow-y-auto rounded-lg border bg-popover p-4 shadow-lg">{sectionNavigation}</nav>
           </details>
         </div>
-        <nav aria-label="Document breadcrumb" className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+        {breadcrumb ?? <nav aria-label="Document breadcrumb" className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
           <Link href={backHref} className="shrink-0 hover:text-foreground underline-offset-4 hover:underline">Documentation</Link>
           <span aria-hidden="true">/</span>
           <span className="shrink-0">{view}</span>
           <span aria-hidden="true">/</span>
           <span className="truncate" title={title}>{title}</span>
-        </nav>
+        </nav>}
       </div>
       <div ref={viewport} data-scroll-viewport tabIndex={0} aria-label="Document article" className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring">
         <div className="mx-auto max-w-[860px] pt-6 lg:pt-2"><MotionReveal key={`${view}:${backHref}:${title}`}>{children}</MotionReveal>

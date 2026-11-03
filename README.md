@@ -26,7 +26,7 @@ Open **http://127.0.0.1:3000**. Put credentials only in the ignored `.env`; neve
 
 1. **New run → Full scan** builds and saves product understanding. Optional human context helps describe purpose and audience; it is not evidence. Full scan does **not** generate documentation.
 2. **New run → Latest Changes** compares two revisions against existing saved documentation. It becomes available only when eligible documents exist.
-3. Inspect the run, screenshots, and proposed updates. **Review → Approve → Publish changes** makes accepted documentation live; previous live versions remain in **Archive**.
+3. Inspect the run, screenshots, and proposed updates. **Pending Changes → reject unwanted edits → Publish N changes** makes the included documentation live; previous live versions remain in **Archive**.
 4. Open **MCP** to retrieve the same published knowledge. Pending wording is not authoritative.
 
 Fresh databases contain no demo documents or historical runs. See [SETUP.md](SETUP.md) for initial documentation, the separate OpenTodo demo app, trusted runtime setup, optional MCP connection, and verification commands.

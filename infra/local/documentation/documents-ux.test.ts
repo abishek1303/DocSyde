@@ -84,6 +84,8 @@ test("Documents UI: rendered live → review choices → explicit publish → re
   assert.equal(await page.getByRole("heading", { name: "Issue Management", exact: true }).count(), 1);
   assert.equal(await page.getByText("Current live documentation", { exact: true }).isVisible(), true);
   assert.equal(await page.getByText("About this draft and its limitations").count(), 0);
+  assert.equal(await page.locator('[aria-label="Document article"][data-scroll-viewport]').isVisible(), true, "Latest Docs uses the existing document reader viewport");
+  assert.equal(await page.getByRole("complementary", { name: "Documentation navigation" }).isVisible(), true);
   await page.screenshot({ path: ".artifacts/documents-ux/latest.png" });
   await page.getByRole("navigation", { name: "On this page" }).getByRole("link").last().click();
   assert.ok(page.url().includes("#section-"));
@@ -91,12 +93,13 @@ test("Documents UI: rendered live → review choices → explicit publish → re
   assert.equal(await page.getByRole("heading", { name: "Review documentation changes", exact: true }).isVisible(), true);
   assert.equal((await page.locator("main").innerText()).includes(proposal.proposalId), false);
   await page.goto(url("pending", { proposal: proposal.proposalId }), { waitUntil: "networkidle" });
-  assert.equal(await page.getByRole("navigation", { name: "Pending documentation changes" }).getByRole("link").count(), 2);
+  assert.equal(await page.getByRole("region", { name: /Pending document:/ }).count(), 2);
+  await page.goto(`${origin}/documentation/proposals/${proposal.proposalId}`, { waitUntil: "networkidle" });
   await page.getByRole("radio", { name: "Approve", exact: true }).first().check();
-  await page.getByRole("navigation", { name: "Pending documentation changes" }).locator(`a[href*="proposal=${second.proposalId}"]`).click();
+  await page.goto(`${origin}/documentation/proposals/${second.proposalId}`, { waitUntil: "networkidle" });
   await page.getByRole("group", { name: /Review Request setup/ }).waitFor();
   assert.equal(await page.getByRole("radio", { name: "Approve", exact: true }).isChecked(), false, "choices never carry into another proposal");
-  await page.getByRole("navigation", { name: "Pending documentation changes" }).locator(`a[href*="proposal=${proposal.proposalId}"]`).click();
+  await page.goto(`${origin}/documentation/proposals/${proposal.proposalId}`, { waitUntil: "networkidle" });
   await page.getByRole("group", { name: "Review Issue Management / Field requirement", exact: true }).waitFor();
   assert.ok(await page.getByText("Updated documentation", { exact: true }).count() >= 2);
   await page.getByRole("radio", { name: "Approve", exact: true }).first().check();
@@ -119,7 +122,7 @@ test("Documents UI: rendered live → review choices → explicit publish → re
   await approvedSummary.waitFor(); await approvedSummary.click();
   assert.equal(await page.locator("details").filter({ has: approvedSummary }).getByRole("article").getByRole("heading", { level: 3 }).count(), baseline.sections.length, "rendered approved preview excludes the rejected addition");
   await page.reload({ waitUntil: "networkidle" });
-  assert.equal(await page.getByText("Approved changes", { exact: true }).count(), 1, "saved approval remains discoverable until publication");
+  assert.equal(await page.getByRole("button", { name: "Publish changes", exact: true }).isVisible(), true, "saved approval remains available for explicit publication");
   await page.getByRole("button", { name: "Publish changes", exact: true }).click();
   await page.waitForURL(location => location.searchParams.get("published") === "1");
   await page.getByText("Your documentation changes are live.", { exact: false }).waitFor();
@@ -131,6 +134,7 @@ test("Documents UI: rendered live → review choices → explicit publish → re
   for (const link of links) {
     await page.goto(origin + link, { waitUntil: "networkidle" });
     assert.equal(await page.getByText("Archived version", { exact: false }).isVisible(), true);
+    assert.equal(await page.locator('[aria-label="Document article"][data-scroll-viewport]').isVisible(), true, "Archive reuses the same reader");
     await page.getByText("Compare with current live documentation", { exact: true }).click();
     assert.equal(await page.getByText("Current live version", { exact: true }).isVisible(), true);
   }
@@ -143,11 +147,46 @@ test("Documents UI: rendered live → review choices → explicit publish → re
   assert.equal((await publishDocumentation({ owner, repo: "product", route: "/requests/new", draftId: later.id, observedId: live!.id })).status, "published");
   await page.goto(url("pending"), { waitUntil: "networkidle" });
   assert.equal(await page.locator(`nav[aria-label="Pending documentation changes"] a[href*="proposal=${proposal.proposalId}"]`).count(), 0, "published then archived approvals must not return to Pending Changes");
-  await page.goto(url("pending", { proposal: second.proposalId }), { waitUntil: "networkidle" });
+  await page.goto(`${origin}/documentation/proposals/${second.proposalId}`, { waitUntil: "networkidle" });
   await page.getByRole("radio", { name: "Reject", exact: true }).check();
   await page.getByRole("button", { name: "Confirm review", exact: true }).click();
   await page.getByText("Review complete. No changes were approved.", { exact: false }).waitFor();
   assert.equal(await page.getByRole("button", { name: "Publish changes", exact: true }).count(), 0);
+  // The consolidated workspace includes multiple proposals without opening them.
+  const batchA = makeDocument("Batch issue guide"), batchB = makeDocument("Batch request guide");
+  batchA.context.find(choice => choice.kind === "route")!.value = "/batch-a";
+  batchB.context.find(choice => choice.kind === "route")!.value = "/batch-b";
+  for (const [document, route] of [[batchA, "/batch-a"], [batchB, "/batch-b"]] as const) {
+    await saveDocumentationDraft(document); await publishDocumentation({ owner, repo: "product", route, draftId: document.id });
+  }
+  await retainDocumentationProposal(reviewProposalFixture(batchA));
+  await retainDocumentationProposal(reviewProposalFixture(batchB, false));
+  await page.goto(url("pending"), { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: "Publish 3 changes", exact: true }).waitFor();
+  assert.equal(await page.getByRole("region", { name: /Pending document:/ }).count(), 2);
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, "pending edits have no mobile overflow");
+  const mobileNav = page.getByRole("navigation", { name: "Main navigation", exact: true });
+  assert.ok(await mobileNav.evaluate(element => element.getBoundingClientRect().top > innerHeight - 100), "mobile tabs sit at the bottom");
+  assert.equal(await mobileNav.getByRole("link").evaluateAll(elements => elements.every(element => { const box = element.getBoundingClientRect(); return box.left >= 0 && box.right <= innerWidth; })), true, "every mobile tab fits without horizontal scrolling");
+  await page.screenshot({ path: ".artifacts/documents-ux/pending-batch-mobile.png" });
+  await page.setViewportSize({ width: 1366, height: 900 });
+  const issueGroup = page.getByRole("region", { name: "Pending document: Batch issue guide", exact: true });
+  await issueGroup.getByRole("button", { name: /^Reject / }).last().click();
+  await page.getByRole("button", { name: "Publish 2 changes", exact: true }).waitFor();
+  await issueGroup.getByRole("button", { name: /^Undo rejection/ }).click();
+  await page.getByRole("button", { name: "Publish 3 changes", exact: true }).waitFor();
+  await issueGroup.getByRole("button", { name: /^Reject / }).last().click();
+  await page.getByRole("button", { name: "Publish 2 changes", exact: true }).click();
+  await page.waitForURL(location => location.searchParams.get("published") === "1");
+  const publishedA = await getPublication({ owner, repo: "product", route: "/batch-a" });
+  assert.notEqual(publishedA!.draftId, batchA.id);
+  const savedA = await getDocumentationDraft(publishedA!.draftId);
+  assert.equal(savedA.status, "found");
+  if (savedA.status === "found") assert.equal(savedA.document.sections.length, batchA.sections.length, "excluded addition never becomes live");
+  assert.notEqual((await getPublication({ owner, repo: "product", route: "/batch-b" }))!.draftId, batchB.id);
+  await page.goto(url("pending"), { waitUntil: "networkidle" });
+  await page.getByText("No documentation changes waiting for review.", { exact: true }).waitFor();
   for (const viewport of [{ width: 1366, height: 900 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     for (const tab of ["live", "pending", "history"]) {
@@ -156,6 +195,14 @@ test("Documents UI: rendered live → review choices → explicit publish → re
       assert.equal(await page.locator("main").evaluate(element => element.scrollWidth <= element.clientWidth), true);
       assert.ok(await page.locator("[data-scroll-viewport]").evaluateAll(elements => elements.filter(element => element.scrollHeight > element.clientHeight + 1).length) <= 1, "only one page region owns vertical scrolling");
       assert.ok(await page.getByRole("navigation", { name: "Breadcrumb" }).count() || await page.locator('nav[aria-label*="readcrumb"]').count());
+      if (viewport.width === 390 && tab !== "pending") {
+        await page.getByRole("button", { name: "Browse documents", exact: true }).click();
+        assert.equal(await page.getByRole("dialog").isVisible(), true);
+        await page.keyboard.press("Escape");
+        await page.locator("summary").filter({ has: page.locator("span.truncate") }).click();
+        await page.getByRole("navigation", { name: "On this page", exact: true }).getByRole("link").last().click();
+        assert.ok(page.url().includes("#section-"));
+      }
       if (viewport.width === 390) await page.screenshot({ path: `.artifacts/documents-ux/mobile-${tab}.png` });
     }
   }

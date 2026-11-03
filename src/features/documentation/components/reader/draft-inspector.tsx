@@ -7,24 +7,24 @@ import { DraftMarkdown } from "./draft-markdown";
 const disclosureStyle = "group rounded-xl border bg-card p-4 text-sm";
 const summaryStyle = "flex cursor-pointer list-none items-center justify-between gap-3 font-medium focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden";
 
-export function DraftInspector({ document, savedAt, published = false, appearance = "card", showMetadata = true, preview = false, headingLevel = "h1", anchorPrefix = "section" }: { document: DocumentationDocument; headingLevel?: "h1" | "h2"; anchorPrefix?: string; showMetadata?: boolean; preview?: boolean; savedAt?: string; published?: boolean; appearance?: "card" | "help" }) {
+export function DraftInspector({ document, savedAt, published = false, appearance = "card", showMetadata = true, showContents = true, showTitle = true, highlightedSections = [], preview = false, headingLevel = "h1", anchorPrefix = "section" }: { document: DocumentationDocument; headingLevel?: "h1" | "h2"; anchorPrefix?: string; showMetadata?: boolean; showContents?: boolean; showTitle?: boolean; highlightedSections?: string[]; preview?: boolean; savedAt?: string; published?: boolean; appearance?: "card" | "help" }) {
   const contexts = document.associations.flatMap(id => document.context.filter(choice => choice.id === id));
   const date = savedAt ? new Date(savedAt) : null;
   const savedLabel = date && Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Los_Angeles" }).format(date) + " PT" : null;
   const Title = showMetadata ? "h2" : headingLevel;
   const SectionTitle = showMetadata || headingLevel === "h2" ? "h3" : "h2";
   return <article className="space-y-8" aria-label={!showMetadata ? "Documentation" : published ? "Published documentation" : savedAt ? "Saved documentation" : "Documentation draft"}>
-    <Card className={appearance === "help" ? "gap-6 rounded-none bg-transparent py-0 ring-0" : "gap-6 py-7 sm:py-9"}>
+    {(showTitle || showContents || showMetadata) && <Card className={appearance === "help" ? "gap-6 rounded-none bg-transparent py-0 ring-0" : "gap-6 py-7 sm:py-9"}>
       <CardHeader className={appearance === "help" ? "gap-5 px-0" : "gap-5 px-6 sm:px-9"}>
         {showMetadata && <div className="flex flex-wrap items-center gap-2">
           <span className={badgeVariants({ variant: "secondary" })}>{published ? "Published" : savedAt ? "Saved document" : preview ? "Proposed content" : "Draft · review needed"}</span>
           {!savedAt && !preview && <span className={badgeVariants({ variant: "outline" })}>Not saved</span>}
         </div>}
-        <Title className={showMetadata ? "max-w-3xl text-3xl font-semibold tracking-tight text-balance sm:text-4xl" : "max-w-3xl text-3xl font-semibold tracking-tight text-balance"}>{document.title}</Title>
+        {showTitle && <Title className={showMetadata ? "max-w-3xl text-3xl font-semibold tracking-tight text-balance sm:text-4xl" : "max-w-3xl text-3xl font-semibold tracking-tight text-balance"}>{document.title}</Title>}
         {showMetadata && <p className="text-sm leading-6 text-muted-foreground">{published ? "Published documentation for your app." : savedAt ? "Saved documentation. Publication is managed separately." : preview ? "Preview of the proposal. Saved documents are linked in the review receipt." : "Generated from source code. Review this draft before sharing it."}{savedLabel && <> Saved {savedLabel}.</>}</p>}
         {showMetadata && contexts.length > 0 && <div className="flex flex-wrap gap-2" aria-label="Related product context">{contexts.map(context => <span key={context.id} className="rounded-md bg-muted px-2.5 py-1 font-mono text-xs text-muted-foreground">{context.value}</span>)}</div>}
       </CardHeader>
-      <CardContent className={appearance === "help" ? `border-t px-0 pt-6 ${showMetadata ? "lg:hidden" : ""}` : "border-t px-6 pt-6 sm:px-9"}>
+      {showContents && <CardContent className={appearance === "help" ? `border-t px-0 pt-6 ${showMetadata ? "lg:hidden" : ""}` : "border-t px-6 pt-6 sm:px-9"}>
         <nav aria-label="On this page" className="space-y-3">
           <p className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
             <BookOpen className="size-4" aria-hidden="true" /> On this page</p>
@@ -33,14 +33,14 @@ export function DraftInspector({ document, savedAt, published = false, appearanc
               <span className="mr-2 text-muted-foreground">{index + 1}.</span>{section.title}</a>
           </li>)}</ol>
         </nav>
-      </CardContent>
-    </Card>
+      </CardContent>}
+    </Card>}
 
     <div className="space-y-10 px-1 sm:px-3">
       {document.sections.map(section => {
         const caveats = [...new Set(section.qualifications.flatMap(q => [...q.assumptions, ...q.uncertainties]))];
         const inferred = section.qualifications.some(q => q.support === "inferred" || q.confidence === "low");
-        return <section className="scroll-mt-6 space-y-5" id={`${anchorPrefix}-${section.id}`} key={section.id}>
+        return <section data-proposed-change={highlightedSections.includes(section.id) || undefined} className={`scroll-mt-6 space-y-5 ${highlightedSections.includes(section.id) ? "border-l-2 border-primary/40 bg-accent/15 py-4 pl-4" : ""}`} id={`${anchorPrefix}-${section.id}`} key={section.id}>
           <SectionTitle className="border-b pb-4 text-2xl font-semibold tracking-tight">{section.title}</SectionTitle>
           <div className={showMetadata ? "space-y-5 text-base leading-8 text-foreground/90 sm:text-lg" : "space-y-4 text-base leading-8 text-foreground/90"}>
             {section.content.map((block, index) => <div key={index} className="space-y-3 [&_a]:text-primary [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:text-sm [&_li]:pl-1 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-6 [&_p]:mb-4 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-muted [&_pre]:p-4 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-6">

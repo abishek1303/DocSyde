@@ -62,7 +62,7 @@ A fresh database correctly disables **Latest Changes** until an eligible canonic
 
 For an initial document, use the existing standalone source-analysis/draft flow at `/sources/analysis`, follow **Propose a documentation draft**, review the preview, and explicitly save it with the signing key configured. This spends provider credits. See the [documentation guide](src/features/documentation/README.md) for that legacy flow and supported evidence. There is no automatic initial-document seed or import wizard. Do not present Full scan as documentation generation.
 
-Then choose **Latest Changes**, select the comparison, and optionally add change context. Successful proposals lead to **Documents → Pending Changes**. Review individual changes or approve all, then **Confirm review**. Saving approved changes is separate from **Publish changes**. Publish only to the intended product route. Latest Docs and MCP reflect the new live version; Archive keeps previous live versions. Historical reference runs and publications are local database state and are not bundled in a fresh clone.
+Then choose **Latest Changes**, select the comparison, and optionally add change context. Successful proposals lead to **Documents → Pending Changes**. Read the combined rendered preview, **Reject** unwanted edits (or **Undo**), then explicitly **Publish N changes**. This single action atomically records approval/rejection, saves the included canonical documents, and publishes to retained product destinations. Overlapping updates, expired proposals, stale snapshots, and destination conflicts are blocked. Previously finalized approvals remain immutable. Standalone saved documents remain available through **Browse saved documents**; legacy individual review remains accessible from optional evidence details. Latest Docs and MCP reflect the new live version; Archive keeps previous live versions. Historical reference runs and publications are local database state and are not bundled in a fresh clone.
 
 ## MCP: the same knowledge for agents
 
@@ -93,6 +93,7 @@ npm start -- --hostname 127.0.0.1
 Build requires Google Fonts access. After building, isolated local browser/lifecycle checks use migrated PostgreSQL and Chromium:
 
 ```sh
+npm run documentation:pending:test
 npm run documentation:ux:test
 npm run mcp:integration:test
 ```

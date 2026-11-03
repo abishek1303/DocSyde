@@ -1,6 +1,6 @@
 import "server-only";
 import { and, eq, sql } from "drizzle-orm";
-import { getDatabase } from "./client";
+import { getDatabase, type DatabaseExecutor } from "./client";
 import { documentationReviews, documentationDrafts, documentationRuns } from "./schema";
 import { insertDocumentationDraft } from "./documentation-drafts";
 import { findPublication, insertPublicationIfAbsent, replacePublication } from "./documentation-publications";
@@ -20,21 +20,37 @@ export async function findDocumentationReview(id: string) {
 export async function documentationReviewTransaction<T>(id: string, work: (scope: ReviewTransaction) => Promise<T>) {
   return getDatabase().transaction(async tx => {
     const [row] = await tx.select().from(documentationReviews).where(eq(documentationReviews.id, id)).for("update");
-    return work({
-      row: row ?? null,
-      async baseline(documentId) {
-        const [baseline] = await tx.select().from(documentationDrafts).where(eq(documentationDrafts.id, documentId)).for("share");
-        return baseline ?? null;
-      },
-      save: (documentId, document) => insertDocumentationDraft(documentId, document, tx),
-      publication: (repository, route) => findPublication(repository, route, tx),
-      insertPublication: (repository, route, documentId) => insertPublicationIfAbsent(repository, route, documentId, tx),
-      replacePublication: (repository, route, documentId, observedId, baselineId) => replacePublication(repository, route, documentId, observedId, tx, baselineId),
-      async receipt(review) {
-        await tx.update(documentationReviews).set({ review }).where(and(eq(documentationReviews.id, id), eq(documentationReviews.proposalHash, row.proposalHash)));
-      },
-    });
+    return work(reviewScope(row ?? null, tx));
   });
+}
+/** One atomic review/save/publication boundary for an explicitly selected repository batch. */
+export async function documentationReviewBatchTransaction<T>(ids: string[], work: (scopes: ReviewTransaction[]) => Promise<T>) {
+  return getDatabase().transaction(async tx => {
+    await tx.execute(sql`SET LOCAL statement_timeout = '15000ms'`);
+    const scopes: ReviewTransaction[] = [];
+    for (const id of [...ids].sort()) {
+      const [row] = await tx.select().from(documentationReviews).where(eq(documentationReviews.id, id)).for("update");
+      scopes.push(reviewScope(row ?? null, tx));
+    }
+    return work(scopes);
+  });
+}
+function reviewScope(row: RetainedReviewRow | null, tx: DatabaseExecutor): ReviewTransaction {
+  return {
+    row,
+    async baseline(documentId) {
+      const [baseline] = await tx.select().from(documentationDrafts).where(eq(documentationDrafts.id, documentId)).for("share");
+      return baseline ?? null;
+    },
+    save: (documentId, document) => insertDocumentationDraft(documentId, document, tx),
+    publication: (repository, route) => findPublication(repository, route, tx),
+    insertPublication: (repository, route, documentId) => insertPublicationIfAbsent(repository, route, documentId, tx),
+    replacePublication: (repository, route, documentId, observedId, baselineId) => replacePublication(repository, route, documentId, observedId, tx, baselineId),
+    async receipt(review) {
+      if (!row) throw new Error("Retained review is missing.");
+      await tx.update(documentationReviews).set({ review }).where(and(eq(documentationReviews.id, row.id), eq(documentationReviews.proposalHash, row.proposalHash)));
+    },
+  };
 }
 export type ReviewTransaction = {
   row: RetainedReviewRow | null;

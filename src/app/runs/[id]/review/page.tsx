@@ -10,7 +10,7 @@ async function ReviewContent({ params }: { params: Promise<{ id: string }> }) {
   const run = await getDocumentationRun((await params).id).catch(() => null);
   const legacy = run && !("schemaVersion" in run.record) ? run.record : null;
   const retained = run && "schemaVersion" in run.record ? run.record.retainedProposal : null;
-  if (retained && run) redirect(`/documentation/proposals/${retained.proposalId}?${new URLSearchParams({ repository: `${run.record.input.owner}/${run.record.input.repo}`, fromRun: run.id, ...(run.record.input.branch ? { branch: run.record.input.branch } : {}) })}`);
+  if (retained && run) redirect(`/docs?${new URLSearchParams({ repository: `${run.record.input.owner}/${run.record.input.repo}`, tab: "pending" })}`);
   const document = legacy?.result?.document;
   const result = legacy?.result;
   return <main className="mx-auto w-full max-w-4xl space-y-6 px-5 py-8 sm:px-8">

@@ -25,6 +25,11 @@ export function readRetainedReview(row: RetainedReviewRow) {
   if (new Set(targets.map(t => t.id)).size !== targets.length) throw new Error("Duplicate publication descriptor.");
   const review = row.review === null ? null : acceptedReviewSchema.parse(row.review);
   if (review && (review.selection.proposalId !== row.id || review.selection.expectedProposalHash !== row.proposalHash || documentationHash(review.selection) !== review.selectionHash)) throw new Error("Retained selection integrity failure.");
+  for (const receipt of review?.publications ?? []) if (receipt.decisionIds || receipt.excludedDecisionIds) {
+    const target = targets.find(target => target.id === receipt.targetId);
+    const all = [...(receipt.decisionIds ?? []), ...(receipt.excludedDecisionIds ?? [])];
+    if (!receipt.decisionIds || receipt.decisionIds.some(id => !review!.selection.decisions.some(choice => choice.decisionId === id && choice.choice === "approve")) || !target || new Set(all).size !== all.length || all.some(id => !proposal.results.some(result => result.decisionId === id && (result.decision.documentId ?? result.decisionId) === target.unitId))) throw new Error("Publication decision receipt integrity failure.");
+  }
   return { proposal, targets, review, repository, proposalHash: row.proposalHash, registeredAt: row.registeredAt.toISOString(), expiresAt: row.expiresAt.toISOString() };
 }
 

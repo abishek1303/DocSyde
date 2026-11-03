@@ -1171,3 +1171,26 @@ No MCP tool can approve, publish, mutate repositories, execute SQL, or access fi
 The local endpoint is opt-in, rejects non-loopback Host and foreign Origin headers,
 and should be served with Next.js bound to loopback. No remote authentication or
 public deployment is provided by this hackathon slice.
+
+## Consolidated pending publication
+
+Pending Changes aggregates retained, repository-scoped proposals across runs using
+the existing review tables. The feature recomputes a combined canonical preview
+when changes are excluded; rejection/undo remains provisional until the explicit
+Publish action. Disjoint edits to the same frozen baseline compose through the
+existing assembler with namespaced evidence identities. Whole-document overlaps,
+section/insertion collisions, conflicting destinations, stale observations, expiry,
+and canonical size/identity violations block publication rather than overwrite edits.
+
+One PostgreSQL transaction locks reviews in stable order, rechecks authority and
+publication observations, records final selections and save/publication receipts,
+saves immutable canonical snapshots, and replaces publications with archived prior
+versions. CAS and rollback cover every destination; an uncertain commit acknowledgement
+asks the user to reload instead of claiming success or retrying. Each proposal retains
+its own review/audit record linked to the combined publication; no second document
+store or migration is introduced. Existing finalized review selections remain
+immutable; optional decision lists on publication receipts record which edits were
+published or excluded without changing those historical approvals. Historical receipts
+remain readable, and no persisted artifacts need rewriting.
+Latest Docs, SDK and MCP continue reading live publications only. AI and run
+orchestration are unchanged; the completed-run review link opens this workspace.
