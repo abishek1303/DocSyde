@@ -49,7 +49,7 @@ export function DocumentationReader({ title, sections, children, backHref, view 
     </div>
     <nav aria-label="Documents" className="min-h-0 overflow-y-auto overscroll-contain">
       <details open className="group">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase [&::-webkit-details-marker]:hidden">{view === "Latest" ? "Latest draft" : "Archived version"}<ChevronDown aria-hidden="true" className="size-4 transition-transform group-open:rotate-180" />
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase [&::-webkit-details-marker]:hidden">{view === "Latest" ? "Saved document" : "Historical version"}<ChevronDown aria-hidden="true" className="size-4 transition-transform group-open:rotate-180" />
         </summary>
         {matches ? <button type="button" aria-current="page" onClick={() => { viewport.current?.scrollTo({ top: 0, behavior: behavior() }); setMenuOpen(false); }} className="mt-4 flex w-full items-start gap-3 rounded-md bg-accent px-3 py-3 text-left text-sm font-medium leading-6 text-primary focus-visible:outline-2 focus-visible:outline-ring">
           <FileText aria-hidden="true" className="mt-1 size-4 shrink-0" />{title}

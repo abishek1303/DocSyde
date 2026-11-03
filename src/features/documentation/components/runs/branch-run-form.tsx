@@ -28,9 +28,10 @@ export function BranchRunForm({ repository, branches, selected, latestChanges, s
       {selectionUnavailable && <p role="status" className="text-xs text-muted-foreground">Automatic selection is unavailable. Enter a branch name.</p>}
     </div>
     <div className="space-y-2">
-      <label htmlFor="run-context" className="block text-sm font-medium">Context</label>
-      <Textarea id="run-context" name="runContext" rows={5} maxLength={300} disabled={pending} placeholder="Anything we should know about this product or change?" />
+      <label htmlFor="run-context" className="block text-sm font-medium">Change context (optional)</label>
+      <Textarea id="run-context" name="runContext" rows={5} maxLength={300} disabled={pending} placeholder="What is the intent of this change?" />
     </div>
+    <p className="text-xs leading-6 text-muted-foreground">Product understanding is reused automatically. Change context guides emphasis; source and runtime evidence must support every new statement.</p>
     <Button type="submit" disabled={pending} aria-busy={pending}>{pending && <LoaderCircle aria-hidden="true" className="size-4 motion-safe:animate-spin" />}{pending ? "Starting run…" : "Start run"}</Button>
     {state.error && <MotionReveal key={state.error}><p role="alert" className="text-sm text-destructive">{state.error}</p></MotionReveal>}
   </form>;

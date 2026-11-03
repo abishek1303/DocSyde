@@ -70,3 +70,31 @@ test("document reader distinguishes published documentation from saved content",
     }
   }
 });
+
+test("document hub reads active publications separately from saves, reviews and history", async t => {
+  const { documentationHub } = await import("@/features/documentation/library/library-operations");
+  const previous = { DATABASE_URL: process.env.DATABASE_URL, DOCSYDE_ANALYSIS_REPOSITORIES: process.env.DOCSYDE_ANALYSIS_REPOSITORIES };
+  process.env.DATABASE_URL = "postgres://fixture:fixture@localhost/fixture";
+  process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "example/product";
+  t.after(async () => { await closeDatabase(); for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
+  const draft = draftFixture(); draft.provenance.repository = "https://github.com/example/product";
+  const proposal = reviewProposalFixture(draft, false), now = new Date().toISOString();
+  let queries = 0;
+  t.mock.method(Pool.prototype, "query", async (query: { text: string }, params: unknown[]) => {
+    queries++; assert.ok(params.includes(draft.provenance.repository));
+    if (query.text.includes('left join')) return { rows: [[proposal.proposalId, draft.provenance.repository, documentationHash(proposal), proposal, [], now, new Date(Date.now() + 60000).toISOString(), null, "fixture-run", "Change title"]] };
+    if (query.text.includes('inner join')) {
+      assert.ok(query.text.includes('documentation_publications'));
+      return { rows: [[randomUUID(), draft.provenance.repository, "/page", draft.id, now, draft.id, draft, now]] };
+    }
+    return { rows: [[draft.id, draft, now]] };
+  });
+  await assert.rejects(() => documentationHub({ owner: "other", repo: "product" }, "live"), /not allowed/);
+  assert.equal(queries, 0);
+  const live = await documentationHub({ owner: "example", repo: "product" }, "live");
+  assert.equal(live.kind, "live"); if (live.kind === "live") assert.equal(live.entries[0].route, "/page");
+  const history = await documentationHub({ owner: "example", repo: "product" }, "history");
+  assert.equal(history.kind, "history"); if (history.kind === "history") assert.equal(history.entries[0].document.id, draft.id);
+  const pending = await documentationHub({ owner: "example", repo: "product" }, "pending");
+  assert.equal(pending.kind, "pending"); if (pending.kind === "pending") { assert.equal(pending.entries[0].runTitle, "Change title"); assert.equal(pending.entries[0].status, "Ready for review"); assert.equal(pending.saves[0].document.id, draft.id); }
+});

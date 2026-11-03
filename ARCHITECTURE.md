@@ -1136,3 +1136,18 @@ of historical claim permissions. ProductImpact accepts neutral product findings 
 for behavior, workflow or UI interpretation, while retaining its existing output schema,
 reference checks, temporal-value correspondence and runtime/vision evidence limits.
 Publication and run orchestration are unchanged.
+
+## Demo activity and document lifecycle views
+
+The run monitor projects existing persisted workflow states, invocation summaries and
+runtime inspection events into human-readable activity and substeps. It does not schedule
+work, simulate progress, weaken validation or change model contracts. Detailed responses
+and diagnostics remain expandable. Browser previews remain provisional until canonical
+retention, with existing masking, expiry and evidence rules unchanged.
+
+The Documents hub reads existing active publications for Live, retained review authority
+for Pending changes, and immutable saved documents for History. Saved-but-unpublished
+snapshots are explicitly separate from Live. History identifies snapshots by revision ID,
+save date and originating source SHA. No parallel store or migration is introduced.
+Human review compares exact target snapshots with the candidate before the existing
+review/save operation; publication remains a separate explicit operation.

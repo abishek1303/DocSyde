@@ -38,7 +38,8 @@ async function Setup({ searchParams }: { searchParams: Promise<SetupSearch> }) {
   return <AppShell repository={repository.name} branchContext={<span>{search.rerun ? "Rerun" : "New run"}</span>} active="Runs">
     <RunBreadcrumbs repository={repository.name} current={search.rerun ? "Rerun" : "Start a run"} />
     <Link className="text-sm underline" href={`/sources/understanding?${new URLSearchParams({ repository: repository.name, ...(repository.branch ? { branch: repository.branch } : {}) })}`}>Understand this product before analyzing changes →</Link>
-    <h1 className="text-3xl font-semibold tracking-tight">{search.rerun ? "Rerun" : "Start a run"}</h1>
+    <h1 className="text-3xl font-semibold tracking-tight">{search.rerun ? "Rerun" : "Analyze a product change"}</h1>
+    {!search.rerun && <p className="max-w-2xl text-sm leading-7 text-muted-foreground">Compare the latest change on a branch, reuse product understanding, inspect the running product, and prepare documentation for human review.</p>}
     {search.rerun ? <Suspense fallback={<LoadingList />}>
       <RerunSetup search={search} />
     </Suspense> : <BranchRunForm key={repository.name} repository={repository.name} branches={branches?.names ?? []} latestChanges={branches?.changes ?? []} selected={branches?.selected ?? repository.branch} selectionUnavailable={!branches} />}

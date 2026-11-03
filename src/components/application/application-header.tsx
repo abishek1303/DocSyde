@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { BookOpen, House, History, Plug, ScanLine, ClipboardList } from "lucide-react";
+import { BookOpen, House, History, Brain, Plug, ScanLine, ClipboardList } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 
 function Navigation() {
@@ -21,8 +21,9 @@ function Navigation() {
   const suffix = query.size ? `?${query}` : "";
   const links = [
     { label: "Overview", href: "/", icon: House, active: pathname === "/" },
-    { label: "Your runs", href: "/runs", icon: History, active: (pathname.startsWith("/runs") && !pathname.includes("/model-failure/")) || pathname.startsWith("/changes") || pathname.startsWith("/sources") },
-    { label: "Documentation", href: "/docs", icon: BookOpen, active: pathname.startsWith("/docs") || pathname.startsWith("/documentation") },
+    { label: "Understand product", href: "/sources/understanding", icon: Brain, active: pathname === "/sources/understanding" },
+    { label: "Your runs", href: "/runs", icon: History, active: (pathname.startsWith("/runs") && !pathname.includes("/model-failure/")) || pathname.startsWith("/changes") || (pathname.startsWith("/sources") && pathname !== "/sources/understanding") },
+    { label: "Documents", href: "/docs", icon: BookOpen, active: pathname.startsWith("/docs") || pathname.startsWith("/documentation") },
     { label: "Logs", href: "/ai-model-usage", icon: ClipboardList, active: pathname.startsWith("/ai-model-usage") || pathname.includes("/model-failure/") },
     { label: "AI / MCP", href: "/ai", icon: Plug, active: pathname === "/ai" || pathname.startsWith("/ai/") },
   ];

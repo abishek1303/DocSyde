@@ -1125,3 +1125,26 @@ ProductImpact after source/runtime evidence is assembled. Historical source arti
 remain readable without migration. Citation and inferred-finding qualification checks
 remain authoritative. `npm run sources:test` covers neutral Blocked guidance, historical
 readability, deterministic assessment and downstream claim permissions.
+
+### Demo experience
+
+1. Open **Understand product** (`/sources/understanding`) at a pinned revision. The
+   optional product note frames audience/purpose; the saved understanding remains advisory.
+2. Open **Your runs → Start a run** to analyze a branch's latest commit against its
+   parent. Optional change context is separate from product onboarding.
+3. The activity monitor projects real stage/invocation boundaries and browser events.
+   Expand details for models, validation, structured results and diagnostics. Runtime
+   previews remain masked and separate from retained evidence. Reduced motion is supported.
+4. A successful run offers **Review documentation** with current/proposed section text.
+   Approving/saving is separate from publishing; incomplete runs offer no review action.
+5. **Documents → Live** reads active publications, **Pending changes** lists unreviewed
+   or unfinished retained reviews plus saved-but-unpublished snapshots, and **History**
+   reads immutable saved versions (including source revision). No new tables/migration.
+
+Use existing trusted runtime configuration for the exact demo workflow. Do not claim
+that screenshot observations prove source/runtime revision identity. Evaluation results
+and screenshots belong under ignored `.artifacts`, not in source control. Current AI
+contracts/reasoning/recovery settings are unchanged by this UI work. New change scenarios
+can still fail generation/reference/support checks; inspect the outcome before presenting
+any run as review-ready. The verified Blocked-guidance run remains a reference, not a
+promise that arbitrary new changes will complete without human review.
