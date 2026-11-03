@@ -66,7 +66,9 @@ test("document reader distinguishes published documentation from saved content",
     if (!showMetadata) {
       assert.ok(render.stdout.includes("<h1"));
       assert.ok(!render.stdout.includes("canonical JSON"));
-      assert.ok(render.stdout.includes("About this draft and its limitations"));
+      assert.ok(!render.stdout.includes("About this draft and its limitations"));
+      assert.ok(!render.stdout.includes("Generated with"));
+      assert.ok(render.stdout.includes("On this page"));
     }
   }
 });
@@ -83,6 +85,7 @@ test("document hub reads active publications separately from saves, reviews and 
   t.mock.method(Pool.prototype, "query", async (query: { text: string }, params: unknown[]) => {
     queries++; assert.ok(params.includes(draft.provenance.repository));
     if (query.text.includes('left join')) return { rows: [[proposal.proposalId, draft.provenance.repository, documentationHash(proposal), proposal, [], now, new Date(Date.now() + 60000).toISOString(), null, "fixture-run", "Change title"]] };
+    if (query.text.includes('inner join') && query.text.includes('documentation_publication_history')) return { rows: [[randomUUID(), draft.provenance.repository, "/page", draft.id, now, now, draft.id, draft, now]] };
     if (query.text.includes('inner join')) {
       assert.ok(query.text.includes('documentation_publications'));
       return { rows: [[randomUUID(), draft.provenance.repository, "/page", draft.id, now, draft.id, draft, now]] };
@@ -96,5 +99,36 @@ test("document hub reads active publications separately from saves, reviews and 
   const history = await documentationHub({ owner: "example", repo: "product" }, "history");
   assert.equal(history.kind, "history"); if (history.kind === "history") assert.equal(history.entries[0].document.id, draft.id);
   const pending = await documentationHub({ owner: "example", repo: "product" }, "pending");
-  assert.equal(pending.kind, "pending"); if (pending.kind === "pending") { assert.equal(pending.entries[0].runTitle, "Change title"); assert.equal(pending.entries[0].status, "Ready for review"); assert.equal(pending.saves[0].document.id, draft.id); }
+  assert.equal(pending.kind, "pending"); if (pending.kind === "pending") { assert.equal(pending.entries[0].runTitle, "Change title"); assert.equal(pending.entries[0].status, "Waiting for review"); assert.equal(pending.saves[0].document.id, draft.id); }
+});
+
+
+test("Latest Changes eligibility matches the saved candidate corpus, not unsaved proposals", async t => {
+  const { hasExistingDocumentation } = await import("@/features/documentation/library/library-operations");
+  const previous = { DATABASE_URL: process.env.DATABASE_URL, DOCSYDE_ANALYSIS_REPOSITORIES: process.env.DOCSYDE_ANALYSIS_REPOSITORIES };
+  process.env.DATABASE_URL = "postgres://fixture:fixture@localhost/fixture";
+  process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "example/product,example/empty";
+  t.after(async () => { await closeDatabase(); for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
+  const draft = draftFixture(); draft.provenance.repository = "https://github.com/example/product";
+  const now = new Date().toISOString();
+  let mode: "empty" | "saved" | "pending-only" | "corrupt" | "older-saved" | "older-page" = "empty";
+  let reads = 0;
+  t.mock.method(globalThis, "fetch", () => { throw new Error("No inference or source reads"); });
+  t.mock.method(Pool.prototype, "query", async (query: { text: string }, params: unknown[]) => {
+    assert.ok(query.text.includes('"documentation_drafts"'), "Only saved snapshots participate in candidate selection");
+    if (params.includes("https://github.com/example/empty")) return { rows: [] };
+    assert.ok(params.includes(draft.provenance.repository));
+    reads++;
+    const valid = [draft.id, draft, now];
+    const corrupt = [randomUUID(), {}, now];
+    return { rows: mode === "saved" ? [valid] : mode === "corrupt" ? [corrupt] : mode === "older-saved" ? [corrupt, valid]
+      : mode === "older-page" ? reads === 1 ? Array.from({ length: 51 }, () => [randomUUID(), {}, now]) : [valid] : [] };
+  });
+  for (const [value, expected] of [["empty", false], ["saved", true], ["pending-only", false], ["corrupt", false], ["older-saved", true], ["older-page", true]] as const) {
+    mode = value; reads = 0;
+    assert.equal(await hasExistingDocumentation({ owner: "example", repo: "product" }), expected);
+    if (mode === "older-page") assert.equal(reads, 2, "An invalid first page must not hide an eligible older save");
+    assert.equal(await hasExistingDocumentation({ owner: "example", repo: "empty" }), false);
+  }
+  await assert.rejects(() => hasExistingDocumentation({ owner: "unauthorized", repo: "product" }), /not allowed/);
 });

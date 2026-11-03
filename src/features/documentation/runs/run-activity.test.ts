@@ -20,3 +20,12 @@ test("support checking is not presented as complete just because generation fini
   assert.deepEqual(activitySubsteps(stage("documentation-transformation"), [generation, support]).map(s => s.status), ["completed", "running"]);
   assert.deepEqual(activitySubsteps(stage("documentation-planning"), [call("documentation-planning", "documentation-planning", "started")]).map(s => s.status), ["completed", "running"]);
 });
+
+test("Wonder composition appears between generation and support only when actually invoked", () => {
+  const generation = call("documentation-transformation", "documentation-transformation", "succeeded");
+  const composition = call("documentation-transformation", "documentation-composition", "structured-success");
+  const support = call("documentation-transformation", "transformation-support", "started");
+  const steps = activitySubsteps(stage("documentation-transformation"), [generation, composition, support]);
+  assert.deepEqual(steps.map(step => step.label), ["Generating replacement copy", "Composing with Muse Wonder", "Checking evidence support"]);
+  assert.deepEqual(steps.map(step => step.status), ["completed", "running", "running"]);
+});

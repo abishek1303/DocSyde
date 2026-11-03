@@ -5,8 +5,20 @@ import { readRecentBranchSelection } from "@/integrations/github/recent-branch";
 import { revisionInput } from "@/integrations/github/source-reader";
 import { assertAllowedRepository } from "./local-source-access";
 export type RepositorySearch = { repository?: string; branch?: string; before?: string; id?: string; page?: string };
-export function selectedRepository(search: RepositorySearch) {
+export function configuredRepositories() {
   const configured = (process.env.DOCSYDE_ANALYSIS_REPOSITORIES ?? "abishek1303/DocSyde").split(",").map(value => value.trim()).filter(Boolean);
+  const seen = new Set<string>();
+  return configured.filter(value => {
+    if (seen.has(value.toLowerCase())) return false;
+    const [owner, repo, extra] = value.split("/");
+    if (extra !== undefined) throw new Error("Invalid repository configuration.");
+    repositoryCoordinates.parse({ owner, repo });
+    seen.add(value.toLowerCase());
+    return true;
+  });
+}
+export function selectedRepository(search: RepositorySearch) {
+  const configured = configuredRepositories();
   const value = search.repository ?? configured[0];
   if (!value || value.split("/").length !== 2) throw new Error("No valid repository is selected.");
   const [owner, repo] = value.split("/");

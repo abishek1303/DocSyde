@@ -1,5 +1,7 @@
 import { rejectionDiagnostic as entryRejectionDiagnostic, type ValidationDiagnostic } from "@/integrations/ai/invocation-debug";
 import "server-only";
+import { compositionConfigured, generateComposition } from "@/integrations/ai/generate-composition";
+import { compositionInput, applyComposition } from "./compose-documentation";
 import { assertPlannedGenerationBatches, stopInferenceBudget } from "@/integrations/ai/inference-budget";
 import type { InvocationContext } from "@/integrations/ai/invocation-context";
 import { finishInvocationValidation } from "@/integrations/ai/invocation-log";
@@ -31,7 +33,7 @@ function fail(result: DecisionResult, issue: string, generation: DecisionResult[
 
 /** Trusted server-only operation. Correspondence checks do not authenticate client
  * artifacts or re-prove upstream citations. No save/sign/publication operations. */
-type TransformationInput = { impact: ProductImpact; plan: DocumentationImpactPlan; context?: AssociationChoice[] };
+type TransformationInput = { impact: ProductImpact; plan: DocumentationImpactPlan; context?: AssociationChoice[]; terminology?: string[] };
 async function prepareTransformation({ impact: rawImpact, plan: rawPlan, context = [] }: TransformationInput, signal?: AbortSignal) {
   const impact = validateProductImpact(rawImpact), plan = validateDocumentationImpactPlan(impact, rawPlan);
   const supplied = z.array(associationChoice).max(20).parse(context);
@@ -159,6 +161,24 @@ export async function transformDocumentation(input: TransformationInput,
       batch.items.forEach(auth => fail(results.find(result => result.decisionId === auth.decisionId)!, signal?.aborted ? "cancelled-during-generation" : "generation-provider-or-output-failure", "failed"));
     }
   }
+  const compositions = new Map<string, Awaited<ReturnType<typeof generateComposition>>>();
+  if (compositionConfigured()) for (const auth of authorizations) {
+    const result = results.find(result => result.decisionId === auth.decisionId)!;
+    if (result.generation !== "generated" || !result.change) continue;
+    const baseline = auth.target.documentId ? baselines.get(auth.target.documentId) : undefined;
+    let composed: Awaited<ReturnType<typeof generateComposition>> | undefined;
+    try {
+      signal?.throwIfAborted();
+      composed = await generateComposition(compositionInput(result.change, auth, baseline, input.terminology), { invocation, signal });
+      result.change = applyComposition(result.change, composed.data, auth, baseline);
+      result.compositionModel = { model: composed.model, elapsedMs: composed.elapsedMs };
+      compositions.set(auth.decisionId, composed);
+    } catch {
+      await finishInvocationValidation(composed?.invocationId, "correspondence-rejection");
+      result.change = null; result.support = "not-required";
+      fail(result, signal?.aborted ? "cancelled-during-composition" : "composition-provider-or-output-failure", "failed");
+    }
+  }
   if (results.some(result => result.generation === "failed" || result.generation === "incomplete")) stopInferenceBudget();
   const generated = results.filter(result => result.generation === "generated" && result.change);
   const generatedAuth = authorizations.filter(auth => generated.some(result => result.decisionId === auth.decisionId));
@@ -178,6 +198,11 @@ export async function transformDocumentation(input: TransformationInput,
     } catch {
       for (const result of generated) { result.support = "failed"; result.materialization = "blocked"; result.issues.push(signal?.aborted ? "cancelled-during-support-check" : "support-check-failed-or-over-budget"); }
     }
+  }
+  for (const [decisionId, composed] of compositions) {
+    const supported = results.find(result => result.decisionId === decisionId)?.support === "supported";
+    await finishInvocationValidation(composed.invocationId, supported ? undefined : "grounding-rejection",
+      supported ? () => ({ operation: "documentation-composition", payload: composed.data }) : undefined);
   }
   const groups = new Map<string, DecisionResult[]>();
   for (const result of results) if (result.decision.action === "revise" || result.decision.action === "add") {

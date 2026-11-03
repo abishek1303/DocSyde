@@ -26,7 +26,7 @@ function setup(t: TestContext, failure?: "insert" | "update", mode: "auto" | "pr
   process.env.BASETEN_STRUCTURED_OUTPUT_MODE = mode;
   process.env.BASETEN_API_KEY = "PRIVATE_CREDENTIAL"; process.env.META_API_KEY = "PRIVATE_CREDENTIAL";
   t.after(() => { cachedModule.exports = original; for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
-  const reload = ["./src/integrations/ai/invocation-log.ts", "./src/integrations/ai/generate-structured.ts", "./src/integrations/ai/generate-structured-vision.ts"];
+  const reload = ["./src/integrations/ai/invocation-log.ts", "./src/integrations/ai/generate-structured.ts", "./src/integrations/ai/generate-structured-vision.ts", "./src/integrations/ai/generate-composition.ts"];
   for (const name of reload) {
     const resolved = load.resolve(name), previous = load.cache[resolved];
     delete load.cache[resolved];
@@ -395,4 +395,37 @@ test("safe success and truncation logs retain reasoning counts and visible sizes
     assert.ok(!JSON.stringify(row).includes("PRIVATE_REASONING"));
     assert.ok(!JSON.stringify(row).includes("PRIVATE_DETAIL"));
   }
+});
+
+test("Wonder logs native request, metrics and only grounding-approved output; rejects never persist raw output", async t => {
+  const s = setup(t);
+  const { generateComposition } = load("./src/integrations/ai/generate-composition.ts") as typeof import("./generate-composition");
+  const output = { sections: [{ sectionRef: 0, title: "Guidance", content: [{ blockRef: 0, parts: [{ kind: "paragraph", text: "Work remains paused." }] }] }] };
+  let content = JSON.stringify(output), calls = 0;
+  t.mock.method(globalThis, "fetch", async (url: unknown, init?: RequestInit) => {
+    calls++; assert.equal(String(url), "https://api.meta.ai/v1/chat/completions");
+    const request = JSON.parse(String(init?.body));
+    assert.equal(request.model, "muse-wonder-1.0"); assert.equal(request.response_format.json_schema.strict, true);
+    assert.equal(request.max_completion_tokens, 4096); assert.equal(request.reasoning_effort, undefined);
+    return Response.json({ model: "muse-wonder-1.0", choices: [{ finish_reason: "stop", message: { content } }], usage: { prompt_tokens: 90, completion_tokens: 70, completion_tokens_details: { reasoning_tokens: 12 } } });
+  });
+  const options = { invocation: { ...invocation, stage: "documentation-transformation" } };
+  const result = await generateComposition('{"candidate":"safe", "password":"PRIVATE_SECRET"}', options);
+  assert.equal(s.rows.get(result.invocationId!)?.operation, "documentation-composition");
+  assert.equal(s.rows.get(result.invocationId!)?.responsePayload, null);
+  assert.equal(s.rows.get(result.invocationId!)?.status, "structured-success");
+  assert.ok(!JSON.stringify(s.rows.get(result.invocationId!)?.requestPayload).includes("PRIVATE_SECRET"));
+  await s.finishInvocationValidation(result.invocationId, undefined, () => ({ operation: "documentation-composition", payload: result.data }));
+  const row = s.rows.get(result.invocationId!)!;
+  assert.deepEqual(row.responsePayload, output); assert.equal(row.inputTokens, 90); assert.equal(row.outputTokens, 70);
+  const { modelDiagnosticSchema } = load("./src/integrations/ai/model-diagnostic.ts") as typeof import("./model-diagnostic");
+  const diagnostic = modelDiagnosticSchema.parse(row.diagnostic);
+  assert.equal(diagnostic.usage?.completion_tokens_details?.reasoning_tokens, 12);
+  assert.equal(diagnostic.visibleResponse?.characters, JSON.stringify(output).length);
+  const rejected = await generateComposition('{}', options);
+  await s.finishInvocationValidation(rejected.invocationId, "grounding-rejection");
+  assert.equal(s.rows.get(rejected.invocationId!)?.responsePayload, null);
+  content = "PRIVATE_MALFORMED";
+  await assert.rejects(generateComposition('{}', options));
+  assert.equal(calls, 3, "no retries"); assert.ok(!JSON.stringify([...s.rows.values()]).includes("PRIVATE_MALFORMED"));
 });

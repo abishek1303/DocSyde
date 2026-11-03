@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "mcp:query": "node --import tsx infra/local/mcp/query.ts",
+    "mcp:integration:test": "node --conditions=react-server --import tsx --test infra/local/mcp/mcp-integration.test.ts",
+    "mcp:test": "node --conditions=react-server --import tsx --test src/features/documentation/knowledge/*.test.ts",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -48,6 +51,7 @@
     "documentation:transform:persistence:test": "node --conditions=react-server --import tsx --test infra/local/documentation/transformation-persistence.test.ts",
     "documentation:transform:verify": "node --conditions=react-server --import tsx infra/local/documentation/verify-transformation.ts",
     "documentation:review": "node --conditions=react-server --import tsx infra/local/documentation/review.ts",
+    "documentation:ux:test": "node --conditions=react-server --import tsx --test infra/local/documentation/documents-ux.test.ts",
     "documentation:review:test": "node --conditions=react-server --import tsx --test src/features/documentation/review/documentation-review.test.ts infra/local/documentation/review-workflow.test.ts",
     "documentation:review:verify": "node --conditions=react-server --import tsx --test infra/local/documentation/review-workflow.test.ts",
     "documentation:library:test": "node --conditions=react-server --import tsx --test infra/local/documentation/library.test.ts src/features/sources/repository/prepare-comparison.test.ts",
@@ -63,6 +67,7 @@
   "dependencies": {
     "@base-ui/react": "^1.9.0",
     "@gsap/react": "^2.1.2",
+    "@modelcontextprotocol/server": "2.4.0",
     "@supabase/supabase-js": "^2.118.0",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.0",
@@ -83,6 +88,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
     "@tailwindcss/postcss": "4.3.3",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",

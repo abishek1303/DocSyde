@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { draftFixture } from "../../../../infra/local/documentation/draft-fixture";
 import { Pool } from "pg";
 import { stopRunCoordinator } from "./run-coordinator";
 import { closeDatabase } from "@/integrations/database/client";
@@ -72,8 +73,10 @@ test("simple submission pins the selected branch and saves context in a pending 
     if (url.pathname.includes("/compare/")) return Response.json({ status: "ahead", merge_base_commit: { sha: base }, total_commits: 1, commits: [commit(head)], files: [{ filename: "form.ts", status: "modified", additions: 1, deletions: 1, patch: "@@ -1 +1 @@\n-old\n+new" }] });
     return Response.json(commit(url.pathname.split("/").at(-1)!));
   });
+  const baseline = draftFixture(); baseline.provenance.repository = "https://github.com/example/product";
   let inserted: unknown;
   t.mock.method(Pool.prototype, "query", async (query: { text: string }, params: unknown[]) => {
+    if (query.text.includes('"documentation_drafts"')) return { rows: [[baseline.id, baseline, "2026-10-31T12:00:00.000Z"]] };
     if (query.text.startsWith("insert")) { assert.equal(params[2], "pending"); inserted = typeof params[3] === "string" ? JSON.parse(params[3]) : params[3]; }
     else assert.ok(query.text.startsWith("select"));
     return { rows: [] };
@@ -82,4 +85,19 @@ test("simple submission pins the selected branch and saves context in a pending 
   assert.equal(result.status, "created");
   assert.ok(inserted && typeof inserted === "object" && "input" in inserted);
   assert.deepEqual(inserted.input, { owner: "example", repo: "product", branch: "feature/requests", base, head, paths: [], associations: [], runContext: "Focus on creating requests." });
+});
+
+
+test("Latest Changes is blocked without existing documentation before source reads or run creation", async t => {
+  const previous = { DATABASE_URL: process.env.DATABASE_URL, DOCSYDE_ANALYSIS_REPOSITORIES: process.env.DOCSYDE_ANALYSIS_REPOSITORIES };
+  process.env.DATABASE_URL = "postgres://fixture:fixture@localhost/fixture";
+  process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "example/empty";
+  t.after(async () => { await closeDatabase(); for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
+  t.mock.method(globalThis, "fetch", () => { throw new Error("No source or model calls allowed"); });
+  t.mock.method(Pool.prototype, "query", async (query: { text: string }) => {
+    assert.ok(query.text.startsWith("select"), "No run can be inserted");
+    return { rows: [] };
+  });
+  const result = await createBranchDocumentationRun({ repository: "example/empty", branch: "main" });
+  assert.equal(result.status, "blocked");
 });

@@ -1,24 +1,24 @@
 "use client";
 
-import Link from "next/link";
-import { useState, useTransition } from "react";
+import { type ReactNode, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { saveReviewedChanges } from "../../review/review-actions";
 import type { AcceptedReview, ReviewOutcome, ReviewSelection } from "../../review/documentation-review";
+import { ReviewPublishButton } from "./review-publish-button";
 
 type Choice = ReviewSelection["decisions"][number]["choice"];
-type Item = { id: string; action: string; reason: string; ready: boolean; issues: string[] };
-export function ProposalReviewForm({ proposalId, proposalHash, items, accepted, expired }: {
-  proposalId: string; proposalHash: string; items: Item[]; accepted: AcceptedReview | null; expired: boolean;
+type Item = { id: string; action: string; title?: string; reason: string; ready: boolean; issues: string[]; content?: ReactNode };
+export function ProposalReviewForm({ proposalId, proposalHash, repository, canPublish = false, items, accepted, expired }: {
+  proposalId: string; proposalHash: string; repository: string; canPublish?: boolean; items: Item[]; accepted: AcceptedReview | null; expired: boolean;
 }) {
   const router = useRouter();
-  const [choices, setChoices] = useState<Record<string, Choice>>(() => Object.fromEntries(accepted?.selection.decisions.map(d => [d.decisionId, d.choice]) ?? []));
+  const [choices, setChoices] = useState<Record<string, Choice>>(() => Object.fromEntries(accepted?.selection.decisions.map(d => [d.decisionId, d.choice]) ?? items.filter(item => !["add", "revise"].includes(item.action)).map(item => [item.id, "acknowledge"])));
   const [outcome, setOutcome] = useState<ReviewOutcome>();
   const [pending, startTransition] = useTransition();
-  const review = accepted ?? outcome?.review;
-  const saves = review?.saves ?? [];
-  const unfinished = review?.selection.decisions.some(choice => choice.choice === "approve" && !saves.some(save => save.decisionIds.includes(choice.decisionId)));
-  const actionLabels: Record<string, string> = { revise: "Update documentation", add: "Add documentation", "no-change": "No change needed", unresolved: "Needs attention" };
+  const review = accepted ?? outcome?.review, saves = review?.saves ?? [];
+  const unfinished = review?.selection.decisions.some(choice => choice.choice === "approve" && !saves.some(save => save.status === "saved" && save.decisionIds.includes(choice.decisionId)));
+  const approved = review?.selection.decisions.some(choice => choice.choice === "approve");
   return <form className="space-y-6" onSubmit={event => {
     event.preventDefault();
     startTransition(async () => {
@@ -26,28 +26,26 @@ export function ProposalReviewForm({ proposalId, proposalHash, items, accepted, 
       setOutcome(result); router.refresh();
     });
   }}>
-    <div className="divide-y rounded-xl border bg-card px-6">{items.map(item => {
+    {!review && !expired && <div className="flex flex-wrap items-center justify-between gap-3"><p className="max-w-xl text-sm leading-6 text-muted-foreground">Choose which changes to accept, then confirm your review. Approved changes are saved; publishing is a separate step.</p><Button type="button" variant="outline" disabled={pending || !items.some(item => item.ready)} onClick={() => setChoices(previous => ({ ...previous, ...Object.fromEntries(items.filter(item => item.ready).map(item => [item.id, "approve" as const])) }))}>Approve all</Button></div>}
+    {items.map(item => {
       const actionable = item.action === "add" || item.action === "revise";
-      return <fieldset key={item.id} className="space-y-3 py-5" disabled={pending || !!review || expired}>
-        <legend className="pt-4 font-medium">{actionLabels[item.action] ?? item.action} · {actionable ? item.ready ? "Ready for review" : "Cannot approve" : "Acknowledge or reject"}</legend>
-        <p className="text-sm leading-7">{item.reason}</p>
-        {item.issues.map((issue, index) => <p key={index} className="text-sm text-muted-foreground">{issue}</p>)}
-        <div className="flex gap-6">{([actionable ? "approve" : "acknowledge", "reject"] as Choice[]).map(choice => <label key={choice} className="flex items-center gap-2 text-sm">
-          <input type="radio" name={item.id} value={choice} checked={choices[item.id] === choice} required disabled={choice === "approve" && !item.ready}
-            onChange={() => setChoices(previous => ({ ...previous, [item.id]: choice }))} />
-          {choice === "approve" ? "Approve" : choice === "acknowledge" ? "Acknowledge" : "Reject"}
-        </label>)}</div>
-      </fieldset>;
-    })}</div>
-    {expired && <p role="status">This proposal has expired. Start a fresh analysis.</p>}
-    {review && <p role="status">Review choices are accepted and locked. Saving does not publish documentation.</p>}
-    {(!review || unfinished) && <button type="submit" className="rounded-md border px-4 py-2 disabled:opacity-50" disabled={pending || expired || (!review && items.some(item => !choices[item.id]))}>
-      {pending ? "Saving…" : review ? "Resume saving" : "Save reviewed changes"}
-    </button>}
-    {outcome && <p role={outcome.status === "complete" ? "status" : "alert"}>{outcome.status === "complete" ? "Review saved. Open a saved document to publish it explicitly." : `Review result: ${outcome.status}. ${outcome.reason ?? "Inspect receipts before retrying the identical selection."}`}</p>}
-    {saves.length > 0 && <ul className="space-y-3" aria-label="Saved document receipts">{saves.map(save => <li key={save.unitId} className="rounded-md border p-4 text-sm">
-      <p>Save: {save.status}{save.reason ? ` · ${save.reason}` : ""}</p>
-      {save.status === "saved" && save.documentId && <Link className="underline" href={`/documentation/drafts/${save.documentId}`}>Open saved documentation to publish</Link>}
-    </li>)}</ul>}
+      const choice = review?.selection.decisions.find(decision => decision.decisionId === item.id)?.choice ?? choices[item.id];
+      return <section key={item.id} id={`change-${item.id}`} className="scroll-mt-6 overflow-hidden rounded-xl border bg-card">
+        <header className="flex flex-wrap items-start justify-between gap-3 border-b px-5 py-4"><div className="min-w-0 space-y-2"><h2 className="text-lg font-semibold">{item.title ?? (item.action === "add" ? "New documentation" : "Documentation update")}</h2><p className="max-w-3xl text-sm leading-6 text-muted-foreground">{item.reason}</p></div><span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">{choice === "approve" ? review ? "Approved" : "Selected for approval" : choice === "reject" ? review ? "Rejected" : "Selected for rejection" : actionable ? "Pending review" : item.action === "unresolved" ? "Needs attention" : "No update required"}</span></header>
+        {item.content}
+        <fieldset className="flex flex-wrap gap-4 border-t px-5 py-4" disabled={pending || !!review || expired}>
+          <legend className="sr-only">Review {item.title ?? "documentation change"}</legend>
+          {([actionable ? "approve" : "acknowledge", "reject"] as Choice[]).map(value => <label key={value} className="flex cursor-pointer items-center gap-2 rounded-md border px-4 py-2 text-sm has-checked:border-primary has-checked:bg-accent has-disabled:cursor-default has-disabled:opacity-60">
+            <input type="radio" name={item.id} value={value} checked={choice === value} required disabled={value === "approve" && !item.ready} onChange={() => setChoices(previous => ({ ...previous, [item.id]: value }))} />{value === "approve" ? "Approve" : value === "reject" ? "Reject" : "Acknowledge"}
+          </label>)}
+          {actionable && !item.ready && <p className="w-full text-sm text-muted-foreground">This change needs another analysis before it can be approved.</p>}
+        </fieldset>
+      </section>;
+    })}
+    {expired && !review && <p role="status">This review has expired. Run a fresh analysis to prepare new changes.</p>}
+    {review && <p role="status" className="text-sm">{approved ? "Approvals saved. Publish separately to make these changes live." : "Review complete. No changes were approved."} Review decisions are final.</p>}
+    {(!review || unfinished) && <Button type="submit" disabled={pending || (!review && expired) || (!review && items.some(item => !choices[item.id]))}>{pending ? "Saving approvals…" : review ? "Resume saving approvals" : "Confirm review"}</Button>}
+    {outcome && outcome.status !== "complete" && <p role="alert" className="text-sm">Your review could not be fully saved. Refresh to check your choices before continuing.</p>}
+    {review && !unfinished && approved && (canPublish ? <ReviewPublishButton proposalId={proposalId} proposalHash={proposalHash} repository={repository} /> : <p className="text-sm text-muted-foreground">Your changes are saved. Open the saved document in Pending Changes to choose where to publish it.</p>)}
   </form>;
 }

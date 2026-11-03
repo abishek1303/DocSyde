@@ -1151,3 +1151,23 @@ snapshots are explicitly separate from Live. History identifies snapshots by rev
 save date and originating source SHA. No parallel store or migration is introduced.
 Human review compares exact target snapshots with the candidate before the existing
 review/save operation; publication remains a separate explicit operation.
+
+## Read-only product-context MCP
+
+DocSyde acts as a synchronized product-context layer for both humans and AI agents.
+The Documentation feature owns bounded product-knowledge queries over the existing
+live-library/publication services. `/api/mcp` is a thin, stateless Streamable HTTP
+adapter using the MCP SDK; `/mcp` calls the same application query for its demo.
+There is no new persistence, indexing, inference, or agent orchestration. Three
+read-only tools provide product context, documentation by exact published route,
+and route/surface context. Responses are capped at 64 KiB; product overviews include
+at most five documents and explicitly report further coverage.
+
+Only live publications establish current behavior. Unpublished saves and retained
+proposals are never read as context. Sources exposes its persisted understanding
+through a read-only entry point; it is returned separately as advisory orientation,
+with its revision/date and no raw human notes or generated workflow assertions.
+No MCP tool can approve, publish, mutate repositories, execute SQL, or access files.
+The local endpoint is opt-in, rejects non-loopback Host and foreign Origin headers,
+and should be served with Next.js bound to loopback. No remote authentication or
+public deployment is provided by this hackathon slice.

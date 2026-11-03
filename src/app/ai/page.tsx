@@ -8,7 +8,7 @@ async function AIContent({ searchParams }: { searchParams: Promise<RepositorySea
   try { repository = selectedRepository(await searchParams); } catch { return <main className="p-8" role="alert">Invalid repository selection.</main>; }
   return <AppShell repository={repository.name} branch={repository.branch} active="AI">
     <header className="max-w-2xl space-y-3">
-      <h1 className="text-3xl font-semibold tracking-tight">AI / MCP</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">In-app documentation</h1>
       <p className="leading-7 text-muted-foreground">Give your tools documentation that stays connected to your product.</p>
     </header>
     <div className="max-w-3xl divide-y rounded-xl border bg-card px-6">
@@ -22,12 +22,12 @@ async function AIContent({ searchParams }: { searchParams: Promise<RepositorySea
       <section className="space-y-3 py-6">
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold">Connect an AI tool with MCP</h2>
-          <span className="rounded bg-muted px-2 py-1 text-xs text-muted-foreground">Planned</span>
         </div>
-        <p className="text-sm leading-7 text-muted-foreground">An MCP connection would let an AI assistant consult your product documentation. A DocSyde MCP server and connection configuration are not available yet.</p>
+        <p className="text-sm leading-7 text-muted-foreground">AI agents can read the same current published documentation through the local, read-only MCP interface. Pending changes stay separate.</p>
+        <Link href={`/mcp?${new URLSearchParams({ repository: repository.name })}`} className="text-sm text-primary underline">Connect AI agents →</Link>
       </section>
     </div>
-    <Link href={`/docs?${new URLSearchParams({ repository: repository.name, tab: "published" })}`} className="text-sm underline underline-offset-4">Browse published documentation</Link>
+    <Link href={`/docs?${new URLSearchParams({ repository: repository.name, tab: "live" })}`} className="text-sm underline underline-offset-4">Browse published documentation</Link>
   </AppShell>;
 }
 export default function AIPage(props: { searchParams: Promise<RepositorySearch> }) {

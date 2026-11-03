@@ -57,6 +57,7 @@ export const decisionResultSchema = z.object({
   approval: z.literal("not-requested"), saveCompatible: z.boolean(),
   issues: z.array(z.string().min(1).max(500)).max(20),
   limitations: z.array(z.string()).max(100),
+  compositionModel: modelMetadataSchema.optional(),
   change: transformationChangeSchema.nullable(), model: modelMetadataSchema.nullable(),
   candidateId: z.uuid().nullable(),
 }).strict();

@@ -3,6 +3,8 @@ import { z } from "zod";
 import { repositoryCoordinates, repositoryLocation } from "@/integrations/github/repository-identity";
 import { assertAllowedRepository } from "@/features/sources/repository-access";
 import { selectLiveLibrary, selectSavedLibraryVersions, selectHubReviews, findLibraryArchive, selectLatestLibraryDraft, selectLibraryArchive, selectLibraryReviews } from "@/integrations/database/documentation-library";
+import { getPublication } from "../publication/publication-operations";
+import { getDocumentationDraft, listDocumentationDrafts } from "../documents/operations";
 import { validateDocumentationDocument } from "../documents/document-validation";
 import { readRetainedReview } from "../review/review-proposal-operations";
 
@@ -50,14 +52,14 @@ export async function documentationHub(raw: unknown, tab: "live" | "pending" | "
     return { kind: "live" as const, entries: rows.slice(0, 20).map(row => ({ document: readDocument(row.draft, repository), publishedAt: row.publication.publishedAt.toISOString(), route: row.publication.route, publicationId: row.publication.id })), hasMore: rows.length > 20 };
   }
   if (tab === "history") {
-    const rows = await selectSavedLibraryVersions(repository, offset);
-    return { kind: "history" as const, entries: rows.slice(0, 20).map(row => ({ document: readDocument(row, repository), savedAt: row.savedAt.toISOString() })), hasMore: rows.length > 20 };
+    const rows = await selectLibraryArchive(repository, offset);
+    return { kind: "history" as const, entries: rows.slice(0, 20).map(row => ({ id: row.publication.id, document: readDocument(row.draft, repository), route: row.publication.route, publishedAt: row.publication.publishedAt.toISOString(), archivedAt: row.publication.archivedAt.toISOString() })), hasMore: rows.length > 20 };
   }
   const [rows, saves] = await Promise.all([selectHubReviews(repository, offset), selectSavedLibraryVersions(repository, offset, true)]);
   return { kind: "pending" as const, entries: rows.slice(0, 20).map(({ row, runId, runTitle }) => {
     const state = readRetainedReview(row);
     return { id: row.id, summary: state.proposal.impact.summary, date: row.registeredAt.toISOString(), runId, runTitle,
-      status: state.review ? "Saving needs attention" : "Ready for review",
+      status: state.review ? "Approved changes" : "Waiting for review",
       targets: state.proposal.results.filter(result => result.reviewReady).map(result => {
         const target = state.proposal.targets.find(target => target.document.id === result.decision.documentId)?.document;
         const section = target?.sections.find(section => section.id === result.decision.sectionId);
@@ -68,4 +70,31 @@ export async function documentationHub(raw: unknown, tab: "live" | "pending" | "
 
 export function documentSourceHead(document: import("../documents/document").DocumentationDocument) {
   return document.schemaVersion === 1 ? document.provenance.head : document.provenance.contexts.find(context => context.id === document.provenance.revision.contextId)?.head ?? null;
+}
+
+/** Candidate selection targets saved canonical snapshots, including unpublished saves.
+ * Unsaved review proposals are not part of that corpus. Availability does not promise
+ * a relevant match for every future change or bypass later candidate/grounding checks.
+ */
+export async function hasExistingDocumentation(raw: unknown): Promise<boolean> {
+  const { repository } = scope(raw);
+  let before: { savedAt: string; id: string } | undefined;
+  do {
+    const page = await listDocumentationDrafts({ repository, limit: 50, before });
+    if (page.entries.some(entry => entry.status === "available" && entry.repository.toLowerCase() === repository)) return true;
+    before = page.nextCursor ?? undefined;
+  } while (before);
+  return false;
+}
+
+/** Compare archive content only with the current live document at the same product destination. */
+export async function currentPublishedDocumentation(raw: unknown, route: string) {
+  const { owner, repo, repository } = scope(raw);
+  const publication = await getPublication({ owner, repo, route });
+  if (!publication) return null;
+  const saved = await getDocumentationDraft(publication.draftId, repository);
+  return saved.status === "found" ? { document: saved.document, publishedAt: publication.publishedAt.toISOString(), route } : null;
+}
+export async function currentPublishedDocument(raw: unknown, route: string) {
+  return (await currentPublishedDocumentation(raw, route))?.document ?? null;
 }

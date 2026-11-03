@@ -20,6 +20,7 @@ const policies = {
   "product-impact": [8192, "product-impact-v2"],
   "documentation-planning": [4096, "documentation-planning-v3"],
   "documentation-draft": [8192, "documentation-draft-v2"],
+  "documentation-composition": [4096, "documentation-composition-v1"],
   "documentation-transformation": [8192, "documentation-transformation-v2"],
   "transformation-support": [8192, "transformation-support-v2"],
   "receipt-verification": [4096, "receipt-verification-v1"],
@@ -42,8 +43,9 @@ function museReasoning(model: string) {
 export function operationPolicy(operation: string) {
   return Object.hasOwn(policies, operation) ? policies[operation as ModelOperation] : undefined;
 }
-export function configuredModel(provider: "baseten" | "meta") {
+export function configuredModel(provider: "baseten" | "meta", operation?: string) {
   return provider === "baseten" ? process.env.BASETEN_MODEL?.trim() || "meta-models/muse-spark-open-1026"
+    : operation === "documentation-composition" ? process.env.META_COMPOSITION_MODEL?.trim() || "muse-wonder-1.0"
     : process.env.META_VISION_MODEL?.trim() || "muse-spark-1.3";
 }
 function checkedOptions(provider: "baseten" | "meta", model: string, raw?: InferenceOptions) {
@@ -57,7 +59,7 @@ function checkedOptions(provider: "baseten" | "meta", model: string, raw?: Infer
   return options.data;
 }
 export function resolveInference(provider: "baseten" | "meta", operation: string, maxOutputTokens?: number, raw?: InferenceOptions) {
-  const model = configuredModel(provider);
+  const model = configuredModel(provider, operation);
   const max = maxOutputTokens ?? operationPolicy(operation)?.[0] ?? 4096;
   if (!Number.isSafeInteger(max) || max < 1) throw new ModelError("invalid-input");
   const defaults = provider === "baseten" && museReasoning(model) && Object.hasOwn(operationInference, operation)

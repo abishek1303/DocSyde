@@ -33,6 +33,7 @@ export function activitySubsteps(stage: RunView["stages"][number], calls: RunInv
   }
   if (stage.key === "documentation-transformation") return [
     { label: "Generating replacement copy", status: status(operation("documentation-transformation")) },
+    ...(operation("documentation-composition") ? [{ label: "Composing with Muse Wonder", status: status(operation("documentation-composition")) }] : []),
     { label: "Checking evidence support", status: status(operation("transformation-support")) },
   ];
   return [];

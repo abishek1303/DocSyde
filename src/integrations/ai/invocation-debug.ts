@@ -10,6 +10,7 @@ const full = { instructions: true, input: true, schema: true, output: true, diag
 const deny = { instructions: false, input: false, schema: false, output: false, diagnostic: false } as const;
 const policies: Record<string, { instructions: boolean; input: boolean; schema: boolean; output: boolean; diagnostic: boolean }> = {
   "source-analysis": full, "visual-selection": full, "runtime-decision": full, "documentation-planning": full, "product-impact": full,
+  "documentation-composition": { ...full, output: false },
   "documentation-transformation": { ...full, output: false },
   // Vision retains only its existing bounds/certainty/count projection; never pixels or visible prose.
   "runtime-vision": deny,

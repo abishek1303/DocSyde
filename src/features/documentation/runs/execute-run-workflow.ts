@@ -130,7 +130,7 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
   }
   let proposal: Awaited<ReturnType<typeof transformDocumentation>>;
   await stage("documentation-transformation", async () => {
-    proposal = await transformDocumentation({ impact: record.impact!, plan, context: record.input.associations }, { signal, invocation: invocation("documentation-transformation") });
+    proposal = await transformDocumentation({ impact: record.impact!, plan, context: record.input.associations, terminology: record.contextSnapshot?.repositoryUnderstandingUsed?.summary.terminology }, { signal, invocation: invocation("documentation-transformation") });
     await check();
     const { proposalId, status, batches, supportAttempted, supportModel } = proposal;
     const authored = proposal.results.flatMap(result => {
@@ -140,8 +140,8 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
       return [change.section.content.map(block => block.markdown).join(" ")];
     }).join(" ");
     return { transformation: { responsePreview: shortResponse(authored), proposalId, status, sha256: documentationHash(proposal), batches, supportAttempted, supportModel,
-      results: proposal.results.map(r => ({ decisionId: r.decisionId, generation: r.generation, support: r.support, reviewReady: r.reviewReady, materialization: r.materialization, approval: r.approval, saveCompatible: r.saveCompatible, issues: r.issues, model: r.model, candidateId: r.candidateId })) },
-      models: [...record.models, ...batches.flatMap(b => model("documentation-transformation", b.model ?? {})), ...model("documentation-transformation", supportModel ?? {})] };
+      results: proposal.results.map(r => ({ decisionId: r.decisionId, generation: r.generation, support: r.support, reviewReady: r.reviewReady, materialization: r.materialization, approval: r.approval, saveCompatible: r.saveCompatible, issues: r.issues, model: r.model, ...(r.compositionModel ? { compositionModel: r.compositionModel } : {}), candidateId: r.candidateId })) },
+      models: [...record.models, ...batches.flatMap(b => model("documentation-transformation", b.model ?? {})), ...proposal.results.flatMap(r => model("documentation-transformation", r.compositionModel ?? {})), ...model("documentation-transformation", supportModel ?? {})] };
   });
   if (!proposal!.results.some(r => (r.decision.action === "revise" || r.decision.action === "add") && r.reviewReady)) {
     const technical = proposal!.batches.some(b => b.status === "failed") || proposal!.results.some(r => r.support === "failed" || r.generation === "failed");

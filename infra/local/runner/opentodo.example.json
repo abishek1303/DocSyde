@@ -1,0 +1,40 @@
+{
+  "repository": "https://github.com/abishek1303/docksyde-demo-app-test-subject",
+  "id": "external-opentodo",
+  "version": "1",
+  "description": "Inspect the issue list and TASK-1 detail in the local OpenTodo demo. Captures show only the configured issue and do not establish automatic lifecycle behavior.",
+  "runtime": {
+    "mode": "attach",
+    "options": {
+      "baseUrl": "http://localhost:5173",
+      "readinessPath": "/api/stats"
+    }
+  },
+  "workflow": {
+    "path": "/?agent",
+    "readySelector": "button[aria-label=\"View issue TASK-1\"]",
+    "steps": [
+      {
+        "type": "click",
+        "selector": "button[aria-label=\"View issue TASK-1\"]"
+      },
+      {
+        "type": "waitFor",
+        "selector": "select[aria-label=\"Issue status\"]"
+      },
+      {
+        "type": "checkpoint"
+      }
+    ],
+    "sensitiveSelectors": [
+      "input",
+      "textarea"
+    ]
+  },
+  "maxSelectedScreenshots": 2,
+  "supportedPathnames": [
+    "/"
+  ],
+  "capabilities": [],
+  "supportingSourcePaths": []
+}

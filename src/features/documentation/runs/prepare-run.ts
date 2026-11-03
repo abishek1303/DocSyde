@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { hasExistingDocumentation } from "../library/library-operations";
 import { defaultBranch, recentChanges, selectedRepository, runBranchSelection } from "@/features/sources/run-preparation";
 import { previewSourceComparison, readSelectedChange } from "@/features/sources/product-analysis";
 import { createDocumentationRun, getDocumentationRun } from "./run-operations";
@@ -29,6 +30,8 @@ export async function prepareDocumentationRun(raw: unknown) {
 /** Resolve and pin the selected branch only on explicit submission. */
 export async function createBranchDocumentationRun(raw: unknown) {
   const input = z.object({ repository: z.string(), branch: z.string().min(1), runContext: z.string().max(300).nullable().default(null) }).strict().parse(raw);
+  const selected = selectedRepository({ repository: input.repository });
+  if (!await hasExistingDocumentation(selected)) return { status: "blocked" as const, message: "No documentation is available to update yet. Save documentation for this project before analyzing its latest changes." };
   const prepared = await prepareDocumentationRun({ repository: input.repository, branch: input.branch });
   if (!prepared.preview) return { status: "blocked" as const, message: "This branch needs at least two commits before it can be analyzed." };
   if (!prepared.preview.files.length) return { status: "blocked" as const, message: "There are no source changes to analyze on this branch." };

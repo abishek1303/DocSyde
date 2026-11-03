@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { selectedRepository } from "./repository-overview";
+import { configuredRepositories, selectedRepository } from "./repository-overview";
 
 test("repository context uses the allowlist and validates URL branch selection", t => {
   const previous = process.env.DOCSYDE_ANALYSIS_REPOSITORIES;
@@ -10,4 +10,12 @@ test("repository context uses the allowlist and validates URL branch selection",
   assert.equal(selectedRepository({ repository: "EXAMPLE/product", branch: "release/v1" }).branch, "release/v1");
   assert.throws(() => selectedRepository({ repository: "other/product" }));
   assert.throws(() => selectedRepository({ branch: "bad..branch" }));
+});
+
+
+test("project picker lists configured repositories once with their display names", t => {
+  const previous = process.env.DOCSYDE_ANALYSIS_REPOSITORIES;
+  t.after(() => { if (previous === undefined) delete process.env.DOCSYDE_ANALYSIS_REPOSITORIES; else process.env.DOCSYDE_ANALYSIS_REPOSITORIES = previous; });
+  process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "abishek1303/DockSyde-demo-app-test-subject,Example/Product,example/product";
+  assert.deepEqual(configuredRepositories(), ["abishek1303/DockSyde-demo-app-test-subject", "Example/Product"]);
 });

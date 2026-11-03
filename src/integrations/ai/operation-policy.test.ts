@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { z } from "zod";
 import { resolveInference, inferenceSnapshot, basetenInferenceFields, operationPolicy } from "./operation-policy";
+import { compositionConfigured } from "./generate-composition";
 import { generateStructured } from "./generate-structured";
 
 const expectedEfforts: Record<string, "low" | "medium"> = {
@@ -83,4 +84,18 @@ test("operation reasoning defaults remain provider/model scoped and explicitly o
   process.env.BASETEN_MODEL = "other/provider-model";
   assert.equal(resolveInference("baseten", "runtime-decision").reasoningEffort, undefined);
   assert.throws(() => resolveInference("baseten", "runtime-decision", undefined, { reasoningEffort: "low" }), /unsupported-options/);
+});
+
+test("composition has its own replaceable Meta model without altering Spark or vision settings", t => {
+  const previous = process.env.META_COMPOSITION_MODEL;
+  t.after(() => { if (previous === undefined) delete process.env.META_COMPOSITION_MODEL; else process.env.META_COMPOSITION_MODEL = previous; });
+  const vision = resolveInference("meta", "runtime-vision"), spark = resolveInference("baseten", "documentation-transformation");
+  delete process.env.META_COMPOSITION_MODEL;
+  assert.equal(compositionConfigured(), false);
+  assert.equal(resolveInference("meta", "documentation-composition").model, "muse-wonder-1.0");
+  process.env.META_COMPOSITION_MODEL = "replacement-editor";
+  assert.equal(compositionConfigured(), true);
+  assert.deepEqual(resolveInference("meta", "documentation-composition"), { model: "replacement-editor", maxOutputTokens: 4096 });
+  assert.deepEqual(resolveInference("meta", "runtime-vision"), vision); assert.deepEqual(resolveInference("baseten", "documentation-transformation"), spark);
+  assert.equal(operationPolicy("documentation-composition")?.[1], "documentation-composition-v1");
 });

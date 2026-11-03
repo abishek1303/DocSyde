@@ -17,7 +17,7 @@ const load = createRequire(join(process.cwd(), "package.json")), dbPath = load.r
 const queries: typeof import("@/integrations/database/documentation-drafts") = load(dbPath);
 
 function setup(t: TestContext, docs: DocumentationDocument[], options: {
-  generation?: (input: Payload) => unknown; support?: (units: SupportUnit[]) => unknown; fail?: "generation" | "support";
+  generation?: (input: Payload) => unknown; support?: (units: SupportUnit[]) => unknown; fail?: "generation" | "support"; composition?: "valid" | "unsupported" | "malformed";
 } = {}) {
   const databaseModule = load.cache[dbPath]!, previousDb = databaseModule.exports;
   const paths = ["documents/operations", "planning/documentation-impact-input", "planning/validate-documentation-impact-plan", "planning/plan-documentation-impact", "transformation/transform-documentation"].map(name => load.resolve(`./src/features/documentation/${name}.ts`));
@@ -28,12 +28,26 @@ function setup(t: TestContext, docs: DocumentationDocument[], options: {
     return doc ? { id, document: structuredClone(doc), savedAt: new Date() } : null;
   }, insertDocumentationDraft: writes };
   paths.forEach(path => { delete load.cache[path]; });
+  const previousComposition = process.env.META_COMPOSITION_MODEL, previousMetaKey = process.env.META_API_KEY;
+  if (options.composition) { process.env.META_COMPOSITION_MODEL = "muse-wonder-1.0"; process.env.META_API_KEY = "fixture"; }
+  else delete process.env.META_COMPOSITION_MODEL;
+  t.after(() => { if (previousComposition === undefined) delete process.env.META_COMPOSITION_MODEL; else process.env.META_COMPOSITION_MODEL = previousComposition;
+    if (previousMetaKey === undefined) delete process.env.META_API_KEY; else process.env.META_API_KEY = previousMetaKey; });
   const old = process.env.BASETEN_API_KEY; process.env.BASETEN_API_KEY = "fixture";
   t.after(() => { databaseModule.exports = previousDb; paths.forEach((path, i) => { if (cached[i]) load.cache[path] = cached[i]; else delete load.cache[path]; });
     if (old === undefined) delete process.env.BASETEN_API_KEY; else process.env.BASETEN_API_KEY = old; });
   const requests: { instructions: string; input: Payload | { units: SupportUnit[] }; bytes: number }[] = [];
   let generations = 0, supports = 0;
   t.mock.method(globalThis, "fetch", async (url: unknown, init?: RequestInit) => {
+    if (String(url) === "https://api.meta.ai/v1/chat/completions") {
+      const body = JSON.parse(String(init?.body));
+      assert.equal(body.model, "muse-wonder-1.0"); assert.equal(body.response_format.json_schema.strict, true);
+      const input = JSON.parse(body.messages[1].content);
+      assert.deepEqual(Object.keys(input).sort(), ["existingDocument", "sections", "terminology"]);
+      const data = { sections: input.sections.map((section: { sectionRef: number; title: string; content: { blockRef: number; markdown: string }[] }) => ({ sectionRef: section.sectionRef, title: section.title,
+        content: section.content.map(block => ({ blockRef: block.blockRef, parts: [{ kind: "paragraph", text: options.composition === "unsupported" ? "Every user receives an automatic email notification." : block.markdown }] })) })) };
+      return Response.json({ model: "muse-wonder-1.0", choices: [{ finish_reason: "stop", message: { content: options.composition === "malformed" ? "PRIVATE_MALFORMED" : JSON.stringify(data) } }] });
+    }
     assert.equal(String(url), "https://inference.baseten.co/v1/chat/completions");
     const body = JSON.parse(String(init?.body)), instructions: string = body.messages[0].content;
     const input = JSON.parse(body.messages[1].content);
@@ -309,4 +323,47 @@ test("baseline excludes multi-batch scope before any generation, without changin
   const { withInferenceBudget } = await import("@/integrations/ai/inference-budget");
   await assert.rejects(withInferenceBudget("run", {}, () => p.transformDocumentation({ impact, plan })), { code: "outside-single-batch-scope" });
   assert.deepEqual(p.counts(), { generations: 0, supports: 0 });
+});
+
+for (const composition of ["valid", "unsupported", "malformed"] as const) test(`Wonder ${composition}: final support gates review-ready canonical proposal`, async t => {
+  const doc = draftFixture();
+  const p = setup(t, [doc], { composition, support: units => {
+    if (composition === "unsupported") assert.ok(units.some(unit => unit.text.includes("automatic email")), "support must inspect composed text");
+    return { verdicts: units.map(unit => ({ unitId: unit.id, verdict: composition === "unsupported" ? "unsupported" : "supported", reason: "Fixture verification" })) };
+  } });
+  const impact = transformationImpactFixture();
+  const proposal = await p.transformDocumentation({ impact, plan: transformationPlanFixture(impact, [transformationDecisionFixture(doc.id, doc.sections[0].id)]) });
+  const { validateDocumentationProposal } = load("./src/features/documentation/transformation/validate-documentation-proposal.ts") as typeof import("./validate-documentation-proposal");
+  assert.deepEqual(validateDocumentationProposal(proposal), proposal);
+  assert.equal(proposal.candidates.length, composition === "valid" ? 1 : 0);
+  assert.equal(proposal.results[0].reviewReady, composition === "valid");
+  assert.equal(proposal.results[0].compositionModel?.model, composition === "malformed" ? undefined : "muse-wonder-1.0");
+  assert.equal(p.counts().supports, composition === "malformed" ? 0 : 1);
+  if (composition === "valid") { assert.equal(proposal.status, "complete"); assert.equal(proposal.results[0].approval, "not-requested"); assert.equal(proposal.results[0].saveCompatible, true); }
+  if (composition === "valid") {
+    const reviewPath = load.resolve("./src/integrations/database/documentation-reviews.ts");
+    const publicationPath = load.resolve("./src/integrations/database/documentation-publications.ts");
+    load(reviewPath); load(publicationPath);
+    const reviewModule = load.cache[reviewPath]!, publicationModule = load.cache[publicationPath]!;
+    const oldReviews = reviewModule.exports, oldPublications = publicationModule.exports;
+    const featurePath = load.resolve("./src/features/documentation/review/review-proposal-operations.ts"), oldFeature = load.cache[featurePath];
+    const oldAllow = process.env.DOCSYDE_ANALYSIS_REPOSITORIES;
+    process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "abishek1303/DocSyde";
+    const retained: unknown[] = [];
+    reviewModule.exports = { ...oldReviews, findDocumentationReview: async () => null,
+      insertDocumentationReview: async (value: object) => { retained.push(value); return { ...value, review: null }; } };
+    publicationModule.exports = { ...oldPublications, publicationsForDrafts: async () => [], findPublication: async () => null };
+    delete load.cache[featurePath];
+    try {
+      const { retainDocumentationProposal } = load(featurePath) as typeof import("../review/review-proposal-operations");
+      const review = await retainDocumentationProposal(proposal);
+      assert.equal(retained.length, 1); assert.equal(review.proposal.results[0].compositionModel?.model, "muse-wonder-1.0");
+      assert.equal(review.review, null); assert.equal(review.proposal.candidates.length, 1);
+    } finally {
+      reviewModule.exports = oldReviews; publicationModule.exports = oldPublications;
+      if (oldFeature) load.cache[featurePath] = oldFeature; else delete load.cache[featurePath];
+      if (oldAllow === undefined) delete process.env.DOCSYDE_ANALYSIS_REPOSITORIES; else process.env.DOCSYDE_ANALYSIS_REPOSITORIES = oldAllow;
+    }
+  }
+  assert.equal(p.writes.mock.callCount(), 0);
 });

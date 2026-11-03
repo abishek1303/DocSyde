@@ -18,8 +18,7 @@ setup script can invoke `sh infra/local/postgres/setup.sh`; the script resolves
 the repository path independently of the caller's working directory. It never
 overwrites `.env` or removes volumes.
 
-`COMPOSE_FILE=infra/local/compose.yaml` in the root `.env` preserves the short
-`docker compose up -d` command. The explicit Compose project name `docsyde`
+For direct Compose commands, pass `-f infra/local/compose.yaml`. The explicit Compose project name `docsyde`
 preserves the existing `docsyde_postgres_data` volume when relocating the file.
 The setup script uses explicit paths and does not depend on Compose discovery.
 

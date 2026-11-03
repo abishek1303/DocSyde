@@ -1,4 +1,6 @@
 import "server-only";
+import { debugSection } from "./invocation-debug";
+import { compositionOutputSchema, type CompositionOutput } from "./composition-output";
 import { z } from "zod";
 
 export const INVOCATION_PAYLOAD_MAX_BYTES = 128 * 1024;
@@ -21,6 +23,7 @@ const discovery = z.object({ fieldCount: z.literal(4) }).strict();
 const understanding = z.object({ fieldCount: z.literal(6) }).strict();
 const receipt = z.object({ receiptId: z.literal("proof-123") }).strict();
 export type ApprovedInvocationResponse =
+  | { operation: "documentation-composition"; payload: CompositionOutput }
   | { operation: "visual-selection"; payload: z.infer<typeof selection> }
   | { operation: "runtime-vision"; payload: z.infer<typeof vision> }
   | { operation: "transformation-support"; payload: z.infer<typeof support> }
@@ -28,7 +31,7 @@ export type ApprovedInvocationResponse =
   | { operation: "repository-understanding"; payload: { fieldCount: number } }
   | { operation: "receipt-verification"; payload: z.infer<typeof receipt> };
 export function responseAllowed(operation: string) {
-  return ["repository-discovery", "repository-understanding", "visual-selection", "runtime-vision", "transformation-support", "receipt-verification"].includes(operation);
+  return ["documentation-composition", "repository-discovery", "repository-understanding", "visual-selection", "runtime-vision", "transformation-support", "receipt-verification"].includes(operation);
 }
 type RetainedPayload = { payload: unknown | null; reason: string | null };
 function bounded(payload: unknown): RetainedPayload {
@@ -61,10 +64,11 @@ export function requestPayload(operation: string, input?: string): RetainedPaylo
 export function responsePayload(operation: string, response?: ApprovedInvocationResponse): RetainedPayload {
   if (!responseAllowed(operation)) return { payload: null, reason: "not-allowlisted" };
   if (!response || operation !== response.operation) return { payload: null, reason: "logging-data-invalid" };
-  const schema = operation === "repository-discovery" ? discovery : operation === "repository-understanding" ? understanding : operation === "visual-selection" ? selection : operation === "runtime-vision" ? vision : operation === "transformation-support" ? support : receipt;
+  const schema = operation === "documentation-composition" ? compositionOutputSchema : operation === "repository-discovery" ? discovery : operation === "repository-understanding" ? understanding : operation === "visual-selection" ? selection : operation === "runtime-vision" ? vision : operation === "transformation-support" ? support : receipt;
   try {
     // Bound before schema traversal; malformed/unknown fields never enter persistence.
-    const size = bounded(response.payload);
+    const size = bounded(operation === "documentation-composition"
+      ? JSON.parse(debugSection(JSON.stringify(response.payload), INVOCATION_PAYLOAD_MAX_BYTES).content) as unknown : response.payload);
     if (size.reason) return size;
     const parsed = schema.safeParse(size.payload);
     return parsed.success ? { payload: parsed.data, reason: null } : { payload: null, reason: "logging-data-invalid" };
@@ -79,7 +83,7 @@ export function receiptResponse(data: unknown): ApprovedInvocationResponse | und
 /** Read historical projections through the same strict allowlist; never expose arbitrary JSONB. */
 export function storedResponsePayload(operation: string, value: unknown): unknown | undefined {
   if (!responseAllowed(operation)) return undefined;
-  const schema = operation === "repository-discovery" ? discovery : operation === "repository-understanding" ? understanding : operation === "visual-selection" ? selection : operation === "runtime-vision" ? vision : operation === "transformation-support" ? support : receipt;
+  const schema = operation === "documentation-composition" ? compositionOutputSchema : operation === "repository-discovery" ? discovery : operation === "repository-understanding" ? understanding : operation === "visual-selection" ? selection : operation === "runtime-vision" ? vision : operation === "transformation-support" ? support : receipt;
   const size = bounded(value);
   if (size.reason) return undefined;
   const parsed = schema.safeParse(size.payload);

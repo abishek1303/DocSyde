@@ -20,10 +20,11 @@ it is never a fallback for new runs.
 | ProductImpact synthesis | 0–1 |
 | Documentation-impact planning | 0–1 |
 | Transformation generation | 0–8 |
+| Optional Muse Wonder composition | 0–8 (one per generated decision) |
 | Transformation support check | 0–1 |
 | Retention, review, save, publication | 0 |
 
-Typical actionable source-only runs cost five calls when runtime is unavailable,
+With composition disabled, typical actionable source-only runs cost five calls when runtime is unavailable,
 six when inspected semantically as unnecessary. A successful runtime path costs
 7–10 with one transformation batch. Worst bounded path is 17 calls (14 text, three
 vision). Empty comparison costs zero. No-change/unresolved-only plans use no
@@ -169,9 +170,13 @@ Human approval/save/publication remain separate model-free operations. Local ver
 and historical proof descriptions below do not imply those capabilities are still
 absent from new-run orchestration.
 
+## Optional composition
+
+`META_COMPOSITION_MODEL` opts into Meta Muse Wonder through the existing provider boundary. It receives only bounded grounded candidate copy, supported facts, and relevant document context. Its validated presentation blocks are mapped into the canonical document model, then the existing support verifier checks the composed wording before retention. No new fact authority, retries, automatic approval, or publication is introduced. Invocation logs retain safe input and accepted validated output only. Leaving the variable unset preserves the original flow.
+
 ## Intentionally not used
 
-No SAM segmentation, Muse Image generation, Muse Wonder, Muse Glimmer, audio model,
+No SAM segmentation, Muse Image generation, Muse Glimmer, audio model,
 embedding model, vector retrieval, Modal or Fireworks inference is implemented in
 this flow. Baseten's text boundary does not send images. Muse Code is not a runtime
 dependency. Additional models should solve a concrete evidence problem; model count
@@ -183,7 +188,7 @@ agent framework or automatic documentation publication is implied by this plan.
 The initial audit checked the current working tree using mocked model tests only.
 Those tests exercise contracts and failure handling, not live availability or
 factual quality. Real provider calls are opt-in and spend credit.
-See [SETUP.md](SETUP.md#model-and-runtime-flow-audit) for exact audit results and
+See [SETUP.md](SETUP.md#verification-and-production-preview) for current setup and
 commands to rerun the capability checks.
 
 Subsequent authorized vision sanity checks reached Meta but failed local validation:
