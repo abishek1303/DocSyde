@@ -43,3 +43,16 @@ test("successful runs open the originating proposal in Pending Changes", () => {
   assert.match(html, /Review changes/);
   assert.match(html, /\/docs\?repository=example%2Fproduct&amp;tab=pending&amp;proposal=proposal-fixture/);
 });
+
+test("single-batch verification stop explains the limit without exposing internal codes or offering review", () => {
+  const run = fixture(); run.status = "incomplete"; run.reason = "outside-single-batch-baseline-scope";
+  run.stages[6].status = "incomplete"; run.stages[6].summary = run.reason;
+  run.stages[7].status = "skipped"; run.stages[7].summary = `Not executed: ${run.reason}`;
+  const html = renderToStaticMarkup(<RunMonitor initial={run} />);
+  assert.match(html, /verification limit stopped documentation generation/);
+  assert.match(html, /before any replacement copy was requested/);
+  assert.match(html, /before authorizing another attempt/);
+  assert.ok(!html.includes(">Review changes<"));
+  // Diagnostic outcome codes remain behind the existing disclosure.
+  assert.ok(!html.slice(0, html.indexOf("Run context and model usage")).includes("outside-single-batch-baseline-scope"));
+});

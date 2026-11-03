@@ -11,7 +11,8 @@ export function runOutcome(run: RunView) {
     message: "Documentation couldn't be prepared because some generated statements weren't supported by the available evidence.",
     nextStep: "Add specific product context or improve source/runtime coverage, then start a new Full Scan. Support checking will run again.",
   };
-  const reasons: Record<string, [string, string]> = {
+  const reasons: Record<string, [string, string, string?]> = {
+    "outside-single-batch-baseline-scope": ["The verification limit stopped documentation generation", "The documentation plan did not fit this verification's single-batch limit. Generation was stopped before any replacement copy was requested.", "Inspect the recorded plan and verification limits before authorizing another attempt. This result does not establish whether normal generation would succeed."],
     "transformation-not-review-ready": ["Generated documentation was not accepted for review", "Generated output did not pass all support or materialization checks."],
     "impact-has-no-usable-claims": ["The evidence did not establish enough product behavior", "No supported product claims were available for documentation planning."],
     "documentation-plan-unresolved-or-empty": ["Documentation targets could not be resolved", "The planner could not identify a supported documentation update."],
@@ -19,7 +20,7 @@ export function runOutcome(run: RunView) {
   const reason = reasons[run.reason ?? ""];
   return { title: reason?.[0] ?? description?.message ?? "The run stopped before review",
     message: reason?.[1] ?? description?.message ?? "This run ended without a review-ready proposal.",
-    nextStep: description?.nextStep ?? "Review the stage details, add useful product context, then start a new Full Scan." };
+    nextStep: reason?.[2] ?? description?.nextStep ?? "Review the stage details, add useful product context, then start a new Full Scan." };
 }
 
 /** Correct historical records that completed generation before rejecting support. */

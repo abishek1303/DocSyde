@@ -29,3 +29,7 @@ test("Wonder composition appears between generation and support only when actual
   assert.deepEqual(steps.map(step => step.label), ["Generating replacement copy", "Composing with Muse Wonder", "Checking evidence support"]);
   assert.deepEqual(steps.map(step => step.status), ["completed", "running", "running"]);
 });
+
+test("terminal runs do not present missing validation logs as work still waiting", () => {
+  assert.equal(activitySubsteps(stage("source-analysis", "completed"), [])[2].status, "not-recorded");
+});

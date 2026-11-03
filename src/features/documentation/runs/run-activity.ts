@@ -25,7 +25,7 @@ export function activitySubsteps(stage: RunView["stages"][number], calls: RunInv
     return [
       { label: "Reading changed files", status: call || stage.status === "completed" ? "completed" : stage.status === "running" ? "running" : stage.status === "failed" ? "failed" : "waiting" },
       { label: "Analyzing source facts", status: call?.status === "structured-success" ? "completed" : status(call) },
-      { label: "Validating findings", status: call?.status === "succeeded" ? "completed" : call?.status === "structured-success" ? "running" : call?.failureKind === "grounding-rejection" ? "failed" : "waiting" },
+      { label: "Validating findings", status: call?.status === "succeeded" ? "completed" : call?.status === "structured-success" ? terminal ? "not-recorded" : "running" : call?.failureKind === "grounding-rejection" ? "failed" : terminal ? "not-recorded" : "waiting" },
     ];
   }
   if (stage.key === "documentation-planning") {
