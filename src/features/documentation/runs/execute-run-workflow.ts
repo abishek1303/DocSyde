@@ -1,4 +1,5 @@
 import "server-only";
+import { ManagedRuntimeUnavailable } from "@/runner/runtime/managed-configuration";
 import { observe, type RuntimeObserver } from "@/integrations/browser/runtime-observation";
 import { createHash } from "node:crypto";
 import { readInspectionContext, analyzeProductChanges, captureGenerationContext, decideRuntimeInspection, synthesizeProductImpact, analyzeRuntimeVisuals, validateProductResult, type RuntimeInspectionContext } from "@/features/sources/product-analysis";
@@ -81,13 +82,22 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
       unresolvedQuestions: decision.uncertainties, limitations: [...limitations, ...scopeLimitations].slice(0, 8) }, models: [...record.models, ...model("runtime-decision", result)] };
   });
   let runtime: Awaited<ReturnType<typeof analyzeRuntimeVisuals>>["runtime"] = [];
+  let startupUnavailable = false;
   if (configuration!.available && record!.decision?.status === "inspect" && record!.runtime?.reason === "inspection-requested-and-covered") {
     await stage("runtime-inspection", async () => {
       const configured = configuration!;
       if (!configured.available) throw new Error("Runtime configuration lost.");
       // Mark attempted before any launch. A failed attempt never becomes unavailable/not-needed.
       await checkpoint(r => ({ ...r, runtime: { ...r.runtime!, outcome: "attempted-and-failed", reason: "inspection-started-not-complete" } }));
-      const captured = await captureWorkflowWithRuntime(configured.config, configured.storage, signal, undefined, observer);
+      let captured;
+      try { captured = await captureWorkflowWithRuntime(configured.config, configured.storage, signal, undefined, observer); }
+      catch (error) {
+        // Only startup failures with completed cleanup may continue source-only. Capture and cleanup failures still stop the run.
+        if (!(error instanceof ManagedRuntimeUnavailable) || signal.aborted) throw error;
+        startupUnavailable = true;
+        return { runtime: { ...record.runtime!, outcome: "attempted-and-failed", reason: `managed-${error.code}`,
+          limitations: [...record.runtime!.limitations, "Approved application startup was unavailable; no browser evidence was captured. Documentation must use source evidence only."].slice(0, 8) } };
+      }
       await check();
       const storeManifest = async (kind: "runtime-trace" | "runtime-analysis", value: unknown) => {
         const bytes = Buffer.from(JSON.stringify(value));
@@ -113,6 +123,7 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
       return { runtime: { ...record.runtime!, outcome: "completed", reason: visual.reason },
         models: [...record.models, ...model("runtime-inspection", visual.selection ?? {}), ...runtime.map(item => ({ stage: "runtime-inspection" as const, model: item.vision.model, elapsedMs: item.vision.elapsedMs }))] };
     });
+    if (startupUnavailable) await checkpoint(r => ({ ...r, stages: r.stages.map(stage => stage.key === "runtime-inspection" ? { ...stage, status: "skipped", summary: "Application startup was unavailable. Continuing with source evidence only." } : stage) }));
   } else await skip("runtime-inspection", record!.runtime!.reason);
   await stage("impact-synthesis", async () => {
     const result = await synthesizeProductImpact({ source: validatedSource, runtime, runtimeInspection: record.runtime }, { signal, invocation: invocation("impact-synthesis") });

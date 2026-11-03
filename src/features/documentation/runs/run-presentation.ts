@@ -40,6 +40,13 @@ export function showRuntimeOutput(stage: RunView["stages"][number]) {
 
 export function skippedRuntimeExplanation(run: RunView) {
   const reasons: Record<string, string> = {
+    "managed-existing-server-unavailable": "Managed startup is disabled and the existing application server is unavailable.",
+    "managed-approval-required": "The local startup configuration needs a new approval.",
+    "managed-dependencies-missing": "The approved package manager or project dependencies are unavailable.",
+    "managed-port-occupied": "The expected URL is occupied by an unhealthy or different application.",
+    "managed-startup-failed": "The approved startup command could not start the application.",
+    "managed-readiness-timeout": "The application did not become ready at its approved URL before the timeout.",
+    "managed-unsupported-platform": "Managed startup needs POSIX process-group support; use an existing server instead.",
     "no-trusted-workflow": "No trusted runtime workflow is configured.",
     "no-repository-workflow": "No runtime workflow is configured for this repository.",
     "runtime-inspection-disabled": "Runtime inspection is disabled in this workflow.",

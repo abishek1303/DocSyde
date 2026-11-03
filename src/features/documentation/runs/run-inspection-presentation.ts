@@ -26,10 +26,13 @@ const failures: Record<RuntimeFailureCode, string> = {
 export function runtimeFailureMessage(code: RuntimeFailureCode) { return failures[code]; }
 export function inspectionEventLabel(event: RuntimeObservationInput): string {
   switch (event.kind) {
-    case "runtime-session-starting": return "Starting application inspection";
-    case "application-readiness-started": return "Checking application health";
+    case "runtime-session-starting": return "Preparing application inspection";
+    case "application-launch-started": return "Starting application";
+    case "application-stopping-started": return "Stopping application";
+    case "application-process-exit": return "Application process exited";
+    case "application-readiness-started": return "Waiting for application";
     case "application-readiness-completed": return "Application health check passed";
-    case "runtime-session-started": return "Application runtime ready";
+    case "runtime-session-started": return "Inspecting application";
     case "runtime-session-stopped": return "Application runtime released";
     case "browser-launch-started": return "Launching browser";
     case "browser-launched": return "Browser launched";

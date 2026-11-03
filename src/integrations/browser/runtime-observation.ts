@@ -9,8 +9,9 @@ const pathname = z.string().max(512).refine(value => value.startsWith("/") && ru
 const limit = z.enum(["masking-failed", "image-budget", "screenshot-failed"]);
 export const runtimeObservationSchema = z.discriminatedUnion("kind", [
   z.object({ ...base, kind: z.literal("runtime-session-starting") }).strict(),
-  ...([ "runtime-session-started", "runtime-session-stopped", "application-readiness-started", "application-readiness-completed", "browser-launch-started", "browser-launched", "browser-stopped", "page-readiness-started", "page-readiness-completed", "visual-selection-started", "vision-analysis-started"] as const).map(kind => z.object({ ...base, kind: z.literal(kind) }).strict()),
+  ...([ "runtime-session-started", "runtime-session-stopped", "application-launch-started", "application-stopping-started", "application-readiness-started", "application-readiness-completed", "browser-launch-started", "browser-launched", "browser-stopped", "page-readiness-started", "page-readiness-completed", "visual-selection-started", "vision-analysis-started"] as const).map(kind => z.object({ ...base, kind: z.literal(kind) }).strict()),
   ...(["navigation-started", "navigation-completed"] as const).map(kind => z.object({ ...base, kind: z.literal(kind), pathname: pathname.optional() }).strict()),
+  z.object({ ...base, kind: z.literal("application-process-exit"), exitCode: z.number().int().min(0).max(255).nullable() }).strict(),
   z.object({ ...base, kind: z.literal("screenshot-stored"), captureId: id }).strict(),
   ...(["action-started", "action-completed"] as const).map(kind => z.object({ ...base, kind: z.literal(kind), action, actionIndex: z.number().int().nonnegative() }).strict()),
   z.object({ ...base, kind: z.literal("state-captured"), stateId: id.nullable(), pathname }).strict(),

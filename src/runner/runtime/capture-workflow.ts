@@ -1,5 +1,6 @@
 import "server-only";
 import { observe, type RuntimeObserver } from "@/integrations/browser/runtime-observation";
+import { startManagedRuntime } from "./managed-runtime";
 import { attachRuntime, launchRuntime } from "./runtime";
 import { captureRuntimeTrace } from "@/integrations/browser/capture-trace";
 import { runtimeWorkflowSchema, type RuntimeWorkflowInput } from "@/integrations/browser/runtime-trace";
@@ -9,6 +10,7 @@ import { verifyRuntimeIdentity } from "@/integrations/reliability/runtime-identi
 
 export type WorkflowRuntime =
   | { mode: "launch"; options: Parameters<typeof launchRuntime>[0] }
+  | { mode: "managed"; options: Parameters<typeof startManagedRuntime>[0] }
   | { mode: "attach"; options: Parameters<typeof attachRuntime>[0] };
 
 export async function captureWorkflowWithRuntime(
@@ -26,7 +28,7 @@ export async function captureWorkflowWithRuntime(
   const validatedWorkflow = runtimeWorkflowSchema.parse({ ...workflow, baseUrl: runtime.options.baseUrl });
   const options = { ...runtime.options, observer, fixtureIdentity: identity, signal: AbortSignal.any([...(signal ? [signal] : []), ...(runtime.options.signal ? [runtime.options.signal] : [])]) };
   observe(observer, { kind: "runtime-session-starting", phase: "lifecycle" });
-  const session = await (runtime.mode === "launch" ? launchRuntime({ ...runtime.options, ...options }) : attachRuntime(options)).catch(error => {
+  const session = await (runtime.mode === "managed" ? startManagedRuntime({ ...runtime.options, ...options }) : runtime.mode === "launch" ? launchRuntime({ ...runtime.options, ...options }) : attachRuntime(options)).catch(error => {
     observe(observer, { kind: "failure", phase: "lifecycle", code: "runtime-start-failed" }); throw error;
   });
   observe(observer, { kind: "runtime-session-started", phase: "lifecycle" });

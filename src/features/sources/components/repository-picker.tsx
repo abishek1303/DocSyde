@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { GitBranch } from "lucide-react";
 
-export function RepositoryPicker({ repositories, selected, destination = "/runs/new" }: { repositories: string[]; selected: string; destination?: "/runs/new" | "/mcp" }) {
+export function RepositoryPicker({ repositories, selected, destination = "/runs/new" }: { repositories: string[]; selected: string; destination?: "/runs/new" | "/mcp" | "/sources/runtime" }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   return <div className="max-w-2xl space-y-2">

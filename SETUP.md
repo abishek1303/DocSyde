@@ -140,3 +140,43 @@ conservative text-token bound, add a vision allowance, and reserve full output
 ceilings; they are admission estimates, not provider billing counts. Existing
 32 KiB request, 128 KiB aggregate authoring and 8192 output-token ceilings remain.
 Verification may pass tighter limits in code; no new environment setup is required.
+
+## Optional managed application startup
+
+Open **New run → Application runtime settings** for the selected project. Enter an
+existing local checkout root and relative working directory, plus the path inside
+DocSyde to its trusted workflow JSON. The checkout's GitHub origin must match the
+selected repository. **Review configuration** reads package scripts and lockfiles,
+suggests an installed npm/pnpm/yarn command and a loopback URL, and shows the script
+body plus lifecycle hooks. Suggestions never execute. Review the URL and workflow,
+check the local-code execution approval, then choose **Approve managed startup**.
+
+Approvals live separately from AI understanding in ignored, private
+`.artifacts/runtime-settings/` files. Settings, package scripts, lockfile or workflow
+changes invalidate approval. Keep this directory when retaining local settings.
+No new environment variables, database tables or migrations are needed. Existing
+`DOCSYDE_RUN_RUNTIME_CONFIG` launch/attach files still work as before.
+
+When inspection is needed, DocSyde revalidates approval, reuses the approved healthy
+URL or starts only the selected package script with explicit arguments and no shell
+interpolation. Install dependencies yourself first; DocSyde never runs an installer
+or npx fallback. Startup/readiness is capped at 60 seconds. Existing workflow steps,
+masking, checkpoint limits, cancellation, artifact storage and run budgets still apply.
+The trusted workflow must match the project; the checked-in OpenTodo example is
+`infra/local/runner/opentodo.example.json`. Its issue-detail selectors require the
+configured issue to exist. A selector that can be absent should use an appropriate
+combined selector such as `input, textarea`; masking still fails closed.
+
+Only owned POSIX process groups are stopped, including package-manager children.
+An attached healthy server is never stopped. Windows keeps attach-only inspection;
+managed startup currently requires POSIX process-group support. Disable managed
+startup to inspect an existing server only; if that server is absent, the run remains
+source-only. Startup failures after successful cleanup also continue with explicit
+source-only limitations; browser/masking/evidence or cleanup failures retain their
+existing failure behavior. Startup never publishes or changes documentation.
+
+Progress shows Starting application, Waiting for application, Inspecting application
+and Stopping application. Raw stdout/stderr is discarded rather than risking secret
+retention; expandable inspection details contain safe lifecycle events and exit codes.
+Approved code runs with the local user's permissions, not an OS sandbox. The runner
+passes only its small existing environment allowlist, without DocSyde provider keys.

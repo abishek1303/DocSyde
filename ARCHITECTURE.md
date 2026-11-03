@@ -578,7 +578,7 @@ Multiple application processes/serverless hosting are outside this boundary.
 
 Trusted operator configuration binds one workflow to a canonical repository, ID,
 version and supported pathnames. It reuses Runner's workflow configuration schema;
-HTTP cannot provide executable configuration. Only descriptor/hash enters the run.
+HTTP cannot provide arbitrary executables or arguments. The managed runtime UI below permits only explicit approval of a project package script. Only descriptor/hash enters the run.
 Availability checks can skip semantic inspection decision when execution is unavailable.
 Runtime distinguishes not-needed, unavailable, requested-but-uncovered,
 attempted-and-failed and completed. Useful but unavailable/uncovered inspection may
@@ -1278,3 +1278,36 @@ admission and row ownership remain intact. Discard requires explicit confirmatio
 adds exclusion receipts on the existing review JSON, preserves historical approvals,
 and never saves, deletes or publishes documents. Publish and discard invalidate
 New Run eligibility. Historical unavailable proposals remain readable.
+
+## Optional approved managed runtime
+
+Managed startup extends the existing local Runner launch/attach and capture lifecycle.
+Documentation owns per-project runtime configuration and its approval UI; Runner owns
+checkout validation, deterministic manifest suggestions, process execution and cleanup.
+The local storage adapter persists private JSON approvals under ignored
+`.artifacts/runtime-settings/`, separate from advisory repository understanding and
+canonical documentation/evidence. No database schema or external service is added.
+
+Only an explicit local operator action can approve a Git-origin-matched checkout,
+project-local working directory, installed package manager/script, loopback origin
+and trusted workflow file. The full package manifest (including hooks), lockfiles,
+normalized settings and workflow contents participate in the approval fingerprint.
+Execution revalidates it; changes require reapproval. Models and repository text
+cannot supply executable arguments or silently trust suggestions. The caller-scripted
+workflow, masking and evidence selection remain unchanged. Existing manual launch/
+attach configuration and sealed reliability experiments keep their prior boundaries.
+
+A healthy approved endpoint attaches without ownership or shutdown rights. Otherwise,
+Runner spawns the approved package manager with an argument array, filtered environment,
+no shell interpolation and an owned POSIX process group. Readiness stays within sixty
+seconds and the enclosing run cancellation/deadline. TERM/KILL cleanup is bounded and
+never targets processes by port or executable name. Raw application stdout/stderr is
+not retained; safe events/exit status remain behind inspection details. Windows managed
+launch is unavailable rather than risking incomplete child cleanup; attach still works.
+
+Only typed pre-browser startup-unavailable errors after cleanup may continue source-only,
+retaining attempted-and-failed runtime metadata and explicit limitations. Browser capture,
+masking/evidence, cleanup and cancellation failures are not softened. No process is started
+when inspection is unnecessary or unavailable (including missing vision/browser/storage).
+Disabling managed launch falls back to a healthy existing server or source-only analysis.
+Abrupt DocSyde termination still cannot guarantee cleanup or resumable execution.

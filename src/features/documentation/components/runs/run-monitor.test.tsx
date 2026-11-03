@@ -68,3 +68,12 @@ test("batch progress and partial acceptance never imply all planned work passed 
   assert.match(html, /Some documentation updates are ready/); assert.match(html, /Only 1 of 3 updates passed/);
   assert.match(html, /Coverage gaps/); assert.match(html, /resource budget was reached/);
 });
+
+test("unavailable managed startup exposes safe details without an empty screenshot panel", () => {
+  const run = fixture(); run.stages[3].status = "skipped";
+  run.runtime = { decision: "inspect", outcome: "attempted-and-failed", reason: "managed-dependencies-missing", requestedTargets: ["/"], uncoveredTargets: [], unresolvedQuestions: [], limitations: ["No browser evidence was captured"] };
+  const html = renderToStaticMarkup(<RunMonitor initial={run} />);
+  assert.match(html, /project dependencies are unavailable/);
+  assert.match(html, /Application startup details/);
+  assert.ok(!html.includes("Browser screenshots will appear"));
+});

@@ -5,7 +5,7 @@ import { ActivityDetails } from "./activity-details";
 import { useEffect, useState } from "react";
 import { inspectionEventLabel, runtimeFailureMessage } from "../../runs/run-inspection-presentation";
 import type { InspectionView } from "../../runs/run-inspection-contract";
-export function RuntimeInspectionPane({ runId, terminal }: { runId: string; terminal: boolean }) {
+export function RuntimeInspectionPane({ runId, terminal, detailsOnly = false }: { runId: string; terminal: boolean; detailsOnly?: boolean }) {
   const [selectedCapture, setSelectedCapture] = useState<string | null>(null);
   const [view, setView] = useState<InspectionView | null>(null);
   const [message, setMessage] = useState("Loading runtime inspection…");
@@ -56,8 +56,10 @@ export function RuntimeInspectionPane({ runId, terminal }: { runId: string; term
   const renderEvents = (items: typeof events) => <ol className="space-y-2 text-xs">{items.map(e => <li key={e.seq} className="border-l-2 border-muted pl-3">
     <div className="flex flex-wrap gap-x-2"><time dateTime={e.at}>{new Date(e.at).toLocaleTimeString()}</time><span className="font-medium">{inspectionEventLabel(e)}</span></div>
     <span className="text-muted-foreground">{e.seq}. {e.phase}: {e.kind.replaceAll("-", " ")}{"code" in e ? ` (${e.code})` : ""}</span>
+    {"exitCode" in e && <p className="text-muted-foreground">Exit status: {e.exitCode ?? "unavailable"}. Raw command output is not retained.</p>}
     {"captureId" in e && <code className="ml-2 break-all text-muted-foreground">{e.captureId}</code>}
   </li>)}</ol>;
+  if (detailsOnly) return <ActivityDetails label="Application startup details">{renderEvents(events)}</ActivityDetails>;
   const milestones = [
     { label: "Starting browser session", start: "browser-launch-started", end: "browser-launched" },
     { label: "Navigating the workflow", start: "navigation-started", end: "navigation-completed" },

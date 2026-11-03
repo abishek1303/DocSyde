@@ -9,6 +9,7 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 export type RuntimeDescription = { runtimeId: string; mode: "launched" | "attached"; baseUrl: string; startedAt: string; pid?: number };
+export class RuntimeCleanupError extends Error { constructor() { super("Owned runtime cleanup did not complete."); } }
 export type RuntimeSession = { description: RuntimeDescription; stop(): Promise<void> };
 export function localUrl(value: string): URL {
   const url = new URL(value);
@@ -16,6 +17,16 @@ export function localUrl(value: string): URL {
   return url;
 }
 type Options = { baseUrl: string; readinessPath?: string; startupTimeoutMs?: number; signal?: AbortSignal; fixtureIdentity?: ReliabilityRuntimeIdentity; observer?: RuntimeObserver };
+/** Probe only the operator-selected loopback health URL; never follow redirects. */
+export async function probeRuntime(options: Pick<Options, "baseUrl" | "readinessPath" | "signal">): Promise<"healthy" | "occupied" | "offline"> {
+  const base = localUrl(options.baseUrl), url = new URL(options.readinessPath ?? "/", base);
+  if (url.origin !== base.origin) throw new Error("Readiness must use the runtime origin");
+  try {
+    const response = await fetch(url, { redirect: "manual", signal: AbortSignal.any([AbortSignal.timeout(750), ...(options.signal ? [options.signal] : [])]) });
+    const healthy = response.ok; await response.body?.cancel();
+    return healthy ? "healthy" : "occupied";
+  } catch { return "offline"; }
+}
 async function waitForReady(options: Options, failed: () => boolean) {
   const base = localUrl(options.baseUrl), url = new URL(options.readinessPath ?? "/", base);
   if (url.origin !== base.origin) throw new Error("Readiness must use the runtime origin");
@@ -48,7 +59,7 @@ export async function attachRuntime(options: Options): Promise<RuntimeSession> {
   localUrl(options.baseUrl); await ready(options, () => false);
   return { description: { runtimeId: randomUUID(), mode: "attached", baseUrl: options.baseUrl, startedAt: new Date().toISOString() }, async stop() {} };
 }
-export async function launchRuntime(options: Options & { cwd: string; command: string; args: string[]; env?: Record<string, string> }): Promise<RuntimeSession> {
+export async function launchRuntime(options: Options & { cwd: string; command: string; args: string[]; env?: Record<string, string>; ownedProcessGroup?: boolean }): Promise<RuntimeSession> {
   const context = reliabilityContext();
   if (context && (context.mode !== "scenario" || options.command !== process.execPath
     || !options.args.includes(join(context.repositoryRoot, "infra/local/reliability/request-desk-host.ts")))) throw new ReliabilityIsolationError("runtime-launch");
@@ -66,21 +77,36 @@ export async function launchRuntime(options: Options & { cwd: string; command: s
   for (const key of ["PATH", "Path", "HOME", "USERPROFILE", "SystemRoot", "TEMP", "TMP", "TMPDIR", "LANG"]) if (process.env[key]) env[key] = process.env[key];
   Object.assign(env, options.env);
   if (context && options.env && Object.keys(options.env).some(key => !["DOCSYDE_REPOSITORY_OWNER", "DOCSYDE_REPOSITORY_NAME", "DOCSYDE_DELIVERY_ENDPOINT"].includes(key))) throw new ReliabilityIsolationError("runtime-environment");
+  const group = options.ownedProcessGroup === true && process.platform !== "win32" && !context;
   const child = context
     ? spawnOwned(context, options.command, options.args, { cwd: options.cwd, env: reliabilityEnvironment(context, process.env.DOCSYDE_RELIABILITY_CONTEXT!, "host", options.env), shell: false, stdio: "ignore" })
-    : spawn(options.command, options.args, { cwd: options.cwd, env, shell: false, stdio: "ignore" });
+    : spawn(options.command, options.args, { cwd: options.cwd, env, shell: false, detached: group, stdio: "ignore" });
   let failed = false;
-  const exited = new Promise<void>((resolve) => { child.once("error", () => { failed = true; resolve(); }); child.once("exit", () => { failed = true; resolve(); }); });
+  let exitCode: number | null = null;
+  const exited = new Promise<void>((resolve) => { child.once("error", () => { failed = true; observe(options.observer, { kind: "application-process-exit", phase: "lifecycle", exitCode: null }); resolve(); }); child.once("exit", code => { failed = true; exitCode = code; observe(options.observer, { kind: "application-process-exit", phase: "lifecycle", exitCode }); resolve(); }); });
   let stopping: Promise<void> | undefined;
   const stop = () => stopping ??= (async () => {
-    if (failed) return;
+    if (failed && !group) return;
+    observe(options.observer, { kind: "application-stopping-started", phase: "lifecycle" });
     if (context) return stopOwned(context, child);
-    child.kill();
+    const signal = (kind: NodeJS.Signals) => {
+      if (group && child.pid) {
+        try { process.kill(-child.pid, kind); } catch (error) { if (!(error && typeof error === "object" && "code" in error && error.code === "ESRCH")) throw new RuntimeCleanupError(); }
+      } else if (!failed) child.kill(kind);
+    };
+    signal("SIGTERM");
     let timer: ReturnType<typeof setTimeout> | undefined;
     await Promise.race([exited, new Promise<void>((resolve) => { timer = setTimeout(resolve, 2000); })]);
     if (timer) clearTimeout(timer);
-    if (!failed) { child.kill("SIGKILL"); await exited; }
+    // Package managers can exit before their grandchildren. Reap the owned group too.
+    if (group || !failed) signal("SIGKILL");
+    if (!failed) {
+      let finalTimer: ReturnType<typeof setTimeout> | undefined;
+      try { await Promise.race([exited, new Promise<never>((_resolve, reject) => { finalTimer = setTimeout(() => reject(new RuntimeCleanupError()), 2000); })]); }
+      finally { clearTimeout(finalTimer); }
+    }
   })();
+  observe(options.observer, { kind: "application-launch-started", phase: "lifecycle" });
   try { await ready(options, () => failed); }
   catch (error) { await stop(); throw error; }
   return { description: { runtimeId: randomUUID(), mode: "launched", baseUrl: options.baseUrl, startedAt: new Date().toISOString(), pid: child.pid }, stop };

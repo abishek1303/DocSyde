@@ -53,6 +53,7 @@ async function Setup({ searchParams }: { searchParams: Promise<SetupSearch> }) {
       {!search.rerun && <p className="max-w-2xl text-sm leading-7 text-muted-foreground">{latest ? "Compare the latest change on a branch, reuse product understanding, and prepare documentation updates for review." : "Choose a project, then decide how DocSyde should explore it."}</p>}
     </header>
     {!search.rerun && <RepositoryPicker selected={repository.name} repositories={configuredRepositories()} />}
+    <Link href={`/sources/runtime?${new URLSearchParams({ repository: repository.name })}`} className="text-sm text-primary underline">Application runtime settings</Link>
     {pendingReview !== false ? <section className="max-w-2xl space-y-5">
       <p role="status" className="text-sm leading-7">{pendingReview ? PENDING_REVIEW_MESSAGE : "Run availability could not be checked. Reload after checking the database connection."}</p>
       <Link href={`/docs?${new URLSearchParams({ repository: repository.name, tab: "pending" })}`} className={buttonVariants()}>Review pending changes</Link>
