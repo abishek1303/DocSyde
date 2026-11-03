@@ -1,9 +1,15 @@
 import "server-only";
 import { and, desc, eq, lt, or, sql, inArray } from "drizzle-orm";
-import { getDatabase } from "./client";
+import { getDatabase, type DatabaseExecutor } from "./client";
+import { lockDocumentationProject } from "./documentation-review-lock";
 import { documentationRuns } from "./schema";
-export async function insertDocumentationRun(id: string, repository: string, payload: unknown) {
-  await getDatabase().insert(documentationRuns).values({ id, repository, status: "pending", payload });
+export async function insertDocumentationRun(id: string, repository: string, payload: unknown, checkEligibility?: (database: DatabaseExecutor) => Promise<void>) {
+  if (!checkEligibility) { await getDatabase().insert(documentationRuns).values({ id, repository, status: "pending", payload }); return; }
+  await getDatabase().transaction(async tx => {
+    await lockDocumentationProject(tx, repository);
+    await checkEligibility(tx);
+    await tx.insert(documentationRuns).values({ id, repository, status: "pending", payload });
+  });
 }
 export async function findDocumentationRun(id: string) {
   const [row] = await getDatabase().select().from(documentationRuns).where(eq(documentationRuns.id, id)).limit(1);
@@ -37,14 +43,16 @@ export async function mutateDocumentationRun(id: string, change: (row: Documenta
 export async function runningDocumentationRuns() {
   return getDatabase().select().from(documentationRuns).where(eq(documentationRuns.status, "running"));
 }
-export async function admitDocumentationRun(id: string, repository: string, claim: (row: DocumentationRunRow) => RunMutation | null) {
+export async function admitDocumentationRun(id: string, repository: string, claim: (row: DocumentationRunRow) => RunMutation | null, checkEligibility?: (database: DatabaseExecutor) => Promise<void>) {
   return getDatabase().transaction(async tx => {
     await tx.execute(sql`SET LOCAL statement_timeout = '5000ms'`);
     // Serializes admission only; it is never held while models/browser work runs.
     await tx.execute(sql`SELECT pg_advisory_xact_lock(178523, 1)`);
+    await lockDocumentationProject(tx, repository);
     const [row] = await tx.select().from(documentationRuns).where(eq(documentationRuns.id, id)).for("update");
     if (!row || row.repository !== repository) throw new Error("Run not found.");
     if (row.status !== "pending") return "existing" as const;
+    await checkEligibility?.(tx);
     const [busy] = await tx.select({ id: documentationRuns.id }).from(documentationRuns).where(eq(documentationRuns.status, "running")).limit(1);
     if (busy) return "busy" as const;
     const next = claim(row);

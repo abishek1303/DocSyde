@@ -33,3 +33,12 @@ test("Wonder composition appears between generation and support only when actual
 test("terminal runs do not present missing validation logs as work still waiting", () => {
   assert.equal(activitySubsteps(stage("source-analysis", "completed"), [])[2].status, "not-recorded");
 });
+
+test("multi-batch substeps aggregate every actual call without declaring future work complete", () => {
+  const current = { ...stage("documentation-transformation"), batchProgress: { processed: 1, total: 3, active: 2, acceptedDecisions: 1 } };
+  const generation = call("documentation-transformation", "documentation-transformation", "succeeded");
+  const second = { ...generation, id: "second", status: "started" };
+  assert.equal(activitySubsteps(current, [generation])[0].status, "waiting");
+  assert.equal(activitySubsteps(current, [generation, second])[0].status, "running");
+  assert.equal(activitySubsteps(current, [generation, { ...second, status: "failed" }])[0].status, "failed");
+});

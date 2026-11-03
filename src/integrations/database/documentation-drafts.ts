@@ -18,8 +18,8 @@ export async function insertDocumentationDraft(id: string, document: unknown, da
   return { row: existing, equal: existing.equal, inserted: false };
 }
 
-export async function findDocumentationDraft(id: string, repository?: string) {
-  const [row] = await getDatabase().select().from(documentationDrafts)
+export async function findDocumentationDraft(id: string, repository?: string, database: DatabaseExecutor = getDatabase()) {
+  const [row] = await database.select().from(documentationDrafts)
     .where(and(eq(documentationDrafts.id, id), repository ? sql`lower(${documentationDrafts.document}->'provenance'->>'repository') = ${repository.toLowerCase()}` : undefined)).limit(1);
   return row ?? null;
 }

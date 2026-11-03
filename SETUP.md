@@ -62,6 +62,8 @@ Full Scan reuses saved repository understanding as advisory context, then the ex
 
 A fresh database correctly disables **Latest Changes** until an eligible canonical document has been saved. Unsaved generated proposals do not qualify. Published documents and valid saved documents are eligible for candidate selection; MCP only exposes published documents.
 
+Each project follows **Analyze → Review changes → Publish or Discard → Analyze again**. Actionable pending changes disable both Full Scan and Latest Changes, with a direct **Review pending changes** link. Server-side creation and execution recheck this rule. **Discard pending changes** requires confirmation, records exclusions and leaves live documentation unchanged. Published, rejected, excluded, expired and unavailable proposals do not block another run; other projects are independent.
+
 Full Scan only creates reviewable proposals: it never deletes or replaces published documentation automatically. Accepted output exposes **Review changes** directly in Pending Changes and highlights its document groups. Unsupported output explains the stopped stage and recovery action; technical details and **AI activity / Logs** retain diagnostics. The legacy standalone draft flow remains available at `/sources/analysis`; see the [documentation guide](src/features/documentation/README.md).
 
 Then choose **Latest Changes**, select the comparison, and optionally add change context. Successful proposals lead to **Documents → Pending Changes**. Read the combined rendered preview, **Reject** unwanted edits (or **Undo**), then explicitly **Publish N changes**. This single action atomically records approval/rejection, saves the included canonical documents, and publishes to retained product destinations. Overlapping updates, expired proposals, stale snapshots, and destination conflicts are blocked. Publishing also finalizes excluded edits, including wholly excluded previously approved proposals, so they leave Pending Changes on refresh. Exclusion receipts preserve the earlier immutable approvals. Future proposals remain independent. Standalone saved documents remain available through **Browse saved documents**; legacy individual review remains accessible from optional evidence details. Latest Docs and MCP reflect the new live version; Archive keeps previous live versions. Historical reference runs and publications are local database state and are not bundled in a fresh clone.
@@ -122,3 +124,19 @@ Playwright capture, browser review/publish, Archive, SDK/MCP, ownership, and mis
 image checks. Source/vision responses in these fixtures are mocked; no paid calls
 are made. Runtime screenshots illustrate observed state, not proof of automatic
 behavior or source-revision correspondence.
+
+## Bounded documentation runs
+
+Generation batches are sized from their actual document/section context and estimated
+output cost. Every generation batch receives its own bounded support checks before
+the next batch. Progress appears inline as “2 of 5 batches.” Partial proposals retain
+accepted work and list coverage gaps; publication is still explicit. No automatic
+resume is provided after process loss before final retention.
+
+Defaults live in `src/integrations/ai/operation-policy.ts` (`runInferencePolicy`):
+32 calls, 768 Ki conservatively reserved tokens, 128 Ki input tokens per call,
+eight planned work items and forty minutes. Input charges use UTF-8 bytes as a
+conservative text-token bound, add a vision allowance, and reserve full output
+ceilings; they are admission estimates, not provider billing counts. Existing
+32 KiB request, 128 KiB aggregate authoring and 8192 output-token ceilings remain.
+Verification may pass tighter limits in code; no new environment setup is required.

@@ -77,7 +77,7 @@ async function main() {
     const impact = validateProductImpact(input.impact), plan = validateDocumentationImpactPlan(impact, input.plan);
     const result = await inspectTransformationBatches({ impact, plan, context: z.array(associationChoice).parse(input.context ?? []) });
     await output(args[1], { experimentId: context.experimentId, scenario: context.scenario, docsydeSha: context.docsydeSha, ...result, source: plan.source, input: await fileReceipt(args[0]), inspectedAt: new Date().toISOString(), inferenceCalls: 0 });
-    console.log(result.eligible ? "Single-batch admission passed; zero inference calls." : "Outside single-batch baseline scope; zero inference calls.");
+    console.log(result.eligible ? "Bounded batch admission passed; zero inference calls." : "Outside bounded transformation scope; zero inference calls.");
     if (!result.eligible) process.exitCode = 2;
     return;
   }

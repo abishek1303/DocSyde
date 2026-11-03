@@ -245,12 +245,12 @@ test("internal-only revisions require an explicit existing-text anchor and never
   assert.deepEqual(p.counts(), { generations: 1, supports: 1 });
 });
 
-test("eight output-heavy independent decisions require the minimum eight calls, but one shared support check", async t => {
+test("eight output-heavy independent decisions require the minimum generation calls with support checked before the next batch", async t => {
   const impact = transformationImpactFixture(), p = setup(t, []);
   const plan = transformationPlanFixture(impact, Array.from({ length: 8 }, () => transformationDecisionFixture(null, null, "add")));
   const proposal = await p.transformDocumentation({ impact, plan });
   assert.equal(proposal.status, "complete"); assert.equal(proposal.candidates.length, 8);
-  assert.deepEqual(p.counts(), { generations: 8, supports: 1 });
+  assert.deepEqual(p.counts(), { generations: 8, supports: 8 });
   assert.ok(proposal.batches.every(batch => batch.requestBytes <= 32 * 1024));
   assert.ok(proposal.batches.reduce((total, batch) => total + batch.requestBytes, 0) <= 128 * 1024);
 });
@@ -264,7 +264,7 @@ test("new facts cannot strengthen source or ProductImpact confidence/uncertainty
   assert.ok(qualification.confidenceReason.includes("Caller uncertain"));
 });
 
-test("support input overflow omits no authored text and leaves all affected content incomplete without a checker call", async t => {
+test("support sizing checks each bounded batch without dropping authored text", async t => {
   const impact = transformationImpactFixture(), p = setup(t, [], { generation: input => ({ entries: input.authorizations.map(auth => {
     const entry = transformationEntryFixture(auth, input.documents);
     if (entry.change.kind === "add-document") {
@@ -274,8 +274,8 @@ test("support input overflow omits no authored text and leaves all affected cont
     return entry;
   }) }) });
   const proposal = await p.transformDocumentation({ impact, plan: transformationPlanFixture(impact, Array.from({ length: 8 }, () => transformationDecisionFixture(null, null, "add"))) });
-  assert.ok(proposal.results.every(result => result.support === "failed" && !result.saveCompatible));
-  assert.equal(proposal.candidates.length, 0); assert.deepEqual(p.counts(), { generations: 8, supports: 0 });
+  assert.ok(proposal.results.every(result => result.support === "supported" && result.saveCompatible));
+  assert.equal(proposal.candidates.length, 8); assert.deepEqual(p.counts(), { generations: 8, supports: 8 });
 });
 
 test("active cancellation after generation or support response prevents candidates and further calls", async t => {
@@ -315,14 +315,15 @@ test("offline batch admission uses real targets and spends zero model calls", as
   assert.deepEqual(p.counts(), { generations: 0, supports: 0 }); assert.equal(p.writes.mock.callCount(), 0);
 });
 
-test("baseline excludes multi-batch scope before any generation, without changing ordinary batching", async t => {
+test("verification scopes admit dynamic multi-batch work with frozen operation settings", async t => {
   const docs = Array.from({ length: 8 }, () => draftFixture()), p = setup(t, docs), impact = transformationImpactFixture();
   const plan = transformationPlanFixture(impact, docs.map(doc => transformationDecisionFixture(doc.id, doc.sections[0].id)));
   const preview = await p.inspectTransformationBatches({ impact, plan });
-  assert.equal(preview.eligible, false); assert.ok((preview.batchCount ?? 0) > 1);
-  const { withInferenceBudget } = await import("@/integrations/ai/inference-budget");
-  await assert.rejects(withInferenceBudget("run", {}, () => p.transformDocumentation({ impact, plan })), { code: "outside-single-batch-scope" });
-  assert.deepEqual(p.counts(), { generations: 0, supports: 0 });
+  assert.equal(preview.eligible, true); assert.ok((preview.batchCount ?? 0) > 1);
+  // Production uses the same sized batches; source/model calls remain mocked.
+  const proposal = await p.transformDocumentation({ impact, plan });
+  assert.ok(proposal.results.every(result => result.reviewReady));
+  assert.equal(p.counts().generations, preview.batchCount);
 });
 
 for (const composition of ["valid", "unsupported", "malformed"] as const) test(`Wonder ${composition}: final support gates review-ready canonical proposal`, async t => {
@@ -366,4 +367,45 @@ for (const composition of ["valid", "unsupported", "malformed"] as const) test(`
     }
   }
   assert.equal(p.writes.mock.callCount(), 0);
+});
+
+test("a later batch provider failure preserves earlier supported work and reports every decision", async t => {
+  const impact = transformationImpactFixture();
+  let count = 0;
+  const p = setup(t, [], { generation: input => {
+    if (++count === 2) throw new Error("Mock later provider failure");
+    return { entries: input.authorizations.map(auth => transformationEntryFixture(auth, input.documents)) };
+  } });
+  const plan = transformationPlanFixture(impact, Array.from({ length: 2 }, () => transformationDecisionFixture(null, null, "add")));
+  const progress: { processed: number; total: number; acceptedDecisions: number }[] = [];
+  const proposal = await p.transformDocumentation({ impact, plan }, { onProgress: async value => { progress.push(value); } });
+  assert.equal(proposal.status, "partial"); assert.equal(proposal.candidates.length, 1);
+  assert.equal(proposal.results.length, 2); assert.equal(proposal.results[0].support, "supported");
+  assert.equal(proposal.results[1].reviewReady, false); assert.ok(proposal.results[1].issues.includes("generation-provider-or-output-failure"));
+  assert.deepEqual(progress.at(-1), { processed: 2, total: 2, active: null, acceptedDecisions: 1 });
+  const { validateDocumentationProposal } = await import("./validate-documentation-proposal");
+  assert.doesNotThrow(() => validateDocumentationProposal(proposal));
+});
+
+test("shared call exhaustion preserves the first accepted batch and marks all later work explicitly", async t => {
+  const p = setup(t, []), impact = transformationImpactFixture();
+  const plan = transformationPlanFixture(impact, Array.from({ length: 3 }, () => transformationDecisionFixture(null, null, "add")));
+  const { withRunInferenceBudget } = await import("@/integrations/ai/inference-budget");
+  const proposal = await withRunInferenceBudget("limited", () => p.transformDocumentation({ impact, plan }, { invocation: { runId: "limited", stage: "documentation-transformation", operation: "documentation-transformation" } }), { maxCalls: 2 });
+  assert.equal(proposal.status, "partial"); assert.equal(proposal.candidates.length, 1);
+  assert.deepEqual(p.counts(), { generations: 1, supports: 1 });
+  assert.equal(proposal.results.length, 3);
+  assert.ok(proposal.results.slice(1).every(result => result.issues.includes("run-budget-exhausted") && !result.reviewReady));
+  assert.deepEqual(proposal.batches.map(batch => batch.status), ["completed", "not-attempted", "not-attempted"]);
+  const { validateDocumentationProposal } = await import("./validate-documentation-proposal");
+  assert.doesNotThrow(() => validateDocumentationProposal(proposal));
+});
+
+test("work-item ceilings preserve every unprocessed decision as an explicit gap with no inference", async t => {
+  const p = setup(t, []), impact = transformationImpactFixture();
+  const plan = transformationPlanFixture(impact, Array.from({ length: 2 }, () => transformationDecisionFixture(null, null, "add")));
+  const { withRunInferenceBudget } = await import("@/integrations/ai/inference-budget");
+  const proposal = await withRunInferenceBudget("work-limit", () => p.transformDocumentation({ impact, plan }, { invocation: { runId: "work-limit", stage: "documentation-transformation", operation: "documentation-transformation" } }), { maxWorkItems: 1 });
+  assert.deepEqual(p.counts(), { generations: 0, supports: 0 }); assert.equal(proposal.results.length, 2);
+  assert.ok(proposal.results.every(result => result.issues.includes("run-budget-exhausted") && !result.reviewReady));
 });

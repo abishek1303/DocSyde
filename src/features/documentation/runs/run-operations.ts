@@ -1,4 +1,5 @@
 import "server-only";
+import { assertRunReviewEligible } from "../review/run-eligibility";
 import { prepareReliabilityRun } from "./reliability-baseline";
 import { assertReliabilitySideEffect } from "@/integrations/reliability/execution-context";
 import { randomUUID } from "node:crypto";
@@ -16,6 +17,8 @@ function repositoryIdentity(input: { owner: string; repo: string }) { return `ht
 export async function createDocumentationRun(raw: unknown) {
   assertReliabilitySideEffect("product-mutation");
   const input = runInput.parse(raw);
+  assertAllowedRepository(input.owner, input.repo);
+  await assertRunReviewEligible(`${input.owner}/${input.repo}`);
   const id = randomUUID();
   await prepareReliabilityRun(id, input);
   await initializeRunCoordinator();
@@ -28,7 +31,7 @@ export async function createDocumentationRun(raw: unknown) {
   if (input.mode === "current-state") pinned.base = pinned.head;
   const commit = await readSelectedChange(pinned, pinned.head);
   const record: RunRecord = { schemaVersion: 2, disposition: null, activeStage: null, reason: null, execution: null, artifacts: [], models: [], warnings: [], input: { ...input, ...pinned }, title: input.mode === "current-state" ? `Full scan · ${input.branch ?? pinned.head.slice(0, 12)}` : commit.message.split("\n")[0].slice(0, 500), status: "pending", startedAt: null, finishedAt: null, summary: "Ready to start.", stages: initialWorkflowStages() };
-  await insertDocumentationRun(id, repositoryIdentity(pinned), runRecord.parse(record));
+  await insertDocumentationRun(id, repositoryIdentity(pinned), runRecord.parse(record), database => assertRunReviewEligible(`${input.owner}/${input.repo}`, database));
   return id;
 }
 
@@ -45,7 +48,10 @@ export function runView(run: NonNullable<Awaited<ReturnType<typeof getDocumentat
     stages: record.stages, contextSnapshot: record.contextSnapshot, ...(v2 ? { lifecycle: record.status, activeStage: record.activeStage, disposition: record.disposition,
       outputs: { sourceCoverage: record.analysis?.bundle.mode === "current-state" ? record.analysis.bundle.notice : undefined, supportRejected: record.transformation?.results.some(result => result.support === "unsupported" || result.support === "uncertain"), analysisSha256: record.analysisSha256, impactAssessment: record.impact?.assessment, models: record.models,
         plan: record.plan ? { actionable: record.plan.decisions.filter(d => d.action === "revise" || d.action === "add").length, noChange: record.plan.decisions.filter(d => d.action === "no-change").length, unresolved: record.plan.decisions.filter(d => d.action === "unresolved").length } : undefined,
-        transformation: record.transformation ? { status: record.transformation.status, reviewReadyActions: record.transformation.results.filter(r => r.reviewReady).length } : undefined },
+        transformation: record.transformation ? { status: record.transformation.status, reviewReadyActions: record.transformation.results.filter(r => r.reviewReady).length,
+          batchCount: record.transformation.batches.length, plannedActions: record.transformation.results.filter(result => result.generation !== "not-required").length,
+          coverageGaps: record.transformation.results.flatMap((result, index) => result.generation !== "not-required" && (!result.reviewReady || result.materialization !== "ready")
+            ? [`Update ${index + 1} was not fully prepared${result.issues.includes("run-budget-exhausted") ? ": the run resource budget was reached" : result.support === "unsupported" || result.support === "uncertain" ? ": wording did not pass support checks" : ": generation, validation or document assembly did not complete"}.`] : []) } : undefined },
       failure: record.failure, runtime: record.runtime, retainedProposal: record.retainedProposal, reason: record.reason } : {}),
     id: run.id, createdAt: run.createdAt, savedAt: run.savedAt, documentId: document?.id ?? null, hasDraft: Boolean(document), hasEvidence: Boolean(record.analysis) };
 }

@@ -2,7 +2,7 @@ import { rejectionDiagnostic as entryRejectionDiagnostic, type ValidationDiagnos
 import "server-only";
 import { compositionConfigured, generateComposition } from "@/integrations/ai/generate-composition";
 import { compositionInput, applyComposition } from "./compose-documentation";
-import { assertPlannedGenerationBatches, stopInferenceBudget } from "@/integrations/ai/inference-budget";
+import { admitWorkItems, withRunInferenceBudget, InferenceBudgetError } from "@/integrations/ai/inference-budget";
 import type { InvocationContext } from "@/integrations/ai/invocation-context";
 import { finishInvocationValidation } from "@/integrations/ai/invocation-log";
 import { randomUUID } from "node:crypto";
@@ -23,7 +23,7 @@ import { transformationSource, authorizeTransformation, type TransformationAutho
 import { transformationInstructions } from "./transformation-prompt";
 import { minimumTransformationBatches, transformationRequest } from "./transformation-batches";
 import { validateTransformationEntry, transformationSupportUnits } from "./transformation-validation";
-import { validateTransformationGrounding } from "./validate-transformation-grounding";
+import { supportRequest, validateTransformationGrounding } from "./validate-transformation-grounding";
 import { assembleDocumentationChange } from "./assemble-documentation-change";
 
 function fail(result: DecisionResult, issue: string, generation: DecisionResult["generation"] = "incomplete") {
@@ -102,22 +102,34 @@ export async function inspectTransformationBatches(input: TransformationInput, s
   return { batchCount: partition.batches?.length ?? null,
     individuallyInfeasible: partition.individuallyInfeasible.length,
     authorizationFailures: proposal.results.filter(result => result.generation === "incomplete").length,
-    eligible: partition.batches?.length === 1 && !partition.individuallyInfeasible.length
+    eligible: !!partition.batches?.length && !partition.individuallyInfeasible.length
       && !proposal.results.some(result => result.generation === "incomplete"),
     targets: proposal.targets.map(target => target.identity),
     batches: partition.batches?.map(batch => ({ decisionIds: batch.items.map(item => item.decisionId), requestBytes: batch.bytes })) ?? [] };
 }
 
+export type TransformationProgress = { processed: number; total: number; active: number | null; acceptedDecisions: number };
 export async function transformDocumentation(input: TransformationInput,
-  { signal, invocation }: { invocation?: InvocationContext; signal?: AbortSignal } = {}): Promise<DocumentationChangeProposal> {
+  options: { invocation?: InvocationContext; signal?: AbortSignal; onProgress?: (progress: TransformationProgress) => Promise<void> } = {}): Promise<DocumentationChangeProposal> {
+  return withRunInferenceBudget(options.invocation?.runId ?? "standalone-transformation", () => executeTransformation(input, options));
+}
+async function executeTransformation(input: TransformationInput,
+  { signal, invocation, onProgress }: { invocation?: InvocationContext; signal?: AbortSignal; onProgress?: (progress: TransformationProgress) => Promise<void> }): Promise<DocumentationChangeProposal> {
   const { proposal, partition, targets, baselines, source, supplied, results, authorizations, limitations } = await prepareTransformation(input, signal);
-  assertPlannedGenerationBatches(partition.batches?.length ?? 0,
-    partition.individuallyInfeasible.length > 0 || results.some(result => result.generation === "incomplete"));
-  for (const batch of partition.batches ?? []) {
+  const batches = partition.batches ?? [];
+  const progress = (processed: number, active: number | null) => onProgress?.({ processed, total: batches.length, active, acceptedDecisions: results.filter(result => result.reviewReady).length });
+  let budgetExhausted = false;
+  try { admitWorkItems(input.plan.decisions.length); }
+  catch (error) { if (!(error instanceof InferenceBudgetError)) throw error; budgetExhausted = true; }
+  for (const [batchIndex, batch] of batches.entries()) {
+    await progress(batchIndex, batchIndex + 1);
     const request = transformationRequest(batch.items, targets);
     const record: DocumentationChangeProposal["batches"][number] = { decisionIds: batch.items.map(auth => auth.decisionId), requestBytes: request.bytes, status: "not-attempted", model: null };
     proposal.batches.push(record);
-    if (signal?.aborted) { batch.items.forEach(auth => fail(results.find(result => result.decisionId === auth.decisionId)!, "cancelled-before-batch")); continue; }
+    if (signal?.aborted || budgetExhausted) {
+      batch.items.forEach(auth => fail(results.find(result => result.decisionId === auth.decisionId)!, budgetExhausted ? "run-budget-exhausted" : "cancelled-before-batch"));
+      await progress(batchIndex + 1, null); continue;
+    }
     try {
       const generated = await generateStructured({ postValidation: true, invocation: { stage: "documentation-transformation", operation: "documentation-transformation", ...invocation }, instructions: transformationInstructions, input: request.input, schema: transformationEnvelopeSchema, maxOutputTokens: TRANSFORMATION_OUTPUT_TOKENS, signal });
       signal?.throwIfAborted();
@@ -156,53 +168,66 @@ export async function transformDocumentation(input: TransformationInput,
         }
       }
       await finishInvocationValidation(generated.invocationId, rejected ? "correspondence-rejection" : undefined, undefined, rejectionDiagnostic);
-    } catch {
-      record.status = "failed";
-      batch.items.forEach(auth => fail(results.find(result => result.decisionId === auth.decisionId)!, signal?.aborted ? "cancelled-during-generation" : "generation-provider-or-output-failure", "failed"));
+    } catch (error) {
+      budgetExhausted = error instanceof InferenceBudgetError;
+      record.status = budgetExhausted ? "not-attempted" : "failed";
+      batch.items.forEach(auth => fail(results.find(result => result.decisionId === auth.decisionId)!, budgetExhausted ? "run-budget-exhausted" : signal?.aborted ? "cancelled-during-generation" : "generation-provider-or-output-failure", budgetExhausted ? "incomplete" : "failed"));
     }
-  }
-  const compositions = new Map<string, Awaited<ReturnType<typeof generateComposition>>>();
-  if (compositionConfigured()) for (const auth of authorizations) {
-    const result = results.find(result => result.decisionId === auth.decisionId)!;
-    if (result.generation !== "generated" || !result.change) continue;
-    const baseline = auth.target.documentId ? baselines.get(auth.target.documentId) : undefined;
-    let composed: Awaited<ReturnType<typeof generateComposition>> | undefined;
-    try {
-      signal?.throwIfAborted();
-      composed = await generateComposition(compositionInput(result.change, auth, baseline, input.terminology), { invocation, signal });
-      result.change = applyComposition(result.change, composed.data, auth, baseline);
-      result.compositionModel = { model: composed.model, elapsedMs: composed.elapsedMs };
-      compositions.set(auth.decisionId, composed);
-    } catch {
-      await finishInvocationValidation(composed?.invocationId, "correspondence-rejection");
-      result.change = null; result.support = "not-required";
-      fail(result, signal?.aborted ? "cancelled-during-composition" : "composition-provider-or-output-failure", "failed");
-    }
-  }
-  if (results.some(result => result.generation === "failed" || result.generation === "incomplete")) stopInferenceBudget();
-  const generated = results.filter(result => result.generation === "generated" && result.change);
-  const generatedAuth = authorizations.filter(auth => generated.some(result => result.decisionId === auth.decisionId));
-  const units = generatedAuth.flatMap(auth => transformationSupportUnits(auth, results.find(result => result.decisionId === auth.decisionId)!.change!, auth.target.documentId ? baselines.get(auth.target.documentId) : undefined));
-  if (generated.length && units.length) {
-    try {
-      const outlines = new Map(generatedAuth.map(auth => [auth.decisionId, (auth.target.documentId ? baselines.get(auth.target.documentId)?.sections ?? [] : []).map(({ id, title, kind }) => ({ id, title, kind }))]));
-      const checked = await validateTransformationGrounding(units, generatedAuth, outlines, signal, () => { proposal.supportAttempted = true; }, invocation);
-      proposal.supportModel = checked.model; proposal.supportChecks = checked.checks;
-      if (checked.protocolError) proposal.protocolIssues.push("Unknown or malformed support verdict.");
-      for (const result of generated) {
-        const checks = checked.checks.filter(check => check.decisionId === result.decisionId);
-        result.support = checks.some(check => check.verdict === "unsupported") ? "unsupported" : checks.some(check => check.verdict === "uncertain") ? "uncertain" : "supported";
-        if (result.support !== "supported") { result.materialization = "blocked"; result.issues.push("wording-not-supported"); }
-        else result.reviewReady = true;
+    const compositions = new Map<string, Awaited<ReturnType<typeof generateComposition>>>();
+    if (compositionConfigured()) for (const auth of batch.items) {
+      const result = results.find(result => result.decisionId === auth.decisionId)!;
+      if (result.generation !== "generated" || !result.change) continue;
+      const baseline = auth.target.documentId ? baselines.get(auth.target.documentId) : undefined;
+      let composed: Awaited<ReturnType<typeof generateComposition>> | undefined;
+      try {
+        signal?.throwIfAborted();
+        composed = await generateComposition(compositionInput(result.change, auth, baseline, input.terminology), { invocation, signal });
+        result.change = applyComposition(result.change, composed.data, auth, baseline);
+        result.compositionModel = { model: composed.model, elapsedMs: composed.elapsedMs };
+        compositions.set(auth.decisionId, composed);
+      } catch (error) {
+        budgetExhausted ||= error instanceof InferenceBudgetError;
+        await finishInvocationValidation(composed?.invocationId, "correspondence-rejection");
+        result.change = null; result.support = "not-required";
+        fail(result, budgetExhausted ? "run-budget-exhausted" : signal?.aborted ? "cancelled-during-composition" : "composition-provider-or-output-failure", "failed");
       }
-    } catch {
-      for (const result of generated) { result.support = "failed"; result.materialization = "blocked"; result.issues.push(signal?.aborted ? "cancelled-during-support-check" : "support-check-failed-or-over-budget"); }
     }
-  }
-  for (const [decisionId, composed] of compositions) {
-    const supported = results.find(result => result.decisionId === decisionId)?.support === "supported";
-    await finishInvocationValidation(composed.invocationId, supported ? undefined : "grounding-rejection",
-      supported ? () => ({ operation: "documentation-composition", payload: composed.data }) : undefined);
+    const generated = results.filter(result => batch.items.some(auth => auth.decisionId === result.decisionId) && result.generation === "generated" && result.change);
+    const generatedAuth = authorizations.filter(auth => generated.some(result => result.decisionId === auth.decisionId));
+    const unitsFor = (auth: TransformationAuthorization) => transformationSupportUnits(auth, results.find(result => result.decisionId === auth.decisionId)!.change!, auth.target.documentId ? baselines.get(auth.target.documentId) : undefined);
+    const outlines = new Map(generatedAuth.map(auth => [auth.decisionId, (auth.target.documentId ? baselines.get(auth.target.documentId)?.sections ?? [] : []).map(({ id, title, kind }) => ({ id, title, kind }))]));
+    const support = minimumTransformationBatches(generatedAuth, group => {
+      const request = supportRequest(group.flatMap(unitsFor), group, outlines);
+      return request.feasible ? request.requestBytes : null;
+    });
+    const unchecked = support.batches === null ? generatedAuth : support.individuallyInfeasible;
+    for (const auth of unchecked) {
+      const result = results.find(result => result.decisionId === auth.decisionId)!;
+      result.support = "failed"; result.materialization = "blocked"; result.issues.push("support-check-failed-or-over-budget");
+    }
+    for (const group of support.batches ?? []) {
+      const selected = generated.filter(result => group.items.some(auth => auth.decisionId === result.decisionId));
+      try {
+        const checked = await validateTransformationGrounding(group.items.flatMap(unitsFor), group.items, outlines, signal, () => { proposal.supportAttempted = true; }, invocation);
+        proposal.supportModel = checked.model; proposal.supportChecks.push(...checked.checks);
+        if (checked.protocolError) proposal.protocolIssues.push("Unknown or malformed support verdict.");
+        for (const result of selected) {
+          const checks = checked.checks.filter(check => check.decisionId === result.decisionId);
+          result.support = checks.some(check => check.verdict === "unsupported") ? "unsupported" : checks.some(check => check.verdict === "uncertain") ? "uncertain" : "supported";
+          if (result.support !== "supported") { result.materialization = "blocked"; result.issues.push("wording-not-supported"); }
+          else result.reviewReady = true;
+        }
+      } catch (error) {
+        budgetExhausted ||= error instanceof InferenceBudgetError;
+        for (const result of selected) { result.support = "failed"; result.materialization = "blocked"; result.issues.push(budgetExhausted ? "run-budget-exhausted" : signal?.aborted ? "cancelled-during-support-check" : "support-check-failed-or-over-budget"); }
+      }
+    }
+    for (const [decisionId, composed] of compositions) {
+      const supported = results.find(result => result.decisionId === decisionId)?.support === "supported";
+      await finishInvocationValidation(composed.invocationId, supported ? undefined : "grounding-rejection",
+        supported ? () => ({ operation: "documentation-composition", payload: composed.data }) : undefined);
+    }
+    await progress(batchIndex + 1, null);
   }
   const groups = new Map<string, DecisionResult[]>();
   for (const result of results) if (result.decision.action === "revise" || result.decision.action === "add") {

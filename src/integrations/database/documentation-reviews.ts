@@ -1,4 +1,5 @@
 import "server-only";
+import { lockDocumentationProject } from "./documentation-review-lock";
 import { and, eq, sql } from "drizzle-orm";
 import { getDatabase, type DatabaseExecutor } from "./client";
 import { documentationReviews, documentationDrafts, documentationRuns } from "./schema";
@@ -7,8 +8,13 @@ import { findPublication, insertPublicationIfAbsent, replacePublication } from "
 
 export type RetainedReviewRow = typeof documentationReviews.$inferSelect;
 export async function insertDocumentationReview(value: typeof documentationReviews.$inferInsert) {
-  const [inserted] = await getDatabase().insert(documentationReviews).values(value).onConflictDoNothing().returning();
-  return inserted ?? findDocumentationReview(value.id);
+  return getDatabase().transaction(async tx => {
+    await lockDocumentationProject(tx, value.repository);
+    const [inserted] = await tx.insert(documentationReviews).values(value).onConflictDoNothing().returning();
+    if (inserted) return inserted;
+    const [existing] = await tx.select().from(documentationReviews).where(eq(documentationReviews.id, value.id));
+    return existing ?? null;
+  });
 }
 export async function findDocumentationReview(id: string) {
   const [row] = await getDatabase().select().from(documentationReviews).where(eq(documentationReviews.id, id));
@@ -24,15 +30,16 @@ export async function documentationReviewTransaction<T>(id: string, work: (scope
   });
 }
 /** One atomic review/save/publication boundary for an explicitly selected repository batch. */
-export async function documentationReviewBatchTransaction<T>(ids: string[], work: (scopes: ReviewTransaction[]) => Promise<T>) {
+export async function documentationReviewBatchTransaction<T>(ids: string[], work: (scopes: ReviewTransaction[], database: DatabaseExecutor) => Promise<T>, repository?: string) {
   return getDatabase().transaction(async tx => {
     await tx.execute(sql`SET LOCAL statement_timeout = '15000ms'`);
+    if (repository) await lockDocumentationProject(tx, repository);
     const scopes: ReviewTransaction[] = [];
     for (const id of [...ids].sort()) {
       const [row] = await tx.select().from(documentationReviews).where(eq(documentationReviews.id, id)).for("update");
       scopes.push(reviewScope(row ?? null, tx));
     }
-    return work(scopes);
+    return work(scopes, tx);
   });
 }
 function reviewScope(row: RetainedReviewRow | null, tx: DatabaseExecutor): ReviewTransaction {
@@ -69,6 +76,7 @@ export type RetentionRunLink = {
 /** Authority insertion and the run reference share one commit. No document/publication writes. */
 export async function insertDocumentationReviewForRun(value: typeof documentationReviews.$inferInsert, link: RetentionRunLink) {
   return getDatabase().transaction(async tx => {
+    await lockDocumentationProject(tx, value.repository);
     await tx.execute(sql`SET LOCAL statement_timeout = '5000ms'`);
     const [run] = await tx.select().from(documentationRuns).where(eq(documentationRuns.id, link.id)).for("update");
     if (!run || run.repository !== value.repository || run.status !== "running") throw new Error("Retention run unavailable.");

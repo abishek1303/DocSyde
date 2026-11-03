@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { DraftInspector } from "../reader/draft-inspector";
-import { previewPendingChanges, publishPendingChanges } from "../../review/pending-workspace-actions";
+import { previewPendingChanges, publishPendingChanges, discardPendingChanges } from "../../review/pending-workspace-actions";
 import type { PendingWorkspace } from "../../review/pending-workspace";
 
 export function PendingPublishWorkspace({ initial, focusProposal }: { initial: PendingWorkspace; focusProposal?: string }) {
@@ -42,11 +42,22 @@ export function PendingPublishWorkspace({ initial, focusProposal }: { initial: P
     } catch { setError("Publication could not be confirmed. Reload before trying again."); }
     finally { setBusy(false); }
   }
+  async function discard() {
+    if (!window.confirm("Discard all pending documentation changes for this project? Published documentation will stay unchanged.")) return;
+    setBusy(true); setError("");
+    try {
+      const result = await discardPendingChanges({ repository: view.repository, expectedHash: view.hash, confirmed: true });
+      if (result.status === "discarded") { router.push(`/runs/new?${new URLSearchParams({ repository: view.repository })}`); router.refresh(); }
+      else setError(result.message);
+    } catch { setError("Discard could not be confirmed. Reload before trying again."); }
+    finally { setBusy(false); }
+  }
   if (!view.groups.length) return <section className="space-y-2 rounded-xl border border-dashed p-8"><h2 className="font-medium">No documentation changes waiting for review.</h2><Link className="inline-block text-sm text-primary underline" href={`/docs?${new URLSearchParams({ repository: view.repository })}`}>View Latest Docs →</Link><p className="text-sm text-muted-foreground">New documentation updates will appear here after a change analysis.</p><Link className="inline-block text-sm text-primary underline" href={`/documentation/drafts?${new URLSearchParams({ repository: `https://github.com/${view.repository}` })}`}>Browse saved documents</Link></section>;
   return <div className="mx-auto w-full max-w-4xl space-y-10" aria-busy={busy}>
     <div className="flex flex-wrap items-center justify-between gap-5 border-b pb-6">
       <div className="space-y-2"><h2 className="text-lg font-semibold">{view.count} {view.count === 1 ? "change" : "changes"} across {affected} {affected === 1 ? "document" : "documents"}</h2><p className="max-w-xl text-sm leading-6 text-muted-foreground">Read the combined result below. Exclude anything you don’t want, then publish the remaining updates together.</p></div>
-      <Button disabled={busy || view.blocked || view.count === 0} onClick={publish}>{busy ? "Updating…" : `Publish ${view.count} ${view.count === 1 ? "change" : "changes"}`}</Button>
+      <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={busy || !view.groups.some(group => group.changes.some(change => !change.unavailable))} onClick={discard}>Discard pending changes</Button>
+      <Button disabled={busy || view.blocked || view.count === 0} onClick={publish}>{busy ? "Updating…" : `Publish ${view.count} ${view.count === 1 ? "change" : "changes"}`}</Button></div>
     </div>
     {error && <p role="alert" className="rounded-lg border border-destructive/30 p-4 text-sm">{error} <button className="underline" onClick={() => window.location.reload()}>Reload workspace</button></p>}
     {view.blocked && <p role="alert" className="text-sm text-destructive">Some included changes overlap. Exclude a conflicting change before publishing.</p>}

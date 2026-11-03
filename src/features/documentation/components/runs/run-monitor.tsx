@@ -7,7 +7,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { RunStageMotion } from "./run-stage-motion";
 import { StageActivity } from "./stage-activity";
 import { runFailureForView, runFailureDescription } from "../../runs/run-failure";
-import { activityLabels, activitySubsteps } from "../../runs/run-activity";
+import { activityLabels, activitySubsteps, activityBatchLabel } from "../../runs/run-activity";
 import type { RunInvocationSummary } from "../../runs/run-invocation-summary";
 import { ActivityDetails } from "./activity-details";
 import { RunBreadcrumbs } from "./run-breadcrumbs";
@@ -18,6 +18,7 @@ import type { RunView } from "../../runs/run-record";
 export function RunMonitor({ initial }: { initial: RunView }) {
   const [run, setRun] = useState(initial);
   const [calls, setCalls] = useState<RunInvocationSummary[]>([]);
+  const [blockedByReview, setBlockedByReview] = useState(false);
   const [executionError, setExecutionError] = useState("");
   const [message, setMessage] = useState("");
   const [cancelling, setCancelling] = useState(false);
@@ -29,7 +30,11 @@ export function RunMonitor({ initial }: { initial: RunView }) {
     let timer: ReturnType<typeof setTimeout>;
     if (status === "pending" && !started.current) {
       started.current = true;
-      fetch(`/runs/${id}/execute`, { method: "POST" }).then(response => {
+      fetch(`/runs/${id}/execute`, { method: "POST" }).then(async response => {
+        if (response.status === 409) {
+          const conflict = await response.json().catch(() => null);
+          if (active && conflict?.code === "pending-review") { setBlockedByReview(true); setExecutionError(conflict.error); return; }
+        }
         if (!response.ok && active) setExecutionError("Execution could not be confirmed. Reload to try starting this pending run; duplicate execution is prevented.");
       }).catch(() => { if (active) setExecutionError("The execution connection was interrupted. Checking the saved run status; reload if it remains pending."); });
     }
@@ -91,7 +96,7 @@ export function RunMonitor({ initial }: { initial: RunView }) {
       {run.input.mode === "current-state" && <p className="max-w-3xl text-sm leading-6 text-muted-foreground">{run.outputs?.sourceCoverage ?? "Current-state scan: bounded source sampling, with up to 16 files and four findings. Coverage gaps remain; published docs require explicit review and publication."}</p>}
     </header>
     {message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}
-    {run.status === "pending" && executionError && <p role="alert" className="text-sm text-destructive">{executionError}</p>}
+    {run.status === "pending" && executionError && <div role="alert" className="space-y-3 text-sm"><p>{executionError}</p>{blockedByReview && <Link href={pendingChangesHref(run)} className={buttonVariants()}>Review pending changes</Link>}</div>}
     {["incomplete", "failed", "cancelled", "interrupted", "no-change"].includes(run.status) && <section role={run.status === "no-change" ? "status" : "alert"} className="space-y-2 rounded-xl border bg-card p-6">
       <h2 className="text-lg font-semibold">{outcome.title}</h2>
       <p className="text-sm leading-7 text-muted-foreground">{outcome.message}</p>
@@ -102,8 +107,8 @@ export function RunMonitor({ initial }: { initial: RunView }) {
     </section>}
     {run.status === "awaiting-review" && <MotionReveal className="rounded-xl border border-primary/25 bg-accent p-6">
       <p className="mb-2 text-xs font-medium uppercase tracking-wider text-primary">Ready for your review</p>
-      <h2 className="text-xl font-semibold">Documentation updates are ready for review.</h2>
-      <p className="mt-2 mb-5 text-sm text-muted-foreground">Evidence checks passed. Review the proposed changes, exclude anything unwanted, then publish when ready.</p>
+      <h2 className="text-xl font-semibold">{run.outputs?.transformation?.status === "partial" ? "Some documentation updates are ready for review." : "Documentation updates are ready for review."}</h2>
+      <p className="mt-2 mb-5 text-sm text-muted-foreground">{run.outputs?.transformation?.status === "partial" ? `Only ${run.outputs.transformation.reviewReadyActions} of ${run.outputs.transformation.plannedActions ?? "the planned"} updates passed support checks. Coverage gaps remain; review only the accepted work.` : "Evidence checks passed. Review the proposed changes, exclude anything unwanted, then publish when ready."}</p>
       <Link href={pendingChangesHref(run)} className={buttonVariants()}>Review changes</Link>
     </MotionReveal>}
     <section aria-labelledby="pipeline-title" className="mx-auto w-full min-w-0 max-w-4xl">
@@ -118,12 +123,13 @@ export function RunMonitor({ initial }: { initial: RunView }) {
           <div className="min-w-0 pl-5 sm:pl-7">
             <div className="flex items-start gap-3">
               <span data-stage-icon className="mt-0.5 shrink-0"><Icon aria-hidden="true" className={`size-5 ${stage.status === "running" ? "motion-safe:animate-spin text-primary" : ["failed", "incomplete"].includes(stage.status) ? "text-destructive" : stage.status === "completed" ? "text-success" : "text-muted-foreground"}`} /></span>
-              <h3 className="flex-1 text-sm font-semibold">{stageLabel}</h3>
+              <h3 className="flex-1 text-sm font-semibold">{stageLabel}{activityBatchLabel(stage)}</h3>
               <span className="text-xs text-muted-foreground">{stage.status === "waiting" ? "Up next" : stage.status === "running" ? "In progress" : stage.status === "completed" ? "Complete" : stage.status === "incomplete" ? "Not accepted" : stage.status}</span>
             </div>
             {stage.status !== "waiting" && <div className="mt-3 space-y-4 pl-8">
               {substeps.length > 0 && <ol aria-label={`${stageLabel} steps`} className="space-y-2">{substeps.map(step => <li key={step.label} className="flex items-center gap-2 text-xs text-muted-foreground"><span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${step.status === "completed" ? "bg-primary" : step.status === "running" ? "bg-primary motion-safe:animate-pulse" : step.status === "failed" ? "bg-destructive" : "bg-border"}`} />{run.input.mode === "current-state" && step.label === "Reading changed files" ? "Reading sampled current files" : step.label}<span className="sr-only">: {step.status}</span></li>)}</ol>}
               <p className="max-w-3xl whitespace-pre-wrap break-words text-sm leading-7 text-muted-foreground">{stage.key === "runtime-inspection" && stage.status === "skipped" ? skippedRuntimeExplanation(run) : stage.status === "completed" ? response?.preview ?? "This stage is complete." : stage.status === "running" ? "Working with the connected product and its source evidence…" : summaryFor(stage)}</p>
+              {stage.key === "documentation-transformation" && !!run.outputs?.transformation?.coverageGaps?.length && <div className="space-y-2 text-sm text-muted-foreground"><p className="font-medium">Coverage gaps</p><ul className="list-disc space-y-1 pl-5">{run.outputs.transformation.coverageGaps.map(gap => <li key={gap}>{gap}</li>)}</ul></div>}
               {showRuntimeOutput(stage) && <RuntimeInspectionPane runId={id} terminal={!["pending", "running"].includes(run.status)} />}
               {stage.status !== "skipped" && <ActivityDetails label="Technical details">
                 <StageActivity key={`${id}:${stage.key}`} runId={id} stage={stage} label={stageLabel} response={response} summary={summaryFor(stage)} />

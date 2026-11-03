@@ -1,4 +1,5 @@
 import "server-only";
+import { assertRunReviewEligible } from "../review/run-eligibility";
 import { z } from "zod";
 import { publicationRoute } from "../publication/publication-target";
 import { hasExistingDocumentation } from "../library/library-operations";
@@ -32,6 +33,7 @@ export async function prepareDocumentationRun(raw: unknown) {
 export async function createBranchDocumentationRun(raw: unknown) {
   const input = z.object({ repository: z.string(), branch: z.string().min(1), runContext: z.string().max(300).nullable().default(null) }).strict().parse(raw);
   const selected = selectedRepository({ repository: input.repository });
+  await assertRunReviewEligible(selected.name);
   if (!await hasExistingDocumentation(selected)) return { status: "blocked" as const, message: "No documentation is available to update yet. Save documentation for this project before analyzing its latest changes." };
   const prepared = await prepareDocumentationRun({ repository: input.repository, branch: input.branch });
   if (!prepared.preview) return { status: "blocked" as const, message: "This branch needs at least two commits before it can be analyzed." };

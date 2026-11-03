@@ -32,10 +32,24 @@ export function activitySubsteps(stage: RunView["stages"][number], calls: RunInv
     const call = operation("documentation-planning");
     return [{ label: "Selecting documentation candidates", status: call || stage.status === "completed" ? "completed" : stage.status }, { label: "Planning section revisions", status: status(call) }];
   }
+  const progress = "batchProgress" in stage ? stage.batchProgress : undefined;
+  const batchStatus = (name: string) => {
+    const matches = own.filter(call => call.operation === name);
+    if (!matches.length) return status(undefined);
+    if (matches.some(call => call.status === "failed")) return "failed";
+    if (matches.some(call => call.status !== "succeeded")) return terminal ? "interrupted" : "running";
+    if (!terminal && progress && (name === "documentation-transformation" ? matches.length < progress.total : progress.processed < progress.total)) return "waiting";
+    return "completed";
+  };
   if (stage.key === "documentation-transformation") return [
-    { label: "Generating replacement copy", status: status(operation("documentation-transformation")) },
-    ...(operation("documentation-composition") ? [{ label: "Composing with Muse Wonder", status: status(operation("documentation-composition")) }] : []),
-    { label: "Checking evidence support", status: options.supportRejected ? "failed" : status(operation("transformation-support")) },
+    { label: "Generating replacement copy", status: batchStatus("documentation-transformation") },
+    ...(operation("documentation-composition") ? [{ label: "Composing with Muse Wonder", status: batchStatus("documentation-composition") }] : []),
+    { label: "Checking evidence support", status: options.supportRejected ? "failed" : batchStatus("transformation-support") },
   ];
   return [];
+}
+
+export function activityBatchLabel(stage: RunView["stages"][number]) {
+  const progress = "batchProgress" in stage ? stage.batchProgress : undefined;
+  return progress && progress.total > 0 ? ` — ${progress.active ?? progress.processed} of ${progress.total} batches${progress.active ? "" : " processed"}` : "";
 }

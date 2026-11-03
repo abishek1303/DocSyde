@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
+import { hasActionablePendingChanges } from "@/features/documentation/review/pending-workspace";
+import { PENDING_REVIEW_MESSAGE } from "@/features/documentation/review/run-eligibility";
 import { ArrowRight, GitCompareArrows, ScanSearch } from "lucide-react";
 import { hasExistingDocumentation } from "@/features/documentation/library/library-operations";
 import { RepositoryPicker } from "@/features/sources/components/repository-picker";
@@ -37,10 +40,11 @@ async function Setup({ searchParams }: { searchParams: Promise<SetupSearch> }) {
       <p role="alert">Invalid repository or branch selection.</p>
     </main>;
   }
+  const pendingReview = await hasActionablePendingChanges(repository.name).catch(() => null);
   const available = !search.rerun ? await hasExistingDocumentation(repository).catch(() => null) : null;
   const latest = !search.rerun && search.mode === "changes" && available === true;
   const fullScan = !search.rerun && search.mode === "full";
-  const branches = latest || fullScan ? await runBranchSelection(repository).catch(() => null) : null;
+  const branches = pendingReview === false && (latest || fullScan) ? await runBranchSelection(repository).catch(() => null) : null;
   const query = new URLSearchParams({ repository: repository.name, ...(repository.branch ? { branch: repository.branch } : {}) });
   const unavailableReason = available === null ? "We couldn’t check this project’s documentation. Please try again." : "No documentation is available to update yet.";
   return <AppShell repository={repository.name} branchContext={<span>{search.rerun ? "Rerun" : "New run"}</span>} active="Runs">
@@ -49,7 +53,11 @@ async function Setup({ searchParams }: { searchParams: Promise<SetupSearch> }) {
       {!search.rerun && <p className="max-w-2xl text-sm leading-7 text-muted-foreground">{latest ? "Compare the latest change on a branch, reuse product understanding, and prepare documentation updates for review." : "Choose a project, then decide how DocSyde should explore it."}</p>}
     </header>
     {!search.rerun && <RepositoryPicker selected={repository.name} repositories={configuredRepositories()} />}
-    {search.rerun ? <Suspense fallback={<LoadingList />}><RerunSetup search={search} /></Suspense> : latest || fullScan ? <>
+    {pendingReview !== false ? <section className="max-w-2xl space-y-5">
+      <p role="status" className="text-sm leading-7">{pendingReview ? PENDING_REVIEW_MESSAGE : "Run availability could not be checked. Reload after checking the database connection."}</p>
+      <Link href={`/docs?${new URLSearchParams({ repository: repository.name, tab: "pending" })}`} className={buttonVariants()}>Review pending changes</Link>
+      <div className="grid gap-4 sm:grid-cols-2">{["Full Scan", "Latest Changes"].map(mode => <div key={mode} role="group" aria-label={mode} aria-disabled="true" className="rounded-xl border bg-muted/25 p-5 text-sm text-muted-foreground">{mode}</div>)}</div>
+    </section> : search.rerun ? <Suspense fallback={<LoadingList />}><RerunSetup search={search} /></Suspense> : latest || fullScan ? <>
       <Link href={`/runs/new?${query}`} className="text-sm text-primary underline">← Run options</Link>
       {fullScan && <Link href={`/sources/understanding?${query}`} className="block text-sm text-primary underline">View or refresh reusable product understanding</Link>}
       <BranchRunForm fullScan={fullScan} key={repository.name} repository={repository.name} branches={branches?.names ?? []} latestChanges={branches?.changes ?? []} selected={branches?.selected ?? repository.branch} selectionUnavailable={!branches} />

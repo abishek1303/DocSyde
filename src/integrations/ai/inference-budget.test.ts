@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { admitInference, requireInferenceLog, assertPlannedGenerationBatches, stopInferenceBudget, withInferenceBudget, InferenceBudgetError } from "./inference-budget";
+import { admitInference, requireInferenceLog, assertPlannedGenerationBatches, withRunInferenceBudget, admitWorkItems, inferenceBudgetUsage, stopInferenceBudget, withInferenceBudget, InferenceBudgetError } from "./inference-budget";
 import { inferenceSnapshot, resolveInference } from "./operation-policy";
 
 const settings = resolveInference("baseten", "source-analysis");
@@ -20,11 +20,11 @@ test("configuration drift and stopped execution fail before dispatch", async () 
     await assert.rejects(admitInference("baseten", "source-analysis", settings, "run"), { code: "inference-budget-stopped" });
   });
 });
-test("multi-batch plans are scope exclusions before any generation", async () => {
+test("bounded multi-batch plans pass without an arbitrary one-batch restriction", async () => {
   await withInferenceBudget("run", expected, async () => {
     assertPlannedGenerationBatches(1);
-    assert.throws(() => assertPlannedGenerationBatches(2), (error: unknown) => error instanceof InferenceBudgetError && error.code === "outside-single-batch-scope");
-    await assert.rejects(admitInference("baseten", "source-analysis", settings, "run"), { code: "inference-budget-stopped" });
+    assert.doesNotThrow(() => assertPlannedGenerationBatches(8));
+    assert.throws(() => assertPlannedGenerationBatches(9), (error: unknown) => error instanceof InferenceBudgetError && error.code === "inference-budget-exceeded");
   });
   assert.doesNotThrow(() => assertPlannedGenerationBatches(8));
 });
@@ -39,7 +39,7 @@ test("failed baseline recheck and unrelated runs cannot spend inference", async 
   }, async () => { checked++; throw new Error("corpus drift"); });
 });
 
-test("operational budget stops the ninth distinct attempt and leaves ordinary calls unguarded", async () => {
+test("operational call ceilings are configurable and leave standalone calls unguarded", async () => {
   const operations = Object.fromEntries(Array.from({ length: 9 }, (_, index) => {
     const operation = `test-operation-${index}`;
     return [operation, { provider: "baseten" as const, model: settings.model, config: inferenceSnapshot(operation, settings) }];
@@ -47,7 +47,7 @@ test("operational budget stops the ninth distinct attempt and leaves ordinary ca
   await withInferenceBudget("run", operations, async () => {
     for (let index = 0; index < 8; index++) await admitInference("baseten", `test-operation-${index}`, settings, "run");
     await assert.rejects(admitInference("baseten", "test-operation-8", settings, "run"), { code: "inference-budget-exceeded" });
-  });
+  }, undefined, { maxCalls: 8 });
   await assert.doesNotReject(admitInference("baseten", "source-analysis", settings));
 });
 
@@ -68,5 +68,37 @@ test("experiment logging must succeed before paid dispatch while ordinary loggin
   await withInferenceBudget("run", expected, async () => {
     assert.throws(() => requireInferenceLog(false), { code: "inference-log-unavailable" });
     await assert.rejects(admitInference("baseten", "source-analysis", settings, "run"), { code: "inference-budget-stopped" });
+  });
+});
+
+test("production scopes bound calls, conservative token reservations, elapsed time and work without resetting nested counters", async t => {
+  await withRunInferenceBudget("run", async () => {
+    admitWorkItems(2);
+    await admitInference("baseten", "source-analysis", settings, "run", 10);
+    await withRunInferenceBudget("run", async () => { await assert.rejects(admitInference("baseten", "source-analysis", settings, "run", 10), { code: "inference-budget-exceeded" }); });
+    assert.equal(inferenceBudgetUsage()?.calls, 1);
+  }, { maxCalls: 1 });
+  await withRunInferenceBudget("run", async () => {
+    await assert.rejects(admitInference("baseten", "source-analysis", settings, "run", 20), { code: "inference-budget-exceeded" });
+  }, { maxTokens: settings.maxOutputTokens + 19 });
+  await withRunInferenceBudget("run", async () => {
+    assert.throws(() => admitWorkItems(3), { code: "inference-budget-exceeded" });
+  }, { maxWorkItems: 2 });
+  let now = 100;
+  t.mock.method(Date, "now", () => now);
+  await withRunInferenceBudget("run", async () => {
+    now += 10;
+    await assert.rejects(admitInference("baseten", "source-analysis", settings, "run"), { code: "inference-budget-exceeded" });
+  }, { maxElapsedMs: 10 });
+});
+
+test("frozen verification admits multiple independent generation/support batches", async () => {
+  const operations = Object.fromEntries(["documentation-transformation", "transformation-support"].map(operation => {
+    const value = resolveInference("baseten", operation);
+    return [operation, { provider: "baseten" as const, model: value.model, config: inferenceSnapshot(operation, value) }];
+  }));
+  await withInferenceBudget("run", operations, async () => {
+    for (let batch = 0; batch < 3; batch++) for (const operation of Object.keys(operations)) await admitInference("baseten", operation, resolveInference("baseten", operation), "run", 100);
+    assert.equal(inferenceBudgetUsage()?.calls, 6);
   });
 });

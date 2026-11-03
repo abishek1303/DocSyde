@@ -24,3 +24,8 @@ test("individual infeasibility and aggregate boundaries fail before any generati
   assert.equal(bounded(TRANSFORMATION_AGGREGATE_BYTES / 4).batches?.length, 4);
   assert.equal(bounded(TRANSFORMATION_AGGREGATE_BYTES / 4 + 1).batches, null);
 });
+
+test("equal batch counts minimize repeated document context rather than following arbitrary item order", () => {
+  const result = minimumTransformationBatches([0, 1, 2, 3], batch => batch.length > 2 ? null : batch.length === 1 ? 10 : batch[0] % 2 === batch[1] % 2 ? 10 : 20);
+  assert.deepEqual(result.batches?.map(batch => batch.items), [[0, 2], [1, 3]]);
+});

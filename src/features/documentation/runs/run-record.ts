@@ -51,7 +51,7 @@ export const runRecordV2 = z.object({
     results: z.array(decisionSummary).max(8), batches: z.array(batchSummary).max(8), supportAttempted: z.boolean(), supportModel: modelTiming.nullable(),
   }).strict().optional(),
   retainedProposal: z.object({ proposalId: z.uuid(), proposalHash: z.string().regex(/^[a-f0-9]{64}$/), registeredAt: z.iso.datetime(), expiresAt: z.iso.datetime() }).strict().optional(),
-  models: z.array(z.object({ stage: z.enum(WORKFLOW_STEPS), model: z.string().max(300), elapsedMs: z.number().nonnegative() }).strict()).max(20).default([]),
+  models: z.array(z.object({ stage: z.enum(WORKFLOW_STEPS), model: z.string().max(300), elapsedMs: z.number().nonnegative() }).strict()).max(32).default([]),
   warnings: z.array(z.string().max(2000)).max(100).default([]),
 }).strict().superRefine((r, ctx) => {
   if (r.failure && (r.status !== "finished" || !["failed", "incomplete", "interrupted"].includes(r.disposition ?? ""))) ctx.addIssue({ code: "custom", message: "Failure details require an unsuccessful terminal run." });
@@ -77,7 +77,7 @@ export type RunView = {
   startedAt: string | null; finishedAt: string | null; stages: (z.infer<typeof workflowStage> | LegacyRunRecord["stages"][number])[];
   contextSnapshot?: z.infer<typeof generationContextSnapshot>; runtime?: z.infer<typeof runtimeInspectionContextSchema>;
   retainedProposal?: RunRecordV2["retainedProposal"];
-  outputs?: { sourceCoverage?: string; supportRejected?: boolean; analysisSha256?: string; impactAssessment?: string; plan?: { actionable: number; noChange: number; unresolved: number }; transformation?: { status: string; reviewReadyActions: number }; models: RunRecordV2["models"] };
+  outputs?: { sourceCoverage?: string; supportRejected?: boolean; analysisSha256?: string; impactAssessment?: string; plan?: { actionable: number; noChange: number; unresolved: number }; transformation?: { status: string; reviewReadyActions: number; batchCount?: number; plannedActions?: number; coverageGaps?: string[] }; models: RunRecordV2["models"] };
   responses?: StageResponsePreview[];
   failure?: RunFailure;
   reason?: string | null;

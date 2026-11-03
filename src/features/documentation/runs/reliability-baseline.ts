@@ -112,11 +112,11 @@ export async function assertReliabilityBaseline(manifest: ReliabilityManifest) {
   if (!isDeepStrictEqual(manifest.runtimeDescriptor, { id: runtime.id, version: runtime.version, sha256: documentationHash(runtime), capabilitiesSha256: documentationHash(runtime.capabilities) })) throw new Error("Reliability workflow identity mismatch.");
   const capability = { A: "urgent-request-result", B: "close-confirmation", C: "resolved-status-display" }[manifest.scenario];
   if (runtime.maxSelectedScreenshots !== 1 || runtime.capabilities.length !== 1 || runtime.capabilities[0].id !== capability || runtime.repository !== baseline.repository) throw new Error("Reliability capability isolation mismatch.");
-  const batch = z.object({ eligible: z.literal(true), batchCount: z.literal(1), individuallyInfeasible: z.literal(0), authorizationFailures: z.literal(0),
+  const batch = z.object({ eligible: z.literal(true), batchCount: z.number().int().min(1).max(8), individuallyInfeasible: z.literal(0), authorizationFailures: z.literal(0),
     source: z.object({ repository: z.string(), base: z.literal(RELIABILITY_BASE), head: z.literal(manifest.head) }),
     targets: z.array(z.object({ documentId: z.uuid(), sha256: hash })).min(1) }).passthrough().parse(JSON.parse(await readFile(manifest.representativeBatchCheck.path, "utf8")));
   if (batch.source.repository.toLowerCase() !== baseline.repository || batch.targets.some(target => !baseline.documents.some(document => document.id === target.documentId && document.sha256 === target.sha256))) throw new Error("Representative batch targets do not match baseline corpus.");
-  if (!batch.eligible) throw new Error("Outside single-batch baseline scope.");
+  if (!batch.eligible) throw new Error("Outside bounded transformation scope.");
   z.object({ passed: z.literal(true), scenario: z.literal(manifest.scenario), base: z.literal(RELIABILITY_BASE), head: z.literal(manifest.head), runtimeSha256: z.literal(manifest.runtime.sha256) }).passthrough().parse(JSON.parse(await readFile(manifest.offlineGate.path, "utf8")));
   z.object({ passed: z.literal(true), base: z.literal(RELIABILITY_BASE), head: z.literal(manifest.head), branch: z.literal(manifest.branch) }).passthrough().parse(JSON.parse(await readFile(manifest.githubGate.path, "utf8")));
 }

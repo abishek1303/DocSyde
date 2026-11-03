@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { getDatabase, type DatabaseExecutor } from "@/integrations/database/client";
 import { randomUUID } from "node:crypto";
 import { assertReliabilitySideEffect } from "@/integrations/reliability/execution-context";
 import { selectHubReviews } from "@/integrations/database/documentation-library";
@@ -32,18 +33,18 @@ const keyFor = (state: State, decisionId: string) => `${state.proposal.proposalI
 function ready(state: State, result: Entry["result"]) { try { return intrinsicReviewReady(state.proposal, result); } catch { return false; } }
 const included = (entry: Entry) => !entry.unavailable && !entry.excluded;
 
-async function prepare(raw: unknown) {
+async function prepare(raw: unknown, database: DatabaseExecutor = getDatabase(), eligibilityOnly = false) {
   const input = pendingInput.parse(raw), selected = selectedRepository({ repository: input.repository }), repository = repositoryLocation(selected);
   const rows = new Map<string, Awaited<ReturnType<typeof selectHubReviews>>[number]["row"]>();
   for (let offset = 0; ; offset += 20) {
-    const page = await selectHubReviews(repository, offset, true);
+    const page = await selectHubReviews(repository, offset, !eligibilityOnly, database);
     for (const { row } of page.slice(0, 20)) rows.set(row.id, row);
     if (rows.size > 200) throw new Error("Too many pending proposals for one workspace.");
     if (page.length <= 20) break;
   }
   const states = [...rows.values()].map(readRetainedReview).sort((a, b) => a.registeredAt.localeCompare(b.registeredAt) || a.proposal.proposalId.localeCompare(b.proposal.proposalId));
   const suggestions = new Map<string, ImageSuggestion[]>();
-  for (const state of states) {
+  for (const state of eligibilityOnly ? [] : states) {
     try { suggestions.set(state.proposal.proposalId, await proposalImageSuggestions(state.proposal)); } catch { suggestions.set(state.proposal.proposalId, []); }
   }
   const groups = new Map<string, Group>(), excluded = new Set(input.excluded), observations: unknown[] = [];
@@ -59,11 +60,11 @@ async function prepare(raw: unknown) {
     if (state.review && !state.review.saves.some(receipt => receipt.unitId === unitId && receipt.status === "saved")) unavailable ??= "This previously reviewed change needs attention before it can be published.";
     if (!targets.length && !unavailable) unavailable = "This change has no approved publication destination. Review its document association first.";
     if (baseline) {
-      const saved = await findDocumentationDraft(baseline.id, repository);
+      const saved = await findDocumentationDraft(baseline.id, repository, database);
       if (!saved || documentationHash(validateDocumentationDocument(saved.document)) !== documentationHash(baseline)) unavailable ??= "The source document is no longer an exact match. Run a new analysis.";
     }
     for (const target of targets) {
-      const live = await findPublication(repository, target.route);
+      const live = await findPublication(repository, target.route, database);
       observations.push([state.proposal.proposalId, target.id, live?.id ?? null, live?.draftId ?? null]);
       if ((live?.id ?? null) !== target.observedId || (target.observedId && live?.draftId !== target.baselineId)) unavailable ??= "Live documentation changed after this proposal. Run a new analysis.";
     }
@@ -72,6 +73,7 @@ async function prepare(raw: unknown) {
     group.entries.push({ state, result, key: keyFor(state, result.decisionId), unavailable, excluded: excluded.has(keyFor(state, result.decisionId)), issue: null });
     groups.set(key, group);
   }
+  if (eligibilityOnly) return { input, repository, states, groups: [...groups.values()], hash: documentationHash(states.map(state => [state.proposalHash, state.review])) };
   const known = new Set([...groups.values()].flatMap(group => group.entries.map(entry => entry.key)));
   if (input.excluded.some(key => !known.has(key))) throw new Error("changed");
   const routeOwners = new Map<string, Group>();
@@ -193,10 +195,50 @@ export async function publishPendingWorkspace(raw: unknown): Promise<PendingPubl
         if (excluded.length) review.exclusions = [...(review.exclusions ?? []), ...excluded.map(entry => ({ decisionId: entry.result.decisionId, at }))];
         await byId.get(state.proposal.proposalId)!.receipt(acceptedReviewSchema.parse(review));
       }
-    });
+    }, data.repository);
     return { status: "published", message: "Your documentation changes are live. Previous live versions are available in Archive.", count: view.count };
   } catch (error) {
     // A transaction can commit even if its acknowledgement is lost. Never claim a partial success or retry blindly.
     return { status: error instanceof Error && error.message === "changed" ? "changed" : "unavailable", message: "Publication could not be confirmed. Reload Latest Docs and Pending Changes before trying again." };
+  }
+}
+
+/** Same intrinsic readiness, receipts, expiry, frozen baseline and destination checks as Pending Changes. */
+export async function hasActionablePendingChanges(repository: string, database?: DatabaseExecutor) {
+  const data = await prepare({ repository }, database, true);
+  return data.groups.some(group => group.entries.some(included));
+}
+
+const discardInput = z.object({ repository: z.string().min(3).max(250), expectedHash: z.string().regex(/^[a-f0-9]{64}$/), confirmed: z.literal(true) }).strict();
+export type PendingDiscardOutcome = { status: "discarded" | "changed" | "unavailable"; message: string };
+export async function discardPendingWorkspace(raw: unknown): Promise<PendingDiscardOutcome> {
+  assertReliabilitySideEffect("product-mutation");
+  try {
+    const input = discardInput.parse(raw), data = await prepare({ repository: input.repository });
+    if (data.hash !== input.expectedHash) return { status: "changed", message: "Pending changes changed. Reload before discarding." };
+    const entries = data.groups.flatMap(group => group.entries).filter(included);
+    const states = data.states.filter(state => entries.some(entry => entry.state === state));
+    await documentationReviewBatchTransaction(states.map(state => state.proposal.proposalId), async (scopes, database) => {
+      const current = await prepare({ repository: input.repository }, database, true);
+      const keys = current.groups.flatMap(group => group.entries).filter(included).map(entry => entry.key).sort();
+      if (documentationHash(keys) !== documentationHash(entries.map(entry => entry.key).sort())) throw new Error("changed");
+      const byId = new Map(scopes.map(scope => [scope.row?.id, scope]));
+      const at = new Date().toISOString();
+      for (const state of states) {
+        const scope = byId.get(state.proposal.proposalId)!;
+        if (!scope.row) throw new Error("changed");
+        const current = readRetainedReview(scope.row);
+        if (current.proposalHash !== state.proposalHash || documentationHash(current.review) !== documentationHash(state.review) || (!current.review && Date.now() >= Date.parse(current.expiresAt))) throw new Error("changed");
+        const selection = normalizeReviewSelection({ proposalId: state.proposal.proposalId, expectedProposalHash: state.proposalHash,
+          decisions: state.proposal.results.map(result => ({ decisionId: result.decisionId, choice: ["add", "revise"].includes(result.decision.action) ? "reject" : "acknowledge" })),
+          publications: [], note: "Discarded pending documentation changes." });
+        const review: AcceptedReview = state.review ? structuredClone(state.review) : { operationId: randomUUID(), selectionHash: documentationHash(selection), selection, acceptedAt: at, saves: [], publications: [] };
+        review.exclusions = [...(review.exclusions ?? []), ...entries.filter(entry => entry.state === state).map(entry => ({ decisionId: entry.result.decisionId, at }))];
+        await scope.receipt(acceptedReviewSchema.parse(review));
+      }
+    }, data.repository);
+    return { status: "discarded", message: "Pending changes discarded. Published documentation is unchanged. You can start a new run." };
+  } catch (error) {
+    return { status: error instanceof Error && error.message === "changed" ? "changed" : "unavailable", message: "Discard could not be confirmed. Reload Pending Changes before trying again." };
   }
 }

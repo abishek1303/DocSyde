@@ -125,8 +125,8 @@ npm run reliability -- batch representative-A.json .artifacts/reliability/A-batc
 This runs production validation, target loading, authorization, request sizing
 and minimum partitioning with **zero inference and no writes to the database**.
 The receipt records exact target hashes, pinned source refs and batch bytes.
-Eligibility requires one batch and no infeasible/invalid decisions. Exit code 2
-means outside single-batch scope. Simplify before creating final commits/manifests,
+Eligibility requires one or more feasible batches and no infeasible/invalid decisions. Exit code 2
+means the representative work does not fit bounded transformation scope. Inspect coverage gaps before creating final commits/manifests,
 or exclude the scenario. Multi-batch requirements are not a product defect.
 
 Against A's isolated database, create a local operator spec:
@@ -172,19 +172,20 @@ and null run context. Before dispatch, admission rechecks the baseline and froze
 files/options. A retained `.attempt.json` next to the manifest prevents reusing that
 manifest for another run. Do not delete it to retry a failure.
 
-Expected path is 6–8 calls: source, runtime decision, optional selection/one vision,
-impact, plan, one transformation generation and support validation. The opt-in
-async inference scope admits each operation once and at most eight attempts,
-blocks unguarded calls in the experiment server, requires the invocation log insert
-to succeed before paid dispatch, and stops after provider/schema
-or grounding/correspondence rejection. No retries/repair/alternate models occur.
+The compact path may use 6–8 calls, but actual plans use dynamic bounded batches.
+The opt-in async inference scope retains frozen model settings, required invocation
+logging and fail-fast semantics, with no format retries or alternate models.
+Authoring, support, optional composition and vision may repeat for independent work.
+Run defaults come from `runInferencePolicy`: 32 calls, 768 Ki conservatively reserved
+tokens, 128 Ki input tokens per call, eight canonical work items and forty minutes.
+Verification callers can supply tighter finite limits in code.
 
-The **actual** generated plan is deterministically partitioned again before
-transformation dispatch. If it needs multiple batches, stop before generation and
-record `outside-single-batch-baseline-scope` (incomplete, no product failure).
-Earlier analysis/planning calls remain recorded. Never truncate or rewrite that
-plan to force admission. Simplifying and attempting again requires new approval.
-Ordinary non-experiment multi-batch runs remain supported.
+The actual plan is partitioned using production request sizing and output estimates.
+Multiple feasible batches are allowed; preflight checks target/authorization and
+aggregate feasibility, not an exact batch count. No planned work is truncated to fit.
+Budget exhaustion or infeasible decisions remain explicit coverage gaps. Earlier
+supported batches can be retained with a partial proposal; the harness never resumes
+a stopped attempt. Historical single-batch manifests/receipts remain readable.
 
 A failure ends that scenario's downstream inference. Continue to the next scenario
 only after cleanup and its fresh baseline gates. Configuration/corpus drift or

@@ -1,4 +1,5 @@
 "use server";
+import { PendingReviewConflict } from "@/features/documentation/review/run-eligibility";
 import { redirect } from "next/navigation";
 import { createDocumentationRun, getDocumentationRun } from "@/features/documentation/runs/run-operations";
 import { createFullScanRun, createBranchDocumentationRun } from "@/features/documentation/runs/prepare-run";
@@ -6,7 +7,7 @@ import { classifyRunFailure } from "@/features/documentation/runs/classify-run-f
 import { runFailureDescription } from "@/features/documentation/runs/run-failure";
 import { associationChoice } from "@/features/documentation/documents/document";
 import { z } from "zod";
-export async function startRun(_previous: { error?: string }, form: FormData): Promise<{ error?: string }> {
+export async function startRun(_previous: { error?: string }, form: FormData): Promise<{ error?: string; code?: "pending-review" }> {
   let id;
   let query = new URLSearchParams();
   try {
@@ -18,10 +19,10 @@ export async function startRun(_previous: { error?: string }, form: FormData): P
       associations: z.array(associationChoice).max(20).parse(typeof catalog === "string" && catalog.trim() ? JSON.parse(catalog) : []),
     });
     query = new URLSearchParams({ repository: `${form.get("owner")}/${form.get("repo")}`, ...(form.get("branch") ? { branch: String(form.get("branch")) } : {}) });
-  } catch { return { error: "Could not start the run. Check the comparison, optional context and paths, repository access, and PostgreSQL migrations." }; }
+  } catch (error) { if (error instanceof PendingReviewConflict) return { error: error.message, code: error.code }; return { error: "Could not start the run. Check the comparison, optional context and paths, repository access, and PostgreSQL migrations." }; }
   redirect(`/runs/${id}?${query}`);
 }
-export async function retryRun(_previous: { error?: string }, form: FormData): Promise<{ error?: string }> {
+export async function retryRun(_previous: { error?: string }, form: FormData): Promise<{ error?: string; code?: "pending-review" }> {
   let id;
   let query = new URLSearchParams();
   try {
@@ -29,16 +30,17 @@ export async function retryRun(_previous: { error?: string }, form: FormData): P
     if (!run || ["pending", "running"].includes(run.record.status)) throw new Error("Run is still active.");
     id = await createDocumentationRun(run.record.input);
     query = new URLSearchParams({ repository: `${run.record.input.owner}/${run.record.input.repo}`, ...(run.record.input.branch ? { branch: run.record.input.branch } : {}) });
-  } catch { return { error: "Could not create a new attempt. Check access and PostgreSQL, then retry." }; }
+  } catch (error) { if (error instanceof PendingReviewConflict) return { error: error.message, code: error.code }; return { error: "Could not create a new attempt. Check access and PostgreSQL, then retry." }; }
   redirect(`/runs/${id}?${query}`);
 }
 
-export async function startBranchRun(_previous: { error?: string }, form: FormData): Promise<{ error?: string }> {
+export async function startBranchRun(_previous: { error?: string }, form: FormData): Promise<{ error?: string; code?: "pending-review" }> {
   let result;
   try {
     result = await createBranchDocumentationRun({ repository: form.get("repository"), branch: form.get("branch"), runContext: form.get("runContext") || null });
     if (result.status === "blocked") return { error: result.message };
   } catch (error) {
+    if (error instanceof PendingReviewConflict) return { error: error.message, code: error.code };
     if (error instanceof z.ZodError) return { error: "Choose a valid branch and keep context within 300 characters." };
     const detail = runFailureDescription(classifyRunFailure("source-analysis", error).code);
     return { error: `${detail.message} ${detail.nextStep}` };
@@ -46,10 +48,10 @@ export async function startBranchRun(_previous: { error?: string }, form: FormDa
   redirect(`/runs/${result.id}?${new URLSearchParams({ repository: result.repository, ...(result.branch ? { branch: result.branch } : {}) })}`);
 }
 
-export async function startFullScan(_previous: { error?: string }, form: FormData): Promise<{ error?: string }> {
+export async function startFullScan(_previous: { error?: string }, form: FormData): Promise<{ error?: string; code?: "pending-review" }> {
   let result;
   try {
     result = await createFullScanRun({ repository: form.get("repository"), branch: form.get("branch"), route: form.get("route") || undefined, runContext: form.get("runContext") || null });
-  } catch { return { error: "Could not start a full scan. Check the branch, repository access and database, then try again." }; }
+  } catch (error) { if (error instanceof PendingReviewConflict) return { error: error.message, code: error.code }; return { error: "Could not start a full scan. Check the branch, repository access and database, then try again." }; }
   redirect(`/runs/${result.id}?${new URLSearchParams({ repository: result.repository, branch: result.branch })}`);
 }

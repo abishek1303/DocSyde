@@ -1,6 +1,6 @@
 import "server-only";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { getDatabase } from "./client";
+import { getDatabase, type DatabaseExecutor } from "./client";
 import { documentationDrafts as drafts, documentationPublicationHistory as history, documentationReviews as reviews } from "./schema";
 
 export async function selectLatestLibraryDraft(repository: string) {
@@ -41,9 +41,9 @@ export async function selectSavedLibraryVersions(repository: string, offset: num
     unpublished ? sql`NOT EXISTS (SELECT 1 FROM ${live} WHERE ${live.draftId} = ${drafts.id}) AND NOT EXISTS (SELECT 1 FROM ${history} WHERE ${history.draftId} = ${drafts.id})` : undefined,
   )).orderBy(desc(drafts.savedAt), desc(drafts.id)).limit(21).offset(offset);
 }
-export async function selectHubReviews(repository: string, offset: number, includeExpired = false) {
+export async function selectHubReviews(repository: string, offset: number, includeExpired = false, database: DatabaseExecutor = getDatabase()) {
   const { documentationPublications: live, documentationRuns: runs } = await import("./schema");
-  return getDatabase().select({ row: reviews, runId: runs.id, runTitle: sql<string | null>`${runs.payload}->>'title'` }).from(reviews)
+  return database.select({ row: reviews, runId: runs.id, runTitle: sql<string | null>`${runs.payload}->>'title'` }).from(reviews)
     .leftJoin(runs, and(eq(runs.repository, repository), sql`${runs.payload}->'retainedProposal'->>'proposalId' = ${reviews.id}::text`))
     .where(and(eq(reviews.repository, repository), sql`(
       (${reviews.review} IS NULL AND (${includeExpired} OR ${reviews.expiresAt} > now())) OR

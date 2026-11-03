@@ -1244,3 +1244,37 @@ and feature projection both omit finalized exclusions; no table or migration is
 added. Activity renders stages and outputs in one GSAP timeline, with inline runtime
 evidence, specific structured outcome explanations and direct Pending Changes/log
 links. Generating text alone does not establish review readiness.
+
+## Bounded batching and one unresolved review per project
+
+The one-generation-batch rejection belonged to the opt-in verification scope, not
+production partitioning. Both now use the same bounded dynamic partition: at most
+eight canonical decisions, 32 KiB per authoring/support request, 128 KiB aggregate
+authoring input, output-capacity estimates and existing 8192-token call ceilings.
+Equal-count partitions prefer less repeated document/section context. Support
+requests partition independently with at most sixteen verdict units per call.
+Each generation batch is composed (when configured) and support-checked before the
+next. Independent successful decisions survive later failures in the final retained
+proposal. Same-target overlaps and canonical assembly failures remain blocked.
+There is no durable per-batch resume or new store: process loss before retention
+still requires a new run. Progress checkpoints reuse existing stage summaries;
+partial acceptance and each unprepared decision are explicit in the run view.
+
+The existing AI operation-policy module owns configurable run admission ceilings:
+32 calls, 768 Ki tokens conservatively reserved (UTF-8 text bytes plus full output
+ceilings and a bounded vision allowance), 128 Ki input tokens per call, eight work
+items and forty minutes. Calls reserve capacity before dispatch. Production and
+verification share counters across nested operations; experiments retain frozen
+settings, single attempts, required logs and fail-fast behavior, while legitimate
+independent batch calls may repeat authoring/support/composition/vision operations.
+No mandatory environment variable, model setting, queue or worker is added.
+
+Repository identity is the current project scope. New-run UI, run creation and
+execution admission reuse Pending Changes' intrinsic readiness, finalized receipts,
+expiry, exact baselines and publication observations. Only actionable unresolved
+changes block that project. A PostgreSQL project advisory lock serializes retention
+with creation/admission and consolidated publish/discard; existing global active-run
+admission and row ownership remain intact. Discard requires explicit confirmation,
+adds exclusion receipts on the existing review JSON, preserves historical approvals,
+and never saves, deletes or publishes documents. Publish and discard invalidate
+New Run eligibility. Historical unavailable proposals remain readable.

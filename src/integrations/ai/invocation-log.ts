@@ -28,7 +28,10 @@ export async function logStructuredInvocation<T extends { model: string; metadat
 ): Promise<T & { invocationId?: string }> {
   const id = randomUUID(), context = options.invocation ?? { stage: "standalone", operation: options.provider === "meta" ? "runtime-vision" : "structured-generation" };
   const settings = options.settings ?? resolveInference(options.provider, context.operation);
-  await admitInference(options.provider, context.operation, settings, context.runId);
+  // UTF-8 bytes conservatively bound text tokens; vision additionally reserves image capacity.
+  const inputTokens = Buffer.byteLength(JSON.stringify([options.instructions ?? "", options.input ?? "", options.schema ?? ""])) + 1024
+    + (context.operation === "runtime-vision" ? 64 * 1024 : 0);
+  await admitInference(options.provider, context.operation, settings, context.runId, inputTokens);
   assertReliabilitySideEffect("invocation-persistence");
   const configured = options.settings?.model ?? configuredModel(options.provider);
   let inserted = false;

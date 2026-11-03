@@ -56,3 +56,15 @@ test("single-batch verification stop explains the limit without exposing interna
   // Diagnostic outcome codes remain behind the existing disclosure.
   assert.ok(!html.slice(0, html.indexOf("Run context and model usage")).includes("outside-single-batch-baseline-scope"));
 });
+
+test("batch progress and partial acceptance never imply all planned work passed checks", () => {
+  const run = fixture(); run.stages[6].status = "running";
+  run.stages[6] = { ...run.stages[6], batchProgress: { processed: 1, total: 5, active: 2, acceptedDecisions: 1 } };
+  assert.match(renderToStaticMarkup(<RunMonitor initial={run} />), /2 of 5 batches/);
+  run.status = "awaiting-review";
+  run.retainedProposal = { proposalId: "partial", proposalHash: "a".repeat(64), registeredAt: "2026-11-01T00:00:00Z", expiresAt: "2026-11-02T00:00:00Z" };
+  run.outputs = { models: [], transformation: { status: "partial", reviewReadyActions: 1, plannedActions: 3, coverageGaps: ["Update 2 was not fully prepared: the run resource budget was reached."] } };
+  const html = renderToStaticMarkup(<RunMonitor initial={run} />);
+  assert.match(html, /Some documentation updates are ready/); assert.match(html, /Only 1 of 3 updates passed/);
+  assert.match(html, /Coverage gaps/); assert.match(html, /resource budget was reached/);
+});

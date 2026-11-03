@@ -83,3 +83,13 @@ export function basetenInferenceFields(settings: ResolvedInference) {
     ...(settings.temperature !== undefined ? { temperature: settings.temperature } : {}),
     ...(settings.topP !== undefined ? { top_p: settings.topP } : {}) };
 }
+
+/** Shared admission ceilings; operators may pass smaller limits to verification scopes. */
+export const runInferencePolicy = Object.freeze({
+  maxCalls: 32,
+  maxTokens: 768 * 1024,
+  maxInputTokensPerCall: 128 * 1024,
+  maxElapsedMs: 40 * 60_000,
+  maxWorkItems: 8,
+});
+export type RunInferenceLimits = { [K in keyof typeof runInferencePolicy]: number };

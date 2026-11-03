@@ -11,6 +11,7 @@ export const runDisposition = z.enum(["awaiting-review", "no-change", "incomplet
 export const workflowStage = z.object({
   key: z.enum(WORKFLOW_STEPS), status: z.enum(["waiting", "running", "completed", "skipped", "incomplete", "failed", "cancelled"]),
   summary: z.string().max(2000), startedAt: z.iso.datetime().nullable(), finishedAt: z.iso.datetime().nullable(),
+  batchProgress: z.object({ processed: z.number().int().min(0).max(8), total: z.number().int().min(0).max(8), active: z.number().int().min(1).max(8).nullable(), acceptedDecisions: z.number().int().min(0).max(8) }).strict().refine(value => value.processed <= value.total && (value.active === null || (value.active <= value.total && value.active > value.processed))).optional(),
   model: z.string().max(300).optional(), elapsedMs: z.number().nonnegative().optional(),
 });
 export type WorkflowStage = z.infer<typeof workflowStage>;

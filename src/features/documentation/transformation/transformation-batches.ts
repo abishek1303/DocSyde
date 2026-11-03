@@ -14,11 +14,13 @@ export function transformationRequest(authorizations: TransformationAuthorizatio
   const input = JSON.stringify({ authorizations, documents, maxAuthoredBlocks: TRANSFORMATION_BATCH_BLOCKS, maxCharactersPerBlock: 800 });
   const bytes = 1024 + Buffer.byteLength(JSON.stringify({ instructions: `${transformationInstructions}\nReturn only JSON matching this schema: ${JSON.stringify(z.toJSONSchema(transformationEnvelopeSchema))}`, input, maxOutputTokens: TRANSFORMATION_OUTPUT_TOKENS }));
   const blocks = authorizations.reduce((count, auth) => count + (["add-document", "replace-document"].includes(auth.shape) ? 8 : 2), 0);
-  return { input, bytes, feasible: bytes <= TRANSFORMATION_REQUEST_BYTES && blocks <= TRANSFORMATION_BATCH_BLOCKS };
+  const estimatedOutputTokens = Math.ceil(blocks * 800 / 3) + authorizations.length * 300 + 512;
+  return { input, bytes, estimatedOutputTokens, feasible: bytes <= TRANSFORMATION_REQUEST_BYTES && blocks <= TRANSFORMATION_BATCH_BLOCKS && estimatedOutputTokens <= TRANSFORMATION_OUTPUT_TOKENS };
 }
 
 /** Exhaustive minimum partition of at most eight items. Lowest original index
- * starts each batch; lexicographic original-index lists break equal-count ties. */
+ * starts each batch; shared document/section context reduces byte cost.
+ * Minimize repeated context at equal batch count, then use stable index ties. */
 export function minimumTransformationBatches<T>(items: T[], cost: (batch: T[]) => number | null, aggregateLimit = TRANSFORMATION_AGGREGATE_BYTES) {
   if (items.length > 8) throw new Error("Too many transformation decisions.");
   const feasible = new Map<number, { items: T[]; indices: number[]; bytes: number }>();
@@ -33,6 +35,8 @@ export function minimumTransformationBatches<T>(items: T[], cost: (batch: T[]) =
   type Batch = { items: T[]; indices: number[]; bytes: number };
   const best: { value: Batch[] | null } = { value: null };
   const compare = (left: Batch[], right: Batch[]) => {
+    const cost = left.reduce((n, batch) => n + batch.bytes, 0) - right.reduce((n, batch) => n + batch.bytes, 0);
+    if (cost) return cost;
     for (let i = 0; i < left.length; i++) {
       const a = left[i].indices, b = right[i].indices;
       for (let j = 0; j < Math.min(a.length, b.length); j++) if (a[j] !== b[j]) return a[j] - b[j];

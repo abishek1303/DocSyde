@@ -130,7 +130,10 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
   }
   let proposal: Awaited<ReturnType<typeof transformDocumentation>>;
   await stage("documentation-transformation", async () => {
-    proposal = await transformDocumentation({ impact: record.impact!, plan, context: record.input.associations, terminology: record.contextSnapshot?.repositoryUnderstandingUsed?.summary.terminology }, { signal, invocation: invocation("documentation-transformation") });
+    proposal = await transformDocumentation({ impact: record.impact!, plan, context: record.input.associations, terminology: record.contextSnapshot?.repositoryUnderstandingUsed?.summary.terminology }, { signal, invocation: invocation("documentation-transformation"), onProgress: async progress => {
+      await checkpoint(r => ({ ...r, stages: r.stages.map(stage => stage.key === "documentation-transformation" ? { ...stage, batchProgress: progress,
+        summary: `Preparing documentation updates — ${progress.active ?? progress.processed} of ${progress.total} batches${progress.active ? "" : " processed"}. ${progress.acceptedDecisions} updates passed support checks.` } : stage) }));
+    } });
     await check();
     const { proposalId, status, batches, supportAttempted, supportModel } = proposal;
     const authored = proposal.results.flatMap(result => {

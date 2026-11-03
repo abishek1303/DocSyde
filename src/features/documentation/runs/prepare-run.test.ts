@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, type TestContext } from "node:test";
 import { draftFixture } from "../../../../infra/local/documentation/draft-fixture";
-import { Pool } from "pg";
+import { Pool, type QueryConfig } from "pg";
 import { stopRunCoordinator } from "./run-coordinator";
 import { closeDatabase } from "@/integrations/database/client";
 import { createBranchDocumentationRun, prepareDocumentationRun } from "./prepare-run";
+
+function mockTransactions(t: TestContext) {
+  t.mock.method(Pool.prototype, "connect", async function(this: Pool) {
+    return { query: (query: string | QueryConfig, params?: unknown[]) => /^(begin|commit|rollback)/i.test(typeof query === "string" ? query : query.text) ? Promise.resolve({ rows: [] }) : this.query(query, params), release() {} };
+  });
+}
 
 test("branch changes pin the preview to that branch without database writes or inference", async t => {
   const previous = { GITHUB_TOKEN: process.env.GITHUB_TOKEN, DATABASE_URL: process.env.DATABASE_URL, DOCSYDE_ANALYSIS_REPOSITORIES: process.env.DOCSYDE_ANALYSIS_REPOSITORIES };
@@ -75,10 +81,11 @@ test("simple submission pins the selected branch and saves context in a pending 
   });
   const baseline = draftFixture(); baseline.provenance.repository = "https://github.com/example/product";
   let inserted: unknown;
+  mockTransactions(t);
   t.mock.method(Pool.prototype, "query", async (query: { text: string }, params: unknown[]) => {
     if (query.text.includes('"documentation_drafts"')) return { rows: [[baseline.id, baseline, "2026-10-31T12:00:00.000Z"]] };
     if (query.text.startsWith("insert")) { assert.equal(params[2], "pending"); inserted = typeof params[3] === "string" ? JSON.parse(params[3]) : params[3]; }
-    else assert.ok(query.text.startsWith("select"));
+    else assert.ok(/^select/i.test(query.text));
     return { rows: [] };
   });
   const result = await createBranchDocumentationRun({ repository: "example/product", branch: "feature/requests", runContext: "Focus on creating requests." });
@@ -94,6 +101,7 @@ test("Latest Changes is blocked without existing documentation before source rea
   process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "example/empty";
   t.after(async () => { await closeDatabase(); for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
   t.mock.method(globalThis, "fetch", () => { throw new Error("No source or model calls allowed"); });
+  mockTransactions(t);
   t.mock.method(Pool.prototype, "query", async (query: { text: string }) => {
     assert.ok(query.text.startsWith("select"), "No run can be inserted");
     return { rows: [] };
@@ -117,10 +125,11 @@ test("Full Scan pins a current snapshot without a diff, prior documents, inferen
     return Response.json({ sha: head, html_url: `https://github.com/example/product/commit/${head}`, parents: [], commit: { message: "Initial commit", author: { name: "Test" }, committer: { date: "2026-11-01T00:00:00Z" } } });
   });
   let inserted: unknown;
+  mockTransactions(t);
   t.mock.method(Pool.prototype, "query", async (query: { text: string }, params: unknown[]) => {
-    assert.ok(!/documentation_(drafts|publications|reviews)/.test(query.text), "Published documents and proposals remain untouched during setup");
+    assert.ok(!/^(insert|update|delete).*documentation_(drafts|publications|reviews)/i.test(query.text), "Published documents and proposals remain untouched during setup");
     if (query.text.startsWith("insert")) inserted = typeof params[3] === "string" ? JSON.parse(params[3]) : params[3];
-    else assert.ok(query.text.startsWith("select"));
+    else assert.ok(/^select/i.test(query.text));
     return { rows: [] };
   });
   const result = await createFullScanRun({ repository: "example/product", branch: "main", runContext: "Explain onboarding", route: "/onboarding" });
