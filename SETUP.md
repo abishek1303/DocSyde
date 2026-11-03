@@ -58,6 +58,13 @@ The branch may now contain newer changes. Select the intended commits rather tha
 
 Choose **New run → project → Full scan** to generate initial documentation or regenerate existing documentation without a new commit or diff. Select a branch and optional product context. For an initial document, supply its product route so a publication destination can be proposed. The scan pins one current SHA, samples up to 16 files (2000 characters per file) across discovered repository areas, and prepares at most four source findings. Unsampled files and remaining file contents are explicit coverage gaps; this is not exhaustive repository analysis.
 
+Full Scan plans against current published snapshots, excluding unpublished and archived
+snapshots. With no published documentation, source-supported additions use the existing
+canonical document proposal flow. Supply an explicit product route for initial publication;
+an occupied route or an unselected/missing route association remains blocked. Support-checked
+work is retained for audit, but only publishable changes appear in Pending Changes and enable
+the run’s Review changes action. Nothing is published until you explicitly publish the batch.
+
 Full Scan reuses saved repository understanding as advisory context, then the existing runtime, planning, transformation, support checking and proposal-retention pipeline. **View or refresh reusable product understanding** opens the existing lightweight onboarding flow separately; reopening its artifact does not invoke inference. Provider credentials are needed to execute new generation, not to render setup.
 
 A fresh database correctly disables **Latest Changes** until an eligible canonical document has been saved. Unsaved generated proposals do not qualify. Published documents and valid saved documents are eligible for candidate selection; MCP only exposes published documents.

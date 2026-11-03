@@ -93,3 +93,14 @@ test("run layout keeps collapsible stage output with real duration and secondary
   assert.match(html, /Source evidence and product analysis/);
   assert.ok(!html.includes("Proposal ready"));
 });
+
+
+test("zero publishable updates explain the missing destination without a review CTA", () => {
+  const run = fixture(); run.status = "incomplete"; run.reason = "proposal-no-publishable-updates";
+  run.outputs = { supportRejected: true, models: [], transformation: { status: "partial", reviewReadyActions: 0, coverageGaps: ["decision-1: This change has no approved publication destination."] } };
+  run.retainedProposal = { proposalId: "retained-audit-only", proposalHash: "a".repeat(64), registeredAt: "2026-11-01T00:00:00Z", expiresAt: "2026-11-02T00:00:00Z" };
+  const html = renderToStaticMarkup(<RunMonitor initial={run} />);
+  assert.match(html, /No publishable documentation updates are available/);
+  assert.match(html, /valid publication destination/);
+  assert.ok(!html.includes(">Review changes<"));
+});

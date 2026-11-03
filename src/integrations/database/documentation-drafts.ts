@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, lt, or, sql } from "drizzle-orm";
 import { getDatabase, type DatabaseExecutor } from "./client";
-import { documentationDrafts } from "./schema";
+import { documentationDrafts, documentationPublications } from "./schema";
 
 export async function insertDocumentationDraft(id: string, document: unknown, database: DatabaseExecutor = getDatabase()) {
   const [inserted] = await database.insert(documentationDrafts).values({ id, document })
@@ -24,24 +24,26 @@ export async function findDocumentationDraft(id: string, repository?: string, da
   return row ?? null;
 }
 
-export async function selectDocumentationDrafts(limit: number, before?: { savedAt: Date; id: string }, repository?: string) {
-  return getDatabase().select().from(documentationDrafts).where(and(repository ? sql`lower(${documentationDrafts.document}->'provenance'->>'repository') = ${repository.toLowerCase()}` : undefined, before ? or(
+export async function selectDocumentationDrafts(limit: number, before?: { savedAt: Date; id: string }, repository?: string, publishedOnly = false) {
+  return getDatabase().select().from(documentationDrafts).where(and(publishedOnly ? sql`EXISTS (SELECT 1 FROM ${documentationPublications} p WHERE p.draft_id = ${documentationDrafts.id} AND p.repository = ${repository?.toLowerCase()})` : undefined,repository ? sql`lower(${documentationDrafts.document}->'provenance'->>'repository') = ${repository.toLowerCase()}` : undefined, before ? or(
     lt(documentationDrafts.savedAt, before.savedAt),
     and(eq(documentationDrafts.savedAt, before.savedAt), lt(documentationDrafts.id, before.id)),
   ) : undefined)).orderBy(desc(documentationDrafts.savedAt), desc(documentationDrafts.id)).limit(limit);
 }
 
 /** Derived search projection over immutable snapshots. Publication/current state is
- * deliberately not part of snapshot identity or relevance. Only bounded hit IDs leave SQL. */
+ * does not change snapshot identity or relevance. Full Scan can restrict the corpus
+ * to current publications before applying bounds. Only bounded hit IDs leave SQL. */
 export async function searchDocumentationSections(repository: string, query: {
   tokens: string[]; associations: { kind: string; value: string }[];
-}, limit: number): Promise<unknown[]> {
+}, limit: number, publishedOnly = false): Promise<unknown[]> {
   const result = await getDatabase().execute(sql`
     WITH input AS (SELECT ${JSON.stringify(query)}::jsonb AS q), sections AS (
       SELECT d.id, d.document, s.section, input.q
       FROM ${documentationDrafts} d CROSS JOIN input
       CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(d.document->'sections') = 'array' THEN d.document->'sections' ELSE '[]'::jsonb END) AS s(section)
       WHERE lower(d.document->'provenance'->>'repository') = ${repository.toLowerCase()}
+      ${publishedOnly ? sql`AND EXISTS (SELECT 1 FROM ${documentationPublications} p WHERE p.draft_id = d.id AND p.repository = ${repository.toLowerCase()})` : sql``}
     ), signals AS (
       SELECT id, section->>'id' AS section_id,
         ARRAY(SELECT t.value FROM jsonb_array_elements_text(q->'tokens') t(value)

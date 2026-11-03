@@ -16,8 +16,8 @@ export async function insertDocumentationReview(value: typeof documentationRevie
     return existing ?? null;
   });
 }
-export async function findDocumentationReview(id: string) {
-  const [row] = await getDatabase().select().from(documentationReviews).where(eq(documentationReviews.id, id));
+export async function findDocumentationReview(id: string, database: DatabaseExecutor = getDatabase()) {
+  const [row] = await database.select().from(documentationReviews).where(eq(documentationReviews.id, id));
   return row ?? null;
 }
 
@@ -71,7 +71,7 @@ export type ReviewTransaction = {
 
 export type RetentionRunLink = {
   id: string; token: string;
-  complete(payload: unknown, row: RetainedReviewRow): unknown;
+  complete(payload: unknown, row: RetainedReviewRow, database: DatabaseExecutor): unknown | Promise<unknown>;
 };
 /** Authority insertion and the run reference share one commit. No document/publication writes. */
 export async function insertDocumentationReviewForRun(value: typeof documentationReviews.$inferInsert, link: RetentionRunLink) {
@@ -83,7 +83,7 @@ export async function insertDocumentationReviewForRun(value: typeof documentatio
     const [inserted] = await tx.insert(documentationReviews).values(value).onConflictDoNothing().returning();
     const row = inserted ?? (await tx.select().from(documentationReviews).where(eq(documentationReviews.id, value.id)))[0];
     if (!row || row.repository !== value.repository || row.proposalHash !== value.proposalHash) throw new Error("Proposal identity conflict.");
-    const payload = link.complete(run.payload, row);
+    const payload = await link.complete(run.payload, row, tx);
     // SQL guard supplements feature validation and serializes against cancellation.
     const updated = await tx.update(documentationRuns).set({ status: "finished", payload, updatedAt: new Date() }).where(and(
       eq(documentationRuns.id, link.id), eq(documentationRuns.status, "running"),

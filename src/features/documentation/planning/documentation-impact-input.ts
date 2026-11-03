@@ -8,10 +8,10 @@ import { getDocumentationDraft, listDocumentationDrafts } from "../documents/ope
 // Project bindings, URL aliases or logical document/version identities.
 export function sameImpactRepository(left: string, right: string) { return left.toLowerCase() === right.toLowerCase(); }
 
-export async function documentationImpactCandidates(repository: string, signal?: AbortSignal) {
+export async function documentationImpactCandidates(repository: string, signal?: AbortSignal, publishedOnly = false) {
   z.url().parse(repository);
   signal?.throwIfAborted();
-  const listed = await listDocumentationDrafts({ repository, limit: 10 });
+  const listed = await listDocumentationDrafts({ repository, limit: 10, publishedOnly });
   signal?.throwIfAborted();
   if (listed.nextCursor || listed.entries.length > 10) throw new Error("Documentation impact candidates are incomplete.");
   if (new Set(listed.entries.map(entry => entry.id)).size !== listed.entries.length) throw new Error("Duplicate documentation candidate.");

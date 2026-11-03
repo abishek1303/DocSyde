@@ -72,7 +72,7 @@ test("consolidated pending publication preserves grounding, atomicity and curren
  assert.equal((await getDatabase().select().from(documentationPublicationHistory).where(eq(documentationPublicationHistory.repository,location))).length,1);
  // A proposal retained against the old immutable snapshot cannot overwrite the new live state.
  const stale=reviewProposalFixture(baseline,false); await retainDocumentationProposal(stale);
- const staleView=await getPendingWorkspace({repository}); assert.equal(staleView.count,0);assert.match(staleView.groups[0].changes[0].unavailable!,/changed|publication destination/);
+ const staleView=await getPendingWorkspace({repository}); assert.equal(staleView.count,0);assert.equal(staleView.groups.length,0);assert.equal((await getDocumentationReview(stale.proposalId)).status,"found");
  assert.equal((await publishPendingWorkspace({repository,expectedHash:staleView.hash})).status,"blocked");
  const trackedBase=draftFixture();trackedBase.provenance.repository=location;trackedBase.context.find(choice=>choice.kind==="route")!.value="/stale";
  await saveDocumentationDraft(trackedBase);const trackedLive=await publishDocumentation({owner,repo:"product",route:"/stale",draftId:trackedBase.id});
@@ -114,7 +114,7 @@ test("consolidated pending publication preserves grounding, atomicity and curren
  assert.equal((await getPublication({owner,repo:"product",route:"/excluded-unit"}))!.draftId,excludedBase.id,"excluded destination remains unchanged");
  const future=reviewProposalFixture(includeBase,false);await retainDocumentationProposal(future);
  const futureReview=await getDocumentationReview(future.proposalId);if(futureReview.status==="found")assert.equal(futureReview.review,null,"future proposals retain independent review authority");
- assert.ok((await getPendingWorkspace({repository})).groups.some(group=>group.changes.some(change=>change.proposalId===future.proposalId)));
+ assert.ok(!(await getPendingWorkspace({repository})).groups.some(group=>group.changes.some(change=>change.proposalId===future.proposalId)),"retained future work with a stale baseline is audit-only");
  const expired=reviewProposalFixture(baseline,false); await retainDocumentationProposal(expired,{lifetimeMs:1});await new Promise(resolve=>setTimeout(resolve,5));
- const expiredView=await getPendingWorkspace({repository});assert.ok(expiredView.groups.flatMap(group=>group.changes).some(change=>change.unavailable?.includes("expired")));
+ const expiredView=await getPendingWorkspace({repository});assert.ok(!expiredView.groups.flatMap(group=>group.changes).some(change=>change.proposalId===expired.proposalId));assert.equal((await getDocumentationReview(expired.proposalId)).status,"found");
 });

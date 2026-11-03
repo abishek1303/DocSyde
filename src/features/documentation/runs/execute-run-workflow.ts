@@ -6,11 +6,12 @@ import { readInspectionContext, analyzeProductChanges, captureGenerationContext,
 import { captureWorkflowWithRuntime } from "@/runner/runtime/capture-workflow";
 import { documentationHash } from "../documents/document-identity";
 import { loadRunRuntimeConfig } from "./run-runtime-config";
-import { writeRunCheckpoint, finishRun, RunOwnershipLost } from "./run-checkpoints";
+import { writeRunCheckpoint, finishRun, finishRetainedRun, RunOwnershipLost } from "./run-checkpoints";
 import { runRecordV2, type RunRecordV2 } from "./run-record";
 import { changeWorkflowStage, type WorkflowStage } from "./run-workflow-state";
 import { planDocumentationImpact } from "../planning/plan-documentation-impact";
 import { transformDocumentation } from "../transformation/transform-documentation";
+import { getProposalPendingReadiness } from "../review/pending-workspace";
 import { retainDocumentationProposal } from "../review/review-proposal-operations";
 
 import { modelFailureCode } from "./classify-run-failure";
@@ -131,7 +132,7 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
   });
   if (!record!.impact!.claims.length) { await finish("incomplete", "impact-has-no-usable-claims"); return; }
   await stage("documentation-planning", async () => {
-    const result = await planDocumentationImpact({ impact: record.impact!, context: record.input.associations }, { signal, invocation: invocation("documentation-planning") });
+    const result = await planDocumentationImpact({ impact: record.impact!, context: record.input.associations, publishedOnly: record.input.mode === "current-state" }, { signal, invocation: invocation("documentation-planning") });
     return { plan: result.plan, models: [...record.models, ...model("documentation-planning", result)] };
   });
   const plan = record!.plan!;
@@ -165,13 +166,13 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
   await checkpoint(r => ({ ...r, activeStage: "proposal-retention", stages: changeWorkflowStage(r.stages, "proposal-retention", "running", "Retaining trusted proposal.") }));
   await check();
   const expectedHash = documentationHash(proposal!);
-  await retainDocumentationProposal(proposal!, { runLink: { id, token, complete(payload, retained) {
+  await retainDocumentationProposal(proposal!, { runLink: { id, token, async complete(payload, retained, database) {
     signal.throwIfAborted();
     const current = runRecordV2.parse(payload);
     if (current.status !== "running" || current.execution?.token !== token) throw new RunOwnershipLost();
     if (current.execution.cancelRequestedAt) throw new Error("Run cancelled before retention.");
     if (current.transformation?.sha256 !== expectedHash || retained.proposalHash !== expectedHash || retained.id !== proposal!.proposalId) throw new Error("Retention identity mismatch.");
-    return finishRun({ ...current, stages: changeWorkflowStage(current.stages, "proposal-retention", "completed", "Authoritative proposal retained."),
-      retainedProposal: { proposalId: retained.id, proposalHash: retained.proposalHash, registeredAt: retained.registeredAt.toISOString(), expiresAt: retained.expiresAt.toISOString() } }, "awaiting-review", "proposal-retained-awaiting-human-review");
+    const readiness = await getProposalPendingReadiness(`${current.input.owner}/${current.input.repo}`, retained.id, database);
+    return finishRetainedRun(current, { proposalId: retained.id, proposalHash: retained.proposalHash, registeredAt: retained.registeredAt.toISOString(), expiresAt: retained.expiresAt.toISOString() }, readiness);
   } } });
 }

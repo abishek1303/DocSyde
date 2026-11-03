@@ -95,7 +95,8 @@ test("project review lifecycle gates both modes and atomic admission; publish/di
   const expired = reviewProposalFixture(validateDocumentationDocument(current.document), false); await retainDocumentationProposal(expired, { lifetimeMs: 1 });
   await new Promise(resolve => setTimeout(resolve, 5));
   assert.equal(await hasActionablePendingChanges(repository), false, "expired, published and excluded records do not block");
-  assert.ok((await getPendingWorkspace({ repository })).groups.length, "historical/unavailable proposals remain readable");
+  assert.equal((await getPendingWorkspace({ repository })).groups.length, 0, "only actionable proposals appear in Pending Changes");
+  assert.equal((await getDocumentationReview(expired.proposalId)).status, "found", "historical evidence remains readable in its retained review");
   const claim = (row: NonNullable<Awaited<ReturnType<typeof findDocumentationRun>>>) => {
     const record = runRecordV2.parse(row.payload), now = new Date().toISOString();
     return { status: "running", payload: runRecordV2.parse({ ...record, status: "running", startedAt: now, execution: { token: randomUUID(), heartbeatAt: now, cancelRequestedAt: null } }) };

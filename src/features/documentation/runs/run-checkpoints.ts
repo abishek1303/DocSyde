@@ -19,6 +19,13 @@ export function finishRun(record: RunRecordV2, disposition: RunDisposition, reas
       : s.status === "waiting" ? { ...s, status: "skipped", summary: failure ? "Not run because an earlier stage stopped." : `Not executed: ${reason}`, finishedAt: now } : s),
   });
 }
+/** Completion requires publication eligibility, not generation/support success alone. */
+export function finishRetainedRun(record: RunRecordV2, retainedProposal: NonNullable<RunRecordV2["retainedProposal"]>, reviewReadiness: NonNullable<RunRecordV2["reviewReadiness"]>) {
+  const ready = reviewReadiness.actionableDecisionIds.length > 0;
+  return finishRun({ ...record, reviewReadiness, retainedProposal,
+    stages: record.stages.map(stage => stage.key === "proposal-retention" ? { ...stage, status: ready ? "completed" : "incomplete", summary: ready ? "Publishable proposal retained for review." : "Validated work retained, but no update is publishable.", finishedAt: new Date().toISOString() } : stage),
+  }, ready ? "awaiting-review" : "incomplete", ready ? "proposal-retained-awaiting-human-review" : "proposal-no-publishable-updates");
+}
 export async function writeRunCheckpoint(id: string, token: string, change: (record: RunRecordV2) => RunRecordV2, allowCancellation = false) {
   const result = await mutateDocumentationRun(id, row => {
     const record = ownedRun(row, token);

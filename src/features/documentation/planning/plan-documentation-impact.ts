@@ -24,12 +24,12 @@ const maxOutputTokens = 4096;
 /** Trusted server-only input: pass result.impact directly from synthesizeProductImpact().
  * Shape/graph checks cannot prove source excerpts or semantic truth. No mutations. */
 export async function planDocumentationImpact(
-  { impact: raw, context = [] }: { impact: ProductImpact; context?: AssociationChoice[] }, options: { invocation?: InvocationContext; signal?: AbortSignal } = {},
+  { impact: raw, context = [], publishedOnly = false }: { impact: ProductImpact; context?: AssociationChoice[]; publishedOnly?: boolean }, options: { invocation?: InvocationContext; signal?: AbortSignal } = {},
 ) {
   options.signal?.throwIfAborted();
   const impact = validateProductImpact(raw);
   if (!impact.claims.length) throw new Error("Documentation impact requires at least one ProductImpact claim.");
-  const { documents, selection } = await selectDocumentationCandidates(impact, { signal: options.signal, context });
+  const { documents, selection } = await selectDocumentationCandidates(impact, { signal: options.signal, context, publishedOnly });
   if (selection.coverage === "incomplete") throw new CandidateSelectionIncompleteError(selection);
   const catalog = documentationImpactClaims(impact);
   const projected = projectDocumentationImpact(impact, catalog);

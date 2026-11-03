@@ -12,7 +12,7 @@ type DraftEntry = { id: string; savedAt: Date } & (
   { status: "unavailable" }
 );
 const cursorSchema = z.object({ savedAt: z.string().datetime(), id: z.uuid() }).strict();
-const listInput = z.object({ limit: z.number().int().min(1).max(50).default(20), before: cursorSchema.optional(), repository: z.string().url().optional() }).strict();
+const listInput = z.object({ publishedOnly: z.boolean().default(false), limit: z.number().int().min(1).max(50).default(20), before: cursorSchema.optional(), repository: z.string().url().optional() }).strict().refine(input => !input.publishedOnly || !!input.repository, "Published candidate scope requires a repository.");
 
 function readDocument(row: { id: string; document: unknown }): DocumentationDocument {
   const document = validateDocumentationDocument(row.document);
@@ -41,8 +41,8 @@ export async function getDocumentationDraft(rawId: unknown, repository?: string)
 }
 
 export async function listDocumentationDrafts(raw: unknown = {}): Promise<{ entries: DraftEntry[]; nextCursor: Cursor | null }> {
-  const { limit, before, repository } = listInput.parse(raw);
-  const rows = await selectDocumentationDrafts(limit + 1, before && { ...before, savedAt: new Date(before.savedAt) }, repository);
+  const { limit, before, repository, publishedOnly } = listInput.parse(raw);
+  const rows = await selectDocumentationDrafts(limit + 1, before && { ...before, savedAt: new Date(before.savedAt) }, repository, publishedOnly);
   const page = rows.slice(0, limit);
   const entries: DraftEntry[] = page.map(row => {
     const metadata = { id: row.id, savedAt: row.savedAt };

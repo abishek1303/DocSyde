@@ -4,7 +4,7 @@ import { getDatabase, type DatabaseExecutor } from "@/integrations/database/clie
 import { randomUUID } from "node:crypto";
 import { assertReliabilitySideEffect } from "@/integrations/reliability/execution-context";
 import { selectHubReviews } from "@/integrations/database/documentation-library";
-import { documentationReviewBatchTransaction, type ReviewTransaction } from "@/integrations/database/documentation-reviews";
+import { documentationReviewBatchTransaction, findDocumentationReview, type ReviewTransaction } from "@/integrations/database/documentation-reviews";
 import { findDocumentationDraft } from "@/integrations/database/documentation-drafts";
 import { findPublication } from "@/integrations/database/documentation-publications";
 import { repositoryLocation } from "@/integrations/github/repository-identity";
@@ -33,10 +33,14 @@ const keyFor = (state: State, decisionId: string) => `${state.proposal.proposalI
 function ready(state: State, result: Entry["result"]) { try { return intrinsicReviewReady(state.proposal, result); } catch { return false; } }
 const included = (entry: Entry) => !entry.unavailable && !entry.excluded;
 
-async function prepare(raw: unknown, database: DatabaseExecutor = getDatabase(), eligibilityOnly = false) {
+async function prepare(raw: unknown, database: DatabaseExecutor = getDatabase(), eligibilityOnly = false, proposalId?: string) {
   const input = pendingInput.parse(raw), selected = selectedRepository({ repository: input.repository }), repository = repositoryLocation(selected);
   const rows = new Map<string, Awaited<ReturnType<typeof selectHubReviews>>[number]["row"]>();
-  for (let offset = 0; ; offset += 20) {
+  if (proposalId) {
+    const row = await findDocumentationReview(z.uuid().parse(proposalId), database);
+    if (!row || row.repository !== repository) throw new Error("Retained proposal unavailable for this project.");
+    rows.set(row.id, row);
+  } else for (let offset = 0; ; offset += 20) {
     const page = await selectHubReviews(repository, offset, !eligibilityOnly, database);
     for (const { row } of page.slice(0, 20)) rows.set(row.id, row);
     if (rows.size > 200) throw new Error("Too many pending proposals for one workspace.");
@@ -73,7 +77,6 @@ async function prepare(raw: unknown, database: DatabaseExecutor = getDatabase(),
     group.entries.push({ state, result, key: keyFor(state, result.decisionId), unavailable, excluded: excluded.has(keyFor(state, result.decisionId)), issue: null });
     groups.set(key, group);
   }
-  if (eligibilityOnly) return { input, repository, states, groups: [...groups.values()], hash: documentationHash(states.map(state => [state.proposalHash, state.review])) };
   const known = new Set([...groups.values()].flatMap(group => group.entries.map(entry => entry.key)));
   if (input.excluded.some(key => !known.has(key))) throw new Error("changed");
   const routeOwners = new Map<string, Group>();
@@ -103,6 +106,12 @@ async function prepare(raw: unknown, database: DatabaseExecutor = getDatabase(),
       });
       try { group.document = materializePendingEdits(edits, group.baseline, { suggestions, removedImages: input.removedImages }); }
       catch { group.issue = "These updates cannot be combined within the document contract. Exclude a conflicting change or run a new analysis."; }
+      if (group.document) {
+        const document = group.document, used = new Set([...document.associations, ...document.sections.flatMap(section => section.associations)]);
+        for (const entry of selected) for (const target of entry.state.targets.filter(target => target.unitId === (entry.result.decision.documentId ?? entry.result.decisionId) && !target.observedId)) {
+          if (!document.context.some(choice => choice.kind === "route" && choice.value === target.route && target.associationIds.includes(choice.id) && used.has(choice.id))) entry.unavailable = "The supported document does not select its approved product route association. Review its destination before publication.";
+        }
+      }
     }
   }
   const imageIds = new Set([...suggestions.values()].flatMap(items => items.map(item => item.image.id)).concat([...groups.values()].flatMap(group => group.baseline?.sections.flatMap(section => (section.images ?? []).map(image => image.id)) ?? [])));
@@ -113,10 +122,10 @@ async function prepare(raw: unknown, database: DatabaseExecutor = getDatabase(),
 function presentation(data: Awaited<ReturnType<typeof prepare>>): PendingWorkspace {
   return { repository: data.input.repository, hash: data.hash, count: data.groups.flatMap(group => group.entries).filter(included).length,
     blocked: data.groups.some(group => group.issue && group.entries.some(included)),
-    groups: data.groups.map(group => ({ key: group.key, title: group.document?.title ?? group.baseline?.title ?? group.entries[0].state.proposal.candidates[0]?.document.title ?? "Documentation",
+    groups: data.groups.filter(group => group.entries.some(entry => !entry.unavailable)).map(group => ({ key: group.key, title: group.document?.title ?? group.baseline?.title ?? group.entries[0].state.proposal.candidates[0]?.document.title ?? "Documentation",
       document: group.document, images: group.imageChoices, imageSources: Object.fromEntries(group.imageChoices.map(choice => [choice.image.id, choice.url])), issue: group.issue,
       highlighted: group.document?.sections.filter(section => documentationHash(section) !== documentationHash(group.baseline?.sections.find(old => old.id === section.id) ?? null)).map(section => section.id) ?? [],
-      changes: group.entries.map(entry => ({ key: entry.key, label: group.baseline?.sections.find(section => section.id === entry.result.decision.sectionId)?.title ?? (entry.result.change && "section" in entry.result.change ? entry.result.change.section.title : "Document update"),
+      changes: group.entries.filter(entry => !entry.unavailable).map(entry => ({ key: entry.key, label: group.baseline?.sections.find(section => section.id === entry.result.decision.sectionId)?.title ?? (entry.result.change && "section" in entry.result.change ? entry.result.change.section.title : "Document update"),
         reason: entry.result.decision.updateIntent || entry.result.decision.reason, unavailable: entry.unavailable, excluded: entry.excluded, issue: entry.issue, proposalId: entry.state.proposal.proposalId })) })) };
 }
 export async function getPendingWorkspace(raw: unknown) { return presentation(await prepare(raw)); }
@@ -201,6 +210,14 @@ export async function publishPendingWorkspace(raw: unknown): Promise<PendingPubl
     // A transaction can commit even if its acknowledgement is lost. Never claim a partial success or retry blindly.
     return { status: error instanceof Error && error.message === "changed" ? "changed" : "unavailable", message: "Publication could not be confirmed. Reload Latest Docs and Pending Changes before trying again." };
   }
+}
+
+/** Run completion uses exactly the pending workspace's destination, baseline and assembly checks. */
+export async function getProposalPendingReadiness(repository: string, proposalId: string, database?: DatabaseExecutor) {
+  const data = await prepare({ repository }, database, true, proposalId);
+  const actionableDecisionIds = data.groups.flatMap(group => group.issue ? [] : group.entries.filter(included).map(entry => entry.result.decisionId));
+  const coverageGaps = data.groups.flatMap(group => group.entries.filter(entry => entry.unavailable || group.issue).map(entry => `${entry.result.decisionId}: ${entry.unavailable ?? group.issue}`));
+  return { actionableDecisionIds, coverageGaps };
 }
 
 /** Same intrinsic readiness, receipts, expiry, frozen baseline and destination checks as Pending Changes. */

@@ -88,7 +88,7 @@ test("exact document/section targets preserve immutable IDs and upstream qualifi
     const result = await p.planDocumentationImpact({ impact: input });
     assert.deepEqual(result.plan.decisions, expected.decisions); assert.equal(p.fetch.mock.callCount(), 1);
     assert.equal(JSON.stringify(p.rows), original); assert.equal(typeof result.model, "string"); assert.equal(typeof result.elapsedMs, "number");
-    assert.deepEqual(p.list.mock.calls[0].arguments, [11, undefined, repository]);
+    assert.deepEqual(p.list.mock.calls[0].arguments, [11, undefined, repository, false]);
     assert.deepEqual(p.get.mock.calls[0].arguments, [document.id, repository]);
     assert.deepEqual(result.plan.claimCatalog, [{ id: "claim-1", claimIndex: 0, claim: input.claims[0] }]);
     assert.deepEqual(result.plan.qualifications.uncertainties, input.uncertainties);

@@ -50,6 +50,7 @@ export const runRecordV2 = z.object({
   transformation: z.object({ responsePreview: z.string().max(241).optional(), proposalId: z.uuid(), sha256: z.string().regex(/^[a-f0-9]{64}$/), status: z.enum(["complete", "partial", "failed"]),
     results: z.array(decisionSummary).max(8), batches: z.array(batchSummary).max(8), supportAttempted: z.boolean(), supportModel: modelTiming.nullable(),
   }).strict().optional(),
+  reviewReadiness: z.object({ actionableDecisionIds: z.array(z.string().max(100)).max(8), coverageGaps: z.array(z.string().max(500)).max(8) }).strict().optional(),
   retainedProposal: z.object({ proposalId: z.uuid(), proposalHash: z.string().regex(/^[a-f0-9]{64}$/), registeredAt: z.iso.datetime(), expiresAt: z.iso.datetime() }).strict().optional(),
   models: z.array(z.object({ stage: z.enum(WORKFLOW_STEPS), model: z.string().max(300), elapsedMs: z.number().nonnegative() }).strict()).max(32).default([]),
   warnings: z.array(z.string().max(2000)).max(100).default([]),
@@ -67,7 +68,8 @@ export const runRecordV2 = z.object({
   } catch { ctx.addIssue({ code: "custom", message: "Run evidence identity or graph mismatch" }); }
   if (r.stages.some((s, i) => s.key !== WORKFLOW_STEPS[i]) || (r.status === "finished") !== (r.disposition !== null && r.finishedAt !== null)
     || (r.status === "running" && !r.execution) || (r.disposition === "awaiting-review" && !r.retainedProposal)
-    || (r.retainedProposal && r.disposition !== "awaiting-review")) ctx.addIssue({ code: "custom", message: "Inconsistent run state" });
+    || (r.retainedProposal && !["awaiting-review", "incomplete", "no-change"].includes(r.disposition ?? ""))
+    || (r.disposition === "awaiting-review" && r.reviewReadiness?.actionableDecisionIds.length === 0)) ctx.addIssue({ code: "custom", message: "Inconsistent run state" });
 });
 export const runRecord = z.union([runRecordV2, z.preprocess(value => value && typeof value === "object" && "schemaVersion" in value ? null : value, legacyRunRecord)]);
 export type RunRecordV2 = z.infer<typeof runRecordV2>;

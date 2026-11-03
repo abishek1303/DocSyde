@@ -14,13 +14,13 @@ export class CandidateSelectionIncompleteError extends Error {
 
 const hitSchema = z.object({ documentId: z.uuid(), sectionId: z.uuid() }).strict();
 export async function selectDocumentationCandidates(impact: ProductImpact, {
-  signal, context = [],
-}: { signal?: AbortSignal; context?: z.infer<typeof associationChoice>[] } = {}) {
+  signal, context = [], publishedOnly = false,
+}: { signal?: AbortSignal; context?: z.infer<typeof associationChoice>[]; publishedOnly?: boolean } = {}) {
   signal?.throwIfAborted();
   const explicit = z.array(associationChoice).max(20).parse(context);
   if (explicit.some(a => a.origin !== "operator" || a.findingRef)) throw new Error("Candidate query context must be explicit operator associations.");
   const query = candidateQuery(impact, explicit), repository = impact.provenance.source.repository;
-  const hits = z.array(hitSchema).max(CANDIDATE_SECTION_LIMIT + 1).parse(query.tokens.length || query.associations.length ? await searchDocumentationSections(repository, query, CANDIDATE_SECTION_LIMIT + 1) : []);
+  const hits = z.array(hitSchema).max(CANDIDATE_SECTION_LIMIT + 1).parse(query.tokens.length || query.associations.length ? await searchDocumentationSections(repository, query, CANDIDATE_SECTION_LIMIT + 1, publishedOnly) : []);
   signal?.throwIfAborted();
   if (new Set(hits.map(h => `${h.documentId}:${h.sectionId}`)).size !== hits.length) throw new Error("Duplicate section search hit.");
   const ids = [...new Set(hits.map(h => h.documentId))].sort();
@@ -29,7 +29,7 @@ export async function selectDocumentationCandidates(impact: ProductImpact, {
   }
   if (!hits.length) {
     // Preserve broad loading's complete-list, corruption, repository and byte checks.
-    const documents = await documentationImpactCandidates(repository, signal);
+    const documents = await documentationImpactCandidates(repository, signal, publishedOnly);
     return { selection: candidateSelectionSchema.parse({ selectedDocumentIds: documents.map(d => d.id), matches: [], coverage: "complete", broadFallbackUsed: true, reason: "no-useful-matches" }), documents };
   }
   const loaded: DocumentationDocument[] = [];
