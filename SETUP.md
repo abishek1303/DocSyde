@@ -71,6 +71,13 @@ A fresh database correctly disables **Latest Changes** until an eligible canonic
 
 Each project follows **Analyze → Review changes → Publish or Discard → Analyze again**. Actionable pending changes disable both Full Scan and Latest Changes, with a direct **Review pending changes** link. Server-side creation and execution recheck this rule. **Discard pending changes** requires confirmation, records exclusions and leaves live documentation unchanged. Published, rejected, excluded, expired and unavailable proposals do not block another run; other projects are independent.
 
+When a pending batch needs replacing, **Start fresh Full Scan** offers a secondary
+confirmed recovery path. It discards only the displayed project batch using the existing
+hash-checked, project-locked exclusion receipts, then opens Full Scan setup. Published
+docs and archives are preserved. Choose the branch/context and submit **Generate
+documentation** there to pin the current revision. Setup does not reserve a run: if another
+batch appears meanwhile, the normal admission checks block it until resolved.
+
 Full Scan only creates reviewable proposals: it never deletes or replaces published documentation automatically. Accepted output exposes **Review changes** directly in Pending Changes and highlights its document groups. Unsupported output explains the stopped stage and recovery action; technical details and **AI activity / Logs** retain diagnostics. The legacy standalone draft flow remains available at `/sources/analysis`; see the [documentation guide](src/features/documentation/README.md).
 
 Then choose **Latest Changes**, select the comparison, and optionally add change context. Successful proposals lead to **Documents → Pending Changes**. Read the combined rendered preview, **Reject** unwanted edits (or **Undo**), then explicitly **Publish N changes**. This single action atomically records approval/rejection, saves the included canonical documents, and publishes to retained product destinations. Overlapping updates, expired proposals, stale snapshots, and destination conflicts are blocked. Publishing also finalizes excluded edits, including wholly excluded previously approved proposals, so they leave Pending Changes on refresh. Exclusion receipts preserve the earlier immutable approvals. Future proposals remain independent. Standalone saved documents remain available through **Browse saved documents**; legacy individual review remains accessible from optional evidence details. Latest Docs and MCP reflect the new live version; Archive keeps previous live versions. Historical reference runs and publications are local database state and are not bundled in a fresh clone.

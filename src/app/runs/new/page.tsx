@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
-import { hasActionablePendingChanges } from "@/features/documentation/review/pending-workspace";
+import { FreshFullScanForm } from "@/features/documentation/components/runs/fresh-full-scan-form";
+import { getPendingWorkspace, hasActionablePendingChanges } from "@/features/documentation/review/pending-workspace";
 import { PENDING_REVIEW_MESSAGE } from "@/features/documentation/review/run-eligibility";
 import { ArrowRight, GitCompareArrows, ScanSearch } from "lucide-react";
 import { hasExistingDocumentation } from "@/features/documentation/library/library-operations";
@@ -41,6 +42,7 @@ async function Setup({ searchParams }: { searchParams: Promise<SetupSearch> }) {
     </main>;
   }
   const pendingReview = await hasActionablePendingChanges(repository.name).catch(() => null);
+  const pendingBatch = pendingReview === true ? await getPendingWorkspace({ repository: repository.name }).catch(() => null) : null;
   const available = !search.rerun ? await hasExistingDocumentation(repository).catch(() => null) : null;
   const latest = !search.rerun && search.mode === "changes" && available === true;
   const fullScan = !search.rerun && search.mode === "full";
@@ -58,6 +60,7 @@ async function Setup({ searchParams }: { searchParams: Promise<SetupSearch> }) {
       <p role="status" className="text-sm leading-7">{pendingReview ? PENDING_REVIEW_MESSAGE : "Run availability could not be checked. Reload after checking the database connection."}</p>
       <Link href={`/docs?${new URLSearchParams({ repository: repository.name, tab: "pending" })}`} className={buttonVariants()}>Review pending changes</Link>
       <div className="grid gap-4 sm:grid-cols-2">{["Full Scan", "Latest Changes"].map(mode => <div key={mode} role="group" aria-label={mode} aria-disabled="true" className="rounded-xl border bg-muted/25 p-5 text-sm text-muted-foreground">{mode}</div>)}</div>
+      {pendingBatch && pendingBatch.count > 0 && <FreshFullScanForm key={`${repository.name}:${pendingBatch.hash}`} repository={repository.name} branch={repository.branch} expectedHash={pendingBatch.hash} />}
     </section> : search.rerun ? <Suspense fallback={<LoadingList />}><RerunSetup search={search} /></Suspense> : latest || fullScan ? <>
       <Link href={`/runs/new?${query}`} className="text-sm text-primary underline">← Run options</Link>
       {fullScan && <Link href={`/sources/understanding?${query}`} className="block text-sm text-primary underline">View or refresh reusable product understanding</Link>}

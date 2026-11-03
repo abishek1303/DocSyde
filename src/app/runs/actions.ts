@@ -1,5 +1,8 @@
 "use server";
 import { PendingReviewConflict } from "@/features/documentation/review/run-eligibility";
+import { revalidatePath } from "next/cache";
+import { discardPendingWorkspace } from "@/features/documentation/review/pending-workspace";
+import { selectedRepository } from "@/features/sources/run-preparation";
 import { redirect } from "next/navigation";
 import { createDocumentationRun, getDocumentationRun } from "@/features/documentation/runs/run-operations";
 import { createFullScanRun, createBranchDocumentationRun } from "@/features/documentation/runs/prepare-run";
@@ -54,4 +57,20 @@ export async function startFullScan(_previous: { error?: string }, form: FormDat
     result = await createFullScanRun({ repository: form.get("repository"), branch: form.get("branch"), route: form.get("route") || undefined, runContext: form.get("runContext") || null });
   } catch (error) { if (error instanceof PendingReviewConflict) return { error: error.message, code: error.code }; return { error: "Could not start a full scan. Check the branch, repository access and database, then try again." }; }
   redirect(`/runs/${result.id}?${new URLSearchParams({ repository: result.repository, branch: result.branch })}`);
+}
+
+/** Recovery deliberately ends at setup; normal run admission pins and checks the next scan. */
+export async function discardForFullScan(_previous: { error?: string }, form: FormData): Promise<{ error?: string }> {
+  let query;
+  try {
+    const input = z.object({ repository: z.string(), branch: z.string().max(1024).optional(), expectedHash: z.string().regex(/^[a-f0-9]{64}$/), confirmed: z.literal("on") }).strict().parse({
+      repository: form.get("repository"), branch: form.get("branch") || undefined, expectedHash: form.get("expectedHash"), confirmed: form.get("confirmed"),
+    });
+    const repository = selectedRepository({ repository: input.repository, branch: input.branch });
+    const result = await discardPendingWorkspace({ repository: repository.name, expectedHash: input.expectedHash, confirmed: true });
+    if (result.status !== "discarded") return { error: result.message };
+    revalidatePath("/runs/new"); revalidatePath("/docs");
+    query = new URLSearchParams({ repository: repository.name, mode: "full", ...(input.branch ? { branch: input.branch } : {}) });
+  } catch { return { error: "Confirm discarding this project's pending batch. If it changed, reload and review it before trying again." }; }
+  redirect(`/runs/new?${query}`);
 }
