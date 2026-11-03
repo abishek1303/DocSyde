@@ -8,7 +8,7 @@ export class ProductEvidenceBudgetError extends Error {
 export function serializeProductEvidence(bundle: ProductBundle, generationSnapshot: GenerationContextSnapshot = noGenerationContext): string {
   // Keep each exact excerpt next to its patch-local line number. Hunk headers
   // contain different source-file coordinates and must never be used as citations.
-  const payload = JSON.stringify({ ...bundle, repositoryContext: generationSnapshot.repositoryContextUsed, runContext: generationSnapshot.runContextUsed, evidence: bundle.evidence.map(({ id, text, ...entry }) => ({ ...entry, evidenceId: id, lines: text === null ? null : text.split("\n").map((line, i) => [i + 1, line]) })) });
+  const payload = JSON.stringify({ ...bundle, repositoryUnderstandingAdvisory: generationSnapshot.repositoryUnderstandingUsed, repositoryContext: generationSnapshot.repositoryContextUsed, runContext: generationSnapshot.runContextUsed, evidence: bundle.evidence.map(({ id, text, ...entry }) => ({ ...entry, evidenceId: id, lines: text === null ? null : text.split("\n").map((line, i) => [i + 1, line]) })) });
   if (Buffer.byteLength(payload, "utf8") > PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES) throw new ProductEvidenceBudgetError();
   return payload;
 }
@@ -46,11 +46,20 @@ export function validateProductAnalysis(analysis: ProductAnalysis, bundle: Produ
   }
 }
 
+/** Assessment summarizes finding kinds, never advisory context or runtime conclusions.
+ * Partial coverage cannot establish that the entire change is internal-only.
+ */
+export function deriveProductAssessment(findings: GeneratedProductAnalysis["findings"], limited: boolean): ProductAnalysis["assessment"] {
+  if (findings.some(f => f.kind !== "internal-change" && f.kind !== "undetermined")) return "product-change";
+  if (!limited && findings.length > 0 && findings.every(f => f.kind === "internal-change")) return "internal-only";
+  return "insufficient-evidence";
+}
+
 /** New model references become canonical citations before any downstream consumer. */
 export function reconstructProductAnalysis(analysis: GeneratedProductAnalysis, bundle: ProductBundle): ProductAnalysis {
   const references = productChangeGenerationOutput.parse(analysis);
   if (new Set(bundle.evidence.map(entry => entry.id)).size !== bundle.evidence.length) reject("duplicate-reference");
-  const canonical: ProductAnalysis = { ...references, findings: references.findings.map((finding, findingIndex) => ({
+  const canonical: ProductAnalysis = { ...references, assessment: deriveProductAssessment(references.findings, bundle.limited), findings: references.findings.map((finding, findingIndex) => ({
     ...finding, citations: finding.citations.map((citation, citationIndex) => {
       const evidence = bundle.evidence.find(e => e.id === citation.evidenceId);
       if (!evidence) reject("unknown-evidence", findingIndex, citationIndex);

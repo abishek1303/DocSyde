@@ -70,6 +70,8 @@ test("maximum compact JSON has a small measured byte bound; bytes are not Muse t
 });
 
 test("frozen A/B/C inputs remain unchanged; B-like extras normalize before strict local validation", async t => {
+  const priorMode=process.env.BASETEN_STRUCTURED_OUTPUT_MODE; process.env.BASETEN_STRUCTURED_OUTPUT_MODE="prompt";
+  t.after(()=>{if(priorMode===undefined)delete process.env.BASETEN_STRUCTURED_OUTPUT_MODE;else process.env.BASETEN_STRUCTURED_OUTPUT_MODE=priorMode;});
   const old = process.env.BASETEN_API_KEY; process.env.BASETEN_API_KEY = "offline-only";
   t.after(() => { if (old === undefined) delete process.env.BASETEN_API_KEY; else process.env.BASETEN_API_KEY = old; });
   t.mock.method(console, "warn", () => {});

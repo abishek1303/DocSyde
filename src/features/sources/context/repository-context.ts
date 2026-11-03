@@ -1,4 +1,5 @@
 import "server-only";
+import { getUnderstanding } from "./understanding-operations";
 import { repositoryCoordinates, repositoryLocation } from "@/integrations/github/repository-identity";
 import { readRepositoryContext, writeRepositoryContext } from "@/integrations/database/repository-contexts";
 import { assertAllowedRepository } from "../repository/local-source-access";
@@ -13,5 +14,7 @@ export async function saveRepositoryContext(raw: unknown, text: unknown) { const
 export async function captureGenerationContext(raw: unknown, runText: unknown): Promise<GenerationContextSnapshot> {
   const runContextUsed = runContextText.parse(runText);
   const repositoryContextUsed = await getRepositoryContext(raw);
-  return Object.freeze({ repositoryContextUsed, runContextUsed });
+  const coordinates = repositoryCoordinates.parse(raw);
+  const understanding = await getUnderstanding(`${coordinates.owner}/${coordinates.repo}`);
+  return Object.freeze({ repositoryContextUsed, runContextUsed, ...(understanding ? { repositoryUnderstandingUsed: understanding } : {}) });
 }

@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import type { CandidateSelection } from "./candidate-selection";
 import type { ProductImpact } from "@/features/sources/product-analysis";
 import { getDocumentationDraft, listDocumentationDrafts } from "../documents/operations";
 
@@ -48,4 +49,10 @@ export function projectDocumentationImpact(impact: ProductImpact, catalog: Retur
       claimRefs: catalog.filter(entry => entry.claim.references.some(reference => contradiction.references.includes(reference))).map(entry => entry.id) })),
     coverage: { limited: impact.provenance.source.limited, notice: impact.provenance.source.notice, uncertainties: impact.provenance.source.uncertainties },
   };
+}
+
+/** Matching scope is useful; scores/hashes explain retrieval, not semantic decisions. */
+export function projectPlanningSelection(selection: CandidateSelection) {
+ return { coverage: selection.coverage, broadFallbackUsed: selection.broadFallbackUsed,
+  matches: selection.matches.map(({ documentId, sectionId }) => ({ documentId, sectionId })) };
 }

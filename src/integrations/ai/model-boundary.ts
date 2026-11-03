@@ -71,7 +71,24 @@ export function modelFacingSchema(schema: z.ZodType): z.ZodType {
   // Opaque entries, defaults and unions keep their declared semantics.
   return schema;
 }
-export function normalizeModelBoundary(value: unknown, schema: z.ZodType, trace: BoundaryTrace, supportedWrappers: readonly string[] = wrappers): unknown {
+export function normalizeModelBoundary(value: unknown, schema: z.ZodType, trace: BoundaryTrace, supportedWrappers: readonly string[] = wrappers, allowedExtraKeys?: readonly string[]): unknown {
+  const captureShape = (candidate: unknown) => {
+    if (!allowedExtraKeys || !(schema instanceof z.ZodObject)) return;
+    const keys = candidate && typeof candidate === "object" && !Array.isArray(candidate) ? Object.keys(candidate) : [];
+    const safe = keys.filter(key => diagnosticShapeKey.safeParse(key).success).slice(0,16);
+    trace.rootShape = { expectedKeys: Object.keys(schema.shape).filter(key => diagnosticShapeKey.safeParse(key).success).slice(0,16).map(key => diagnosticShapeKey.parse(key)), receivedKeys: safe.map(key => diagnosticShapeKey.parse(key)), withheldKeyCount: keys.length-safe.length, shape: Array.isArray(candidate) ? "array" : candidate && typeof candidate === "object" ? "object" : "scalar" };
+  };
+  const rejectUnknown = (candidate: Record<string, unknown>, permitted: readonly string[]) => {
+    // A dialect marker is metadata, never a schema to execute or use for validation.
+    if (allowedExtraKeys?.includes("$schema") && Object.hasOwn(candidate, "$schema") && !permitted.includes("$schema")
+      && (typeof candidate.$schema !== "string" || !["https://json-schema.org/draft/2020-12/schema", "https://json-schema.org/draft/2019-09/schema", "http://json-schema.org/draft-07/schema#"].includes(candidate.$schema))) {
+      trace.boundary = trace.normalization = "rejected"; throw new BoundaryError("boundary-shape", trace);
+    }
+    if (allowedExtraKeys && Object.keys(candidate).some(key => !permitted.includes(key) && !allowedExtraKeys.includes(key))) {
+      trace.boundary = trace.normalization = "rejected"; throw new BoundaryError("boundary-shape", trace);
+    }
+  };
+  captureShape(value);
   if (schema instanceof z.ZodObject && value && typeof value === "object" && !Array.isArray(value)) {
     const root = value as Record<string, unknown>;
     const present = wrappers.filter(k => Object.hasOwn(root, k) && !Object.hasOwn(schema.shape, k));
@@ -85,20 +102,29 @@ export function normalizeModelBoundary(value: unknown, schema: z.ZodType, trace:
         trace.boundary = trace.normalization = "rejected"; throw new BoundaryError("boundary-shape", trace);
       }
       trace.wrapper = present[0];
+      rejectUnknown(root, [present[0]]);
       for (const key of Object.keys(root)) if (key !== trace.wrapper) {
         trace.ignoredCount++;
         const safe = diagnosticShapeKey.safeParse(key); if (safe.success && trace.ignoredKeys.length < 8) trace.ignoredKeys.push(safe.data);
       }
       value = inner;
+      captureShape(value);
     }
   }
+  if (schema instanceof z.ZodObject && value && typeof value === "object" && !Array.isArray(value)) rejectUnknown(value as Record<string, unknown>, Object.keys(schema.shape));
   trace.boundary = modelFacingSchema(schema).safeParse(value).success ? "accepted" : "rejected";
   const result = project(value, schema, trace);
   trace.normalization = "accepted";
   return result;
 }
 export const boundaryPolicies: Readonly<Record<string, readonly string[]>> = {
+  "repository-understanding": ["result", "analysis"],
   "source-analysis": ["result", "analysis"], "runtime-decision": ["result"],
   "visual-selection": ["result"], "product-impact": ["result", "impact"],
   "documentation-planning": ["result"], "documentation-transformation": ["result"],
+};
+
+/** Only explicitly non-semantic envelope metadata may be dropped for onboarding. */
+export const boundaryExtraKeyPolicies: Readonly<Record<string, readonly string[]>> = {
+ "repository-understanding": ["metadata", "$schema"],
 };

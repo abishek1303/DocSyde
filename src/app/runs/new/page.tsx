@@ -37,6 +37,7 @@ async function Setup({ searchParams }: { searchParams: Promise<SetupSearch> }) {
   const branches = !search.rerun ? await runBranchSelection(repository).catch(() => null) : null;
   return <AppShell repository={repository.name} branchContext={<span>{search.rerun ? "Rerun" : "New run"}</span>} active="Runs">
     <RunBreadcrumbs repository={repository.name} current={search.rerun ? "Rerun" : "Start a run"} />
+    <Link className="text-sm underline" href={`/sources/understanding?${new URLSearchParams({ repository: repository.name, ...(repository.branch ? { branch: repository.branch } : {}) })}`}>Understand this product before analyzing changes →</Link>
     <h1 className="text-3xl font-semibold tracking-tight">{search.rerun ? "Rerun" : "Start a run"}</h1>
     {search.rerun ? <Suspense fallback={<LoadingList />}>
       <RerunSetup search={search} />

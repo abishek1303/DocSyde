@@ -121,3 +121,42 @@ checks remain; new IR tests replace obsolete model-authored citation-output test
 An orchestration mock's old request discriminator was updated to recognize the new
 supplied targets table. A sandbox-blocked observation port test passed when rerun
 with local process/network permission. No model inference or workflow rerun occurred.
+
+## Native c3ca9b6f exhaustion diagnosis
+
+The retained c3ca9b6f request already used the v3 IR above, not the large historical
+canonical schema. Its native JSON Schema is 1,029 bytes, semantic instructions 1,384
+bytes, and input 10,796 bytes (3,256 reported input tokens). The input contains two
+undetermined source findings, one issue-status capability, a 13-line patch and two
+supporting files (46/108 lines). Canonical finding citations repeat parts of that
+input, but no evidence text is requested in the output. The exact saved input,
+instructions and schema are an offline replay fixture; the regression asserts native
+payload equality and unchanged correspondence checks for each disposition.
+
+At maximum, v3 emits seven 80-character prose fields, three finding/target ID pairs,
+two enums and JSON structure: 864 minified ASCII bytes or 1,984 UTF-8 bytes in the
+worst supported character case. These bounds describe minified data, not raw JSON
+whitespace or provider completion-token accounting. Whitespace can expand raw JSON;
+reasoning can consume completion budget without appearing in the returned data.
+No tokenizer or reasoning-token breakdown was retained. Thus the 4,096 reported
+completion tokens do not establish a 4,096-token semantic artifact. In the preceding
+source call, 4,417 completion tokens accompanied only 2,175 visible JSON bytes, which
+is consistent with substantial non-visible completion usage but does not quantify it.
+
+The runtime request returned length/incomplete-output after 16,106 ms and was rejected
+before parsing. No response body was retained, so hidden reasoning, excessive
+whitespace, or provider schema/decoding behavior cannot be distinguished afterward.
+In particular, native JSON Schema does not encode the local superRefine status/target
+consistency check or nonblank trim check; strict application validation still enforces
+both. There is no evidence that either caused this provider exhaustion.
+
+Every remaining generated field is a bounded judgment: status, static-evidence
+sufficiency, brief overall reason, selection of finding/target IDs, per-target visible
+check, and uncertainties. Identifier values and their authority tables, routes,
+capability IDs, citations/excerpts and canonical display enrichment are application
+owned. Static sufficiency is distinct from the source assessment and from runtime
+usefulness, so it cannot safely be copied from either. Removing these judgments is
+not justified by this failure. No contract, prompt, provider policy, token ceiling,
+runner, capture or vision behavior changes are made by this diagnosis. Another full
+live run would be a repeat with no identified mitigation; provider completion-budget
+behavior needs investigation before treating it as a reference demo path.

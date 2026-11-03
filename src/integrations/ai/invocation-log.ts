@@ -7,6 +7,7 @@ import { modelDiagnosticSchema, type ModelInvocationMetadata } from "./model-dia
 import { ModelError } from "./structured-output";
 import type { InvocationContext } from "./invocation-context";
 
+import { structuredOutputModeSchema, type StructuredOutputMode } from "./structured-output-mode";
 import { configuredModel, inferenceSnapshot, resolveInference, type ResolvedInference } from "./operation-policy";
 import { debugPolicy, debugRequest, debugOutput, rejectionDiagnostic, validationDiagnosticSchema, type ValidationDiagnostic } from "./invocation-debug";
 import { requestPayload, responseAllowed, responsePayload, type ApprovedInvocationResponse } from "./invocation-payload";
@@ -22,7 +23,7 @@ function metadata(value?: ModelInvocationMetadata) {
 
 /** Retain only operation-approved snapshots; never transport bodies or raw responses. */
 export async function logStructuredInvocation<T extends { model: string; metadata?: ModelInvocationMetadata }>(
-  options: { invocation?: InvocationContext; provider: "baseten" | "meta"; postValidation?: boolean; attempt?: number; input?: string; instructions?: string; schema?: string; validatedOutput?: (result: T) => unknown; settings?: ResolvedInference; acceptedResponse?: (result: T) => ApprovedInvocationResponse | undefined },
+  options: { invocation?: InvocationContext; provider: "baseten" | "meta"; postValidation?: boolean; attempt?: number; input?: string; instructions?: string; schema?: string; structuredOutput?: StructuredOutputMode; validatedOutput?: (result: T) => unknown; settings?: ResolvedInference; acceptedResponse?: (result: T) => ApprovedInvocationResponse | undefined },
   invoke: () => Promise<T>,
 ): Promise<T & { invocationId?: string }> {
   const id = randomUUID(), context = options.invocation ?? { stage: "standalone", operation: options.provider === "meta" ? "runtime-vision" : "structured-generation" };
@@ -38,7 +39,7 @@ export async function logStructuredInvocation<T extends { model: string; metadat
     await insertAiModelInvocation({ id, runId: context.runId ?? null, stage: context.stage, operation: context.operation,
       provider: options.provider, model: configured.slice(0, 300), status: "started", createdAt: new Date(),
       requestPayload: request.payload, requestOmissionReason: request.reason, responsePayload: null,
-      responseOmissionReason: (responseAllowed(context.operation) || debugPolicy(context.operation).output) ? "pending-validation" : "not-allowlisted", inferenceConfig: config });
+      responseOmissionReason: (responseAllowed(context.operation) || debugPolicy(context.operation).output) ? "pending-validation" : "not-allowlisted", inferenceConfig: { ...config, ...(options.structuredOutput ? { structuredOutput: structuredOutputModeSchema.parse(options.structuredOutput) } : {}) } });
     inserted = true;
   } catch (error) { if (error instanceof ReliabilityIsolationError) throw error; warn(id); }
   requireInferenceLog(inserted);
@@ -59,7 +60,7 @@ export async function logStructuredInvocation<T extends { model: string; metadat
         if (debug) response = { payload: debug, reason: null };
         await updateAiModelInvocation(id, { ...metadata(result.metadata), model: result.model.slice(0, 300), elapsedMs,
           status: options.postValidation ? "structured-success" : "succeeded",
-          ...(result.metadata?.boundary ? { diagnostic: { kind: "structured-output", attempt: options.attempt ?? 1, boundary: result.metadata.boundary } } : {}), responsePayload: response.payload, responseOmissionReason: response.reason });
+          ...(result.metadata ? { diagnostic: modelDiagnosticSchema.parse({ ...result.metadata, kind: "structured-output", attempt: options.attempt ?? 1 }) } : {}), responsePayload: response.payload, responseOmissionReason: response.reason });
       } catch (error) { if (error instanceof ReliabilityIsolationError) throw error; warn(id); stopInferenceBudget(); }
     }
     return { ...result, invocationId: inserted ? id : undefined };

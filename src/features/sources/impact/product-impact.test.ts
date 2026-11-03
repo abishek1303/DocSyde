@@ -1,3 +1,4 @@
+import { reconstructProductAnalysis } from "../analysis/product-change-evidence";
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { synthesizeProductImpact } from "./synthesize-product-impact";
@@ -268,5 +269,19 @@ test("synthesis advertises the exact claim-kind permissions enforced for capabil
     assert.equal(diagnostic.issues[0].code, "unsupported-change-claim");
     assert.equal(typeof diagnostic.model, "string");
     return true;
+  });
+});
+
+test("derived source assessment reaches ProductImpact with canonical evidence and unchanged claim rules", async t => {
+  for (const internal of [true, false]) await t.test(String(internal), async t => {
+    const input = source(internal);
+    input.analysis = reconstructProductAnalysis({ uncertainties: [], findings: input.analysis!.findings.map(f => ({
+      ...f, citations: f.citations.map(({ evidenceId, startLine, endLine }) => ({ evidenceId, startLine, endLine })),
+    })) }, input.bundle);
+    const p = provider(t, output(internal));
+    const result = await synthesizeProductImpact({ source: input });
+    assert.equal(p.payload().source.assessment, internal ? "internal-only" : "product-change");
+    assert.equal(result.impact.assessment, input.analysis.assessment);
+    assert.deepEqual(result.impact.provenance.sourceReferences[0].finding, input.analysis.findings[0]);
   });
 });

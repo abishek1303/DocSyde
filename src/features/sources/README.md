@@ -266,8 +266,13 @@ but cited line 14, confusing source coordinates with the extra patch hunk header
 The model payload now represents each entry with evidenceId and exact
 [lineNumber, text] tuples, rather than N| prefixes in a multiline string. The
 canonical/historical citation contract retains exact range/excerpt validation. New
-source-analysis-v3 generation returns references only; excerpt text is reconstructed
-from those exact positions. No nearby-line search, fuzzy matching or repair call is added.
+source-analysis-v4 generation returns findings, uncertainties and citation references;
+excerpt text is reconstructed from those exact positions. Application code derives
+the canonical assessment from finding kinds and coverage: any product finding means
+product-change; complete, nonempty, exclusively internal findings mean internal-only;
+otherwise insufficient-evidence. This summary does not change finding confidence or
+support, and advisory context never participates in the derivation. The historical
+artifact shape and assessment conflict guards remain unchanged. No nearby-line search, fuzzy matching or repair call is added.
 A regression rejects both that off-by-one reference and altered text. The existing
 8,192-token output budget is retained. Numbered tuples count toward the same
 64 KiB serialized-payload budget.

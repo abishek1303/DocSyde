@@ -9,7 +9,7 @@ import { rejectionDiagnostic } from "@/integrations/ai/invocation-debug";
 
 const bundle = fixture.bundle as ProductBundle;
 function references() {
-  return productChangeGenerationOutput.parse({ ...fixture.output, findings: fixture.output.findings.map(f => ({ ...f,
+  return productChangeGenerationOutput.parse({ uncertainties: fixture.output.uncertainties, findings: fixture.output.findings.map(f => ({ ...f,
     citations: f.citations.map(({ evidenceId, startLine, endLine }) => ({ evidenceId, startLine, endLine })),
   })) });
 }

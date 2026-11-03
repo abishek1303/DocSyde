@@ -262,9 +262,52 @@ test("cancellation stops before retrieval, between reads and during the single m
 });
 
  test("planning ignores provider metadata without losing candidate or claim validation", async t => {
+  const priorMode=process.env.BASETEN_STRUCTURED_OUTPUT_MODE; process.env.BASETEN_STRUCTURED_OUTPUT_MODE="prompt";
+  t.after(()=>{if(priorMode===undefined)delete process.env.BASETEN_STRUCTURED_OUTPUT_MODE;else process.env.BASETEN_STRUCTURED_OUTPUT_MODE=priorMode;});
   const document = draftFixture(), expected = decision(document);
   const p = setup(t, [document], { result: { ...expected, metadata: { confidence: 1 } } });
   const result = await p.planDocumentationImpact({ impact: impact() });
   assert.deepEqual(result.plan.decisions, expected.decisions);
   assert.equal(p.fetch.mock.callCount(), 1);
+});
+
+test("compact planner generation bounds prose without narrowing canonical historical plans", async t => {
+ const { documentationImpactGenerationSchema, documentationImpactPlanSchema } = await import("./documentation-impact");
+ const { readFileSync } = await import("node:fs");
+ const before=JSON.parse(readFileSync("src/features/documentation/planning/fixtures/planning-generation-before.json","utf8"));
+ const document=draftFixture(), out=decision(document,"revise",document.sections[0].id);
+ assert.deepEqual(documentationImpactGenerationSchema.parse(out),out);
+ const p=setup(t,[document],out);
+ const result=await p.planDocumentationImpact({impact:impact()});
+ const prompt=p.instructions().split("\nReturn only JSON matching this schema:")[0];
+ assert.ok(prompt.length < before.instructions.length * 0.85);
+ const oldProse=8*(500+500)+6*300;
+ const generationShape=documentationImpactGenerationSchema.shape;
+ const newProse=8*(generationShape.decisions.element.shape.reason.maxLength!+generationShape.decisions.element.shape.updateIntent.maxLength!)+3*generationShape.uncertainties.element.maxLength!;
+ assert.ok(newProse < oldProse*0.4);
+ assert.ok(!prompt.includes("<=500"));
+ assert.ok(documentationImpactPlanSchema.safeParse({...result.plan,decisions:[{...out.decisions[0],reason:"x".repeat(500),updateIntent:"x".repeat(500)}],uncertainties:Array(6).fill("Historical qualification")}).success);
+ for (const invalid of [
+  {...out,decisions:[{...out.decisions[0],reason:"x".repeat(181)}]},
+  {...out,decisions:[{...out.decisions[0],updateIntent:"x".repeat(181)}]},
+  {...out,uncertainties:Array(4).fill("Unknown")},
+  {...out,uncertainties:["x".repeat(161)]},
+ ]) assert.equal(documentationImpactGenerationSchema.safeParse(invalid).success,false);
+});
+
+test("selection projection removes only non-evidentiary retrieval bookkeeping", async () => {
+ const { projectPlanningSelection }=await import("./documentation-impact-input");
+ const selection={selectedDocumentIds:[captureId],coverage:"search-selected" as const,broadFallbackUsed:false,reason:"deterministic-matches" as const,
+  matches:[{documentId:captureId,sectionId:artifactKey,documentSha256:"a".repeat(64),score:40,reasons:[{kind:"association" as const,associationKind:"route" as const,value:"/",points:40 as const}]}]};
+ const projected=projectPlanningSelection(selection);
+ assert.deepEqual(projected,{coverage:"search-selected",broadFallbackUsed:false,matches:[{documentId:captureId,sectionId:artifactKey}]});
+ assert.ok(JSON.stringify(projected).length<JSON.stringify(selection).length*0.6);
+ assert.equal(selection.matches[0].documentSha256,"a".repeat(64));
+});
+
+test("invalid upstream citation references reject before planner inference", async t => {
+ const document=draftFixture(), p=setup(t,[document],decision(document));
+ const input=impact(); input.provenance.sourceReferences[0].finding.citations[0].evidenceId="invented-citation";
+ await assert.rejects(p.planDocumentationImpact({impact:input}));
+ assert.equal(p.fetch.mock.callCount(),0);
 });

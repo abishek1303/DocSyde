@@ -61,9 +61,14 @@ Prefer typed, structured outputs from models rather than free-form text when the
 
 Validate generated structures before using them.
 
-Text-provider formatting is handled at the AI integration boundary: conservative JSON
+Text-provider formatting is handled at the AI integration boundary. Eligible Baseten
+Muse Spark Open calls use native strict JSON-schema output outside the prompt, then
+strict JSON parsing, unchanged Zod validation and feature grounding. Provider model/
+schema capability selection is centralized; opaque/open schemas, unlisted models or
+explicit prompt compatibility mode retain conservative JSON
 extraction, operation-specific model-facing projection, then unchanged strict canonical
-validation and feature-owned grounding. At most one logged format-only retry is allowed;
+validation and feature-owned grounding. Native calls never retry or downgrade after
+a failed request. In compatibility mode at most one logged format-only retry is allowed;
 truncation and semantic failures never retry, and explicit single-attempt experiment
 budgets remain single-attempt. See the [boundary policy](src/integrations/ai/structured-output-boundary.md).
 
@@ -376,7 +381,8 @@ The remaining infrastructure slices are now implemented independently:
 
 - `src/integrations/ai`: narrow text-only `generateStructured` capability with
   Baseten transport, JSON parsing, local Zod validation and sanitized failures.
-  The event model is configurable; schema enforcement is not assumed remotely.
+  The event model is configurable; native schema enforcement supplements, but never
+replaces, application validation.
 - `src/integrations/local-git`: committed comparisons and pinned file reads using
   type-only reuse of the existing neutral GitHub evidence definitions. No GitHub
   type relocation or provider registry is introduced.
@@ -909,10 +915,15 @@ Other evidence counts/spatial fields and all completion ceilings are preserved. 
 impact owns an independent 8192-token constant rather than sharing the source constant.
 
 The AI integration resolves typed requested inference options and records a small
-contract/configuration snapshot. Reasoning and sampling remain omitted for all existing
-operations. Baseten's canonical Muse slug documents optional top-level reasoning effort,
-temperature and top-p; its -1026 alias is not explicitly confirmed, so requesting new
-controls for that alias rejects before network access. No model switching, arbitrary
+contract/configuration snapshot. Runtime decision alone requests top-level low reasoning
+for Baseten Muse Spark Open (canonical and -1026); other operations omit reasoning and
+all sampling defaults remain omitted. The -1026 reasoning control was exercised in a
+single explicit capability check; this does not establish planning quality. Sampling
+controls remain restricted to the documented canonical slug. Safe diagnostics retain
+provider-reported reasoning-token counts when present, visible response UTF-8 bytes/
+UTF-16 character length (including truncated responses), completion reason and requested
+effort. Hidden reasoning content and raw malformed responses are never retained. These
+optional diagnostic fields require no migration and preserve historical reading. No model switching, arbitrary
 provider-option passthrough, repair, retry, or automatic tuning loop is introduced.
 
 ## Opt-in reliability baseline tooling
@@ -1086,3 +1097,24 @@ silently dropped. Canonical/historical decision schemas and downstream execution
 unchanged. Debug output is labeled as compact references, separate from resolved run
 metadata. No provider/model/ceiling or reasoning option changes; no fallback or retry
 is added. See the Sources runtime contract and exact review diff for calculated bounds.
+
+## Bounded repository understanding
+
+Sources owns explicit onboarding at `/sources/understanding`, linked from run setup.
+It resolves one GitHub revision, reads a bounded tree (12,000 entries, no silent truncation), detects ecosystems from manifests, and ranks at most six overview/manifest/entry/workflow files with one local import/module hop. A metadata-only single-call fallback runs only when deterministic signals are insufficient; only high-confidence existing paths are accepted. It reads through the
+existing authorized pinned reader, and sends at most 3500 characters per available
+file under a 32 KiB aggregate request budget to the existing structured provider.
+Understanding output has an 8192-token ceiling with unchanged concise schema.
+A repository-keyed JSONB artifact stores purpose, audience, terminology, workflows,
+surfaces, gaps, SHA, timestamp and full-file SHA256 references. One upsert replaces
+only a successful validated result; failed refreshes preserve prior understanding.
+Reopening reads persistence without inference. Operator notes remain separate.
+Normal runs snapshot this optional artifact and send it as explicitly advisory data
+outside source evidence. Historical snapshots remain valid. Runtime, impact,
+planning, transformation and proposal-retention contracts remain unchanged.
+
+Onboarding refresh accepts an optional 500-character product note using the existing
+saved product-context setting. The submitted text (blank means repository-only)
+is advisory input, separate from files and source evidence. Successful artifacts
+record it in optional `generationContext.productContextUsed`; historical artifacts
+remain valid. Saved notes and generated understanding remain distinct records.

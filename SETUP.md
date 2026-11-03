@@ -816,10 +816,12 @@ and `npm run documentation:test` cover generation limits and historical compatib
 fixtures and no provider calls. Approved payloads are SQL-only; the Logs UI continues
 to expose metadata and sanitized diagnostics. No new environment variables are required.
 
-Existing reasoning/sampling behavior and output ceilings are unchanged. Do not use live
-AI verification commands to tune them without separate authorization. See
+Runtime decision now requests low reasoning through the AI operation policy; other
+reasoning defaults, sampling defaults and output ceilings are unchanged. Safe invocation
+diagnostics include reported reasoning tokens and visible response size when available.
+Do not use live AI verification commands to tune settings without separate authorization. See
 [MODEL_USAGE.md](MODEL_USAGE.md#reliability-baseline-and-safe-payload-policy) for the
-allowlist, current capacity risks and exact-alias reasoning restriction.
+allowlist, current capacity risks and model-specific capability restrictions.
 
 ### Three-scenario reliability baseline
 
@@ -1069,7 +1071,8 @@ migration or backfill. No setup or runtime workflow change is required.
 The model-output maximum is 864 ASCII bytes / 1,984 worst-case UTF-8 bytes versus
 18,513 / 87,313 for the old schema. The existing Baseten Meta Muse Spark Open -1026
 model and 4,096 output-token ceiling are retained for always-enabled reasoning
-headroom; no reasoning control, fallback or provider run is introduced. See the
+headroom. The later reasoning-accounting check below targets low effort only for this
+operation; its schema and prompt remain unchanged. See the
 [complete contract and consumer audit](src/features/sources/runtime/inspection-decision-contract.md)
 and [exact before/after review snippets](src/features/sources/runtime/inspection-decision-review.md).
 
@@ -1078,3 +1081,35 @@ Offline verification: runtime-decision focused tests 15 passed; source compatibi
 153; PostgreSQL/Chromium run orchestration 17. Sandbox-blocked observation binding
 was rerun outside the sandbox and passed. Lint, TypeScript, Webpack production build
 and diff checks passed. Tests mock model transport; provider attempts were 0.
+
+## Repository understanding
+
+Apply migration 0011 with `npm run db:migrate`. From Start a run, open
+“Understand this product”; explicitly analyze or refresh the selected branch.
+Uses existing GitHub, Baseten and PostgreSQL configuration. Reopening uses saved
+results without inference. Discovery detects JS/TS, Rust, Python, .NET, Go and JVM manifests in a pinned tree,
+then selects at most six high-signal files. Ambiguous layouts may make one metadata-only
+structured discovery call; low-confidence paths are not guessed. Tree metadata is capped
+at 12,000 entries, fallback at 160 paths/32 KiB, and understanding excerpts at 32 KiB total.
+No runtime verification or baseline documentation generation occurs in onboarding.
+
+Offline lifecycle/contract checks: `npm run sources:understanding:test`.
+`npm run documentation:runs:test` checks persisted advisory context through proposal retention with mocked inference.
+
+Onboarding has an optional Product context field initialized from the saved product
+note. Save product context updates that existing setting; Refresh analyzes using
+the currently shown text. Clear the field for repository-only analysis without
+changing the saved setting. Successful results identify whether context was used;
+refresh remains explicit and failures preserve the previous artifact. No migration.
+
+## Native Baseten structured text output
+
+Muse Spark Open text calls with closed, representable object schemas now send
+`response_format.type=json_schema` with `strict=true`. The schema is no longer
+appended to the system prompt. Existing token ceilings, Zod and feature grounding
+checks remain unchanged. Opaque/open schemas and unlisted models use the existing
+prompt/extraction/normalization path. Optional `BASETEN_STRUCTURED_OUTPUT_MODE=prompt`
+selects compatibility mode before dispatch; default is `auto`. Native failures never
+trigger a second request or automatic downgrade. No migration/dependency changes.
+Invocation configuration records mode, schema name/version/hash and fallback reason;
+raw schemas remain limited to the existing debug allowlist.

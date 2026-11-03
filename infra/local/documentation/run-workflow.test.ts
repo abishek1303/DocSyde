@@ -58,6 +58,10 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
   let mode = "actionable", hold: (() => void) | undefined, held: Promise<void> | undefined, reached: (() => void) | undefined;
   let baselineId: string | null = null;
   let same = false, phaseToHold = "source";
+  const { writeUnderstanding } = await import("@/integrations/database/repository-understandings");
+  const { repositoryUnderstandings } = await import("@/integrations/database/schema");
+  const { eq: equals } = await import("drizzle-orm");
+  await writeUnderstanding(repository, { schemaVersion: 1, repository, sha: "a".repeat(40), analyzedAt: new Date().toISOString(), files: [], summary: { purpose: "Request tracker", audience: "Unknown", terminology: [], workflows: [], surfaces: [], gaps: [] } });
   const realFetch = globalThis.fetch;
   const base = "a".repeat(40), head = "b".repeat(40);
   const patch = '@@ -0,0 +1,2 @@\n+required\n+route: "/requests/new"';
@@ -74,7 +78,9 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
     let phase: string, output: unknown;
     if (!text) { phase = "vision"; output = { elements: [], observations: ["Title is required."], limitations: ["Visible state only"] }; }
     else if (instructions.includes("Interpret meaningful PRODUCT")) {
-      phase = "source"; output = { assessment: "product-change", findings: [{ kind: "field-requirement-changed", description: "A title is required", before: "Optional", after: "Required", support: "directly-supported", confidence: "high", confidenceReason: "Literal source", citations: [{ evidenceId: "patch-f1", startLine: 2, endLine: 2 }], reachabilityEvidenceIds: [], assumptions: [], uncertainties: [] }], uncertainties: [] };
+      assert.equal(input.repositoryUnderstandingAdvisory.summary.purpose, "Request tracker");
+      assert.ok(!JSON.stringify(input.evidence).includes("Request tracker"));
+      phase = "source"; output = { findings: [{ kind: "field-requirement-changed", description: "A title is required", before: "Optional", after: "Required", support: "directly-supported", confidence: "high", confidenceReason: "Literal source", citations: [{ evidenceId: "patch-f1", startLine: 2, endLine: 2 }], reachabilityEvidenceIds: [], assumptions: [], uncertainties: [] }], uncertainties: [] };
     } else if (Array.isArray(input.targets)) {
       phase = "decision"; output = mode === "not-needed" ? { status: "not-needed", reason: "Source is sufficient for this change", staticEvidence: "sufficient", targets: [], uncertainties: [] }
         : { status: "inspect", reason: "Inspect rendered requirement", staticEvidence: "uncertain", targets: [{ findingRef: "finding-1", targetRef: "target-0", reason: "Check the requirement label" }], uncertainties: [] };
@@ -124,6 +130,7 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
     hold?.(); await stopRunCoordinator();
     if (ids.length) await getDatabase().delete(documentationRuns).where(inArray(documentationRuns.id, ids));
     if (proposalIds.length) await getDatabase().delete(documentationReviews).where(inArray(documentationReviews.id, proposalIds));
+    await getDatabase().delete(repositoryUnderstandings).where(equals(repositoryUnderstandings.repository, repository));
     await closeDatabase(); await new Promise<void>(resolve => server.close(() => resolve())); await rm(directory, { recursive: true, force: true });
     for (const key of new Set([...Object.keys(env), ...Object.keys(process.env)])) { if (env[key] === undefined) delete process.env[key]; else process.env[key] = env[key]; }
   });

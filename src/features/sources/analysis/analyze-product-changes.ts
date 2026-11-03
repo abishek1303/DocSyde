@@ -60,8 +60,8 @@ export async function analyzeProductChanges(raw: unknown, capturedSnapshot?: Gen
       const generated = await generateStructured({ postValidation: true, invocation: { stage: "source-analysis", operation: "source-analysis", ...options.invocation }, instructions: productChangeInstructions, input: payload, schema: productChangeGenerationOutput, maxOutputTokens: PRODUCT_CHANGE_OUTPUT_TOKENS, signal: deadline });
       deadline.throwIfAborted();
       const canonical = await validateInvocation(generated.invocationId, () => validateWithDiagnostics(generated.data, bundle, payload, true), "grounding-rejection");
-      await onProgress?.({ step: "understand-impact", status: "completed", summary: `${generated.data.findings.length} validated finding${generated.data.findings.length === 1 ? "" : "s"} · ${generated.data.assessment}.` });
-      return { ...result, status: generated.data.assessment === "insufficient-evidence" ? "insufficient-evidence" : "analyzed", analysis: canonical, model: generated.model, elapsedMs: generated.elapsedMs };
+      await onProgress?.({ step: "understand-impact", status: "completed", summary: `${generated.data.findings.length} validated finding${generated.data.findings.length === 1 ? "" : "s"} · ${canonical.assessment}.` });
+      return { ...result, status: canonical.assessment === "insufficient-evidence" ? "insufficient-evidence" : "analyzed", analysis: canonical, model: generated.model, elapsedMs: generated.elapsedMs };
     } catch (error) {
       const rejection = error instanceof ModelError ? { stage: "model-output" as const, code: error.code } : error instanceof ProductAnalysisValidationError ? error.rejection : undefined;
       await onProgress?.({ step: "understand-impact", status: "failed", summary: "Semantic output or evidence validation failed." });

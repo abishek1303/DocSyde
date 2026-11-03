@@ -123,3 +123,7 @@ export const documentationRunInspections = docsydeSchema.table("documentation_ru
   payload: jsonb("payload").$type<unknown>().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 }, table => [check("documentation_run_inspections_bound", sql`(${table.revision} >= 0 AND ${table.payload}->>'version' = '1' AND octet_length(${table.payload}::text) <= 262144) IS TRUE`)]);
+
+export const repositoryUnderstandings = docsydeSchema.table("repository_understandings", {
+ repository: varchar("repository", { length: 512 }).primaryKey(), payload: jsonb("payload").$type<unknown>().notNull(),
+});

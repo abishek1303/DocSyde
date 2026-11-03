@@ -78,6 +78,13 @@
       "when": 1793579336315,
       "tag": "0010_third_valkyrie",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793646731604,
+      "tag": "0011_cuddly_may_parker",
+      "breakpoints": true
     }
   ]
 }

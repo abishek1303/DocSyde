@@ -11,7 +11,7 @@ test("generation limits align with prose, accept maxima and reject overflow with
   const finding={...base,description:"x".repeat(500),before:"x".repeat(400),after:"x".repeat(400),
     confidenceReason:"x".repeat(sourceGenerationLimits.confidenceReason),
     citations:Array.from({length:2},()=>({evidenceId:base.citations[0].evidenceId,startLine:1,endLine:1}))};
-  const output={...source.analysis,findings:Array.from({length:4},()=>finding)};
+  const output={uncertainties:source.analysis.uncertainties,findings:Array.from({length:4},()=>finding)};
   assert.ok(productChangeGenerationOutput.safeParse(output).success);
   for(const change of [{confidenceReason:"x".repeat(201)},{citations:[...finding.citations,base.citations[0]]},{citations:[{...base.citations[0],excerpt:"x".repeat(501)}]}]) {
     assert.equal(productChangeGenerationOutput.safeParse({...output,findings:[{...finding,...change}]}).success,false);

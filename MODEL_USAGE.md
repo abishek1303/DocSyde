@@ -428,3 +428,51 @@ alone may trigger one logged retry; length and semantic/grounding failures do no
 The Meta models, ceilings and reasoning/sampling configuration are unchanged.
 See the [stage audit and exact failure policy](src/integrations/ai/structured-output-boundary.md)
 and [code review diff](src/integrations/ai/structured-output-boundary-review.md).
+
+## Native Baseten text output
+
+Supported Muse Spark Open models now use native strict `response_format.json_schema`
+for closed, representable object schemas; schema text is removed from the system
+prompt. Shared provider capability selection retains prompt-mode extraction/recovery
+for unsupported models/schemas or explicit `BASETEN_STRUCTURED_OUTPUT_MODE=prompt`.
+Native requests never retry or silently downgrade. Zod, reference/grounding checks,
+operation ceilings and feature semantics remain unchanged. Mode and schema identity/
+version/hash are recorded in invocation configuration; raw-schema debug logging
+keeps its existing allowlist. See the [boundary policy](src/integrations/ai/structured-output-boundary.md).
+
+One live check on the configured `meta-models/muse-spark-open-1026` accepted strict
+native format and validated a receipt (160 input / 113 output tokens, 1.372 seconds).
+One subsequent planner invocation replaying experiment C impact succeeded on attempt 1:
+2,356 input / 3,023 output tokens, stop, 12.018 seconds model latency, unchanged
+4,096-token ceiling, one revise and two unresolved decisions. This verifies one
+schema/semantic-validation sample; it does not establish universal reliability or
+isolate native formatting from the preceding planner compaction. No transformation,
+save or publication was performed. Local receipt: `.artifacts/native-structured-output/report.json`.
+
+
+### Runtime-decision reasoning accounting and controlled low-effort check
+
+Current policy: runtime-decision alone requests top-level `reasoning_effort: "low"`
+for Baseten Muse Spark Open canonical/-1026. Other operations retain omitted reasoning
+settings; sampling and all ceilings are unchanged. Explicit reasoning controls are
+restricted to these Muse identifiers, sampling to the canonical slug. No nested
+`reasoning.max_tokens` field is accepted or emitted. Baseten's detailed depth table
+supports low/medium/high/xhigh; its overview remains inconsistent about controls.
+The exact -1026 identifier was tested directly, without model substitution.
+
+Optional `usage.completion_tokens_details.reasoning_tokens` is retained as reported,
+never inferred from visible content. Safe diagnostics include visible UTF-8 byte size,
+UTF-16 character length, completion reason, requested effort and elapsed time on both
+success and truncation. Missing or malformed optional detail does not discard available
+aggregate usage. No reasoning text, arbitrary usage fields or malformed response bodies
+are retained; existing diagnostic JSONB needs no migration.
+
+Single controlled replay of c3ca9b6f's exact model/input/prompt/native v3 schema, with
+only low effort added and max_tokens still 4096: 3256 input, 330 completion, 219 reported
+reasoning tokens, 343 visible bytes/characters, stop, 3145 ms model latency (3199 ms
+end-to-end). Direct JSON/Zod/correspondence validation passed on attempt one; one
+request, no retry, no full workflow or publication. Prior omitted effort: 3256 input,
+4096 completion, length, 16106 ms; prior reasoning count was not retained and cannot
+be reconstructed. Low avoided exhaustion in this one sample. Inspection intent was
+repetitive/vague despite valid references, so this is not a demo-quality reliability
+claim or proof of the prior run's exact reasoning allocation.

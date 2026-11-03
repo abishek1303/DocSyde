@@ -19,7 +19,7 @@ export const productChangeOutput = z.object({
 }).strict();
 // Generation-only limits: historical evidence/results retain their original allowance.
 export const sourceGenerationLimits = { findings: 4, citations: 2, confidenceReason: 200 } as const;
-export const productChangeGenerationOutput = productChangeOutput.extend({
+export const productChangeGenerationOutput = productChangeOutput.omit({ assessment: true }).extend({
   findings: z.array(productChangeOutput.shape.findings.element.extend({
     confidenceReason: z.string().min(1).max(sourceGenerationLimits.confidenceReason),
     citations: z.array(productCitation.omit({ excerpt: true })).min(1).max(sourceGenerationLimits.citations),

@@ -8,7 +8,7 @@ const load = createRequire(join(process.cwd(), "package.json"));
 const path = load.resolve("./src/integrations/database/ai-model-invocations.ts");
 const persistence: typeof import("@/integrations/database/ai-model-invocations") = load(path);
 type Row = Parameters<typeof persistence.insertAiModelInvocation>[0];
-function setup(t: TestContext, failure?: "insert" | "update") {
+function setup(t: TestContext, failure?: "insert" | "update", mode: "auto" | "prompt" = "prompt") {
   const cachedModule = load.cache[path]!;
   const original = cachedModule.exports;
   const rows = new Map<string, Row>();
@@ -22,7 +22,8 @@ function setup(t: TestContext, failure?: "insert" | "update") {
       if (row && (!operation || operation === row.operation) && (!validationOnly || row.status === "structured-success")) rows.set(id, { ...row, ...values });
     },
   };
-  const env = { BASETEN_API_KEY: process.env.BASETEN_API_KEY, META_API_KEY: process.env.META_API_KEY };
+  const env = { BASETEN_STRUCTURED_OUTPUT_MODE: process.env.BASETEN_STRUCTURED_OUTPUT_MODE, BASETEN_API_KEY: process.env.BASETEN_API_KEY, META_API_KEY: process.env.META_API_KEY };
+  process.env.BASETEN_STRUCTURED_OUTPUT_MODE = mode;
   process.env.BASETEN_API_KEY = "PRIVATE_CREDENTIAL"; process.env.META_API_KEY = "PRIVATE_CREDENTIAL";
   t.after(() => { cachedModule.exports = original; for (const [key, value] of Object.entries(env)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
   const reload = ["./src/integrations/ai/invocation-log.ts", "./src/integrations/ai/generate-structured.ts", "./src/integrations/ai/generate-structured-vision.ts"];
@@ -138,7 +139,9 @@ test("selection retains bounded instructions/input/schema and schema-valid outpu
   assert.deepEqual(after.responsePayload, before.responsePayload); assert.equal(after.status, "succeeded");
   assert.equal(after.responseOmissionReason, null);
   assert.ok(!JSON.stringify(after).includes("UNSAFE_CREDENTIAL")); assert.ok(!JSON.stringify(after).includes("UNSAFE_REASONING"));
-  assert.deepEqual(after.inferenceConfig, { contractVersion: "visual-selection-v3", maxOutputTokens: 3072, reasoningEffort: null, temperature: null, topP: null });
+  const { structuredOutput, ...config } = after.inferenceConfig as Record<string, unknown>;
+  assert.equal((structuredOutput as { mode: string }).mode, "prompt");
+  assert.deepEqual(config, { contractVersion: "visual-selection-v3", maxOutputTokens: 3072, reasoningEffort: null, temperature: null, topP: null });
 });
 
 test("selection schema-valid output survives each fixed correspondence rejection", async t => {
@@ -249,7 +252,7 @@ test("source citation rejection preserves schema-valid output and bounded corres
   assert.equal(view.diagnostic?.path, "findings[2].citations[0]");
 });
 
-test("source v3 logs model references separately from canonical excerpts and retains invalid-reference diagnostics", async t => {
+test("source v4 logs model references separately from canonical excerpts and retains invalid-reference diagnostics", async t => {
   const s = setup(t);
   const { default: fixture } = await import("@/features/sources/analysis/fixtures/blocked-status.json");
   const { productChangeGenerationOutput } = await import("@/features/sources/analysis/product-change-analysis");
@@ -259,7 +262,7 @@ test("source v3 logs model references separately from canonical excerpts and ret
   const bundle = fixture.bundle as import("@/features/sources/analysis/product-change-analysis").ProductBundle;
   const input = serializeProductEvidence(bundle);
   for (const invalid of [false, true]) {
-    const output = { ...fixture.output, findings: fixture.output.findings.map(f => ({ ...f, citations: f.citations.map(({ evidenceId, startLine, endLine }) => ({ evidenceId, startLine, endLine })) })) };
+    const output = { uncertainties: fixture.output.uncertainties, findings: fixture.output.findings.map(f => ({ ...f, citations: f.citations.map(({ evidenceId, startLine, endLine }) => ({ evidenceId, startLine, endLine })) })) };
     if (invalid) output.findings[2].citations[0].evidenceId = "unknown";
     t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(output) } }] }));
     const generated = await s.generateStructured({ ...options, input, schema: productChangeGenerationOutput, postValidation: true });
@@ -354,4 +357,39 @@ test("format retry is suppressed when first attempt cannot be logged",async t=>{
   const s=setup(t,"insert");
   const fetch=t.mock.method(globalThis,"fetch",async()=>Response.json({choices:[{finish_reason:"stop",message:{content:'broken'}}]}));
   await assert.rejects(s.generateStructured(options),/invalid-json/);assert.equal(fetch.mock.callCount(),1);
+});
+
+test("native mode/schema metadata is safely logged while feature reference validation remains authoritative",async t=>{
+ const s=setup(t,undefined,"auto");
+ t.mock.method(globalThis,"fetch",async(_url:unknown,init?:RequestInit)=>{
+  const body=JSON.parse(String(init?.body));assert.equal(body.response_format.json_schema.strict,true);
+  assert.equal(body.messages[0].content,"Extract product meaning");
+  return Response.json({choices:[{finish_reason:"stop",message:{content:'{"claimRef":"claim-9"}'}}],usage:{prompt_tokens:20,completion_tokens:6}});
+ });
+ const generated=await s.generateStructured({instructions:"Extract product meaning",input:"PRIVATE_SOURCE_PATCH",schema:z.object({claimRef:z.string()}).strict(),invocation,postValidation:true});
+ const row=s.rows.get(generated.invocationId!)!;
+ const config=row.inferenceConfig as {structuredOutput:{mode:string;schemaName:string;schemaVersion:string;schemaSha256:string}};
+ assert.equal(config.structuredOutput.mode,"native");assert.equal(config.structuredOutput.schemaName,"source-analysis-v4");assert.equal(config.structuredOutput.schemaVersion,"source-analysis-v4");assert.match(config.structuredOutput.schemaSha256,/^[a-f0-9]{64}$/);
+ assert.ok(!JSON.stringify(config).includes("PRIVATE_SOURCE_PATCH"));assert.equal(row.completionReason,"stop");assert.equal(row.inputTokens,20);
+ await assert.rejects(s.validateInvocation(generated.invocationId,()=>{if(!["claim-1"].includes(generated.data.claimRef))throw new Error("Unknown claim reference");},"grounding-rejection"),/Unknown claim reference/);
+ assert.equal(s.rows.get(generated.invocationId!)!.failureKind,"grounding-rejection");
+});
+
+test("safe success and truncation logs retain reasoning counts and visible sizes only", async t => {
+  const s = setup(t, undefined, "auto");
+  for (const finish of ["stop", "length"]) {
+    const content = '{"value":"yes"}';
+    t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: finish, message: { content, reasoning_content: "PRIVATE_REASONING" } }],
+      usage: { prompt_tokens: 12, completion_tokens: 100, total_tokens: 112, completion_tokens_details: { reasoning_tokens: 94, secret: "PRIVATE_DETAIL" } } }));
+    const result = s.generateStructured({ ...options, invocation: { operation: "runtime-decision", stage: "offline" } });
+    if (finish === "stop") await result; else await assert.rejects(result, /incomplete-output/);
+    const row = [...s.rows.values()].at(-1)!;
+    const diagnostic = row.diagnostic as import("./model-diagnostic").ModelDiagnostic;
+    assert.deepEqual(diagnostic.usage?.completion_tokens_details, { reasoning_tokens: 94 });
+    assert.deepEqual(diagnostic.visibleResponse, { bytes: Buffer.byteLength(content), characters: content.length });
+    assert.equal(diagnostic.reasoningEffort, "low"); assert.equal(diagnostic.completionReason, finish);
+    assert.equal((row.inferenceConfig as { reasoningEffort: string }).reasoningEffort, "low");
+    assert.ok(!JSON.stringify(row).includes("PRIVATE_REASONING"));
+    assert.ok(!JSON.stringify(row).includes("PRIVATE_DETAIL"));
+  }
 });

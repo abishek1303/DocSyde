@@ -42,6 +42,8 @@ test("safe shape diagnostics include only fixed structural key names/counts and 
   });
 });
 test("Blocked synthesis uses common schema-bearing dispatch; canonical provenance is attached only after validation", async t => {
+  const priorMode=process.env.BASETEN_STRUCTURED_OUTPUT_MODE; process.env.BASETEN_STRUCTURED_OUTPUT_MODE="prompt";
+  t.after(()=>{if(priorMode===undefined)delete process.env.BASETEN_STRUCTURED_OUTPUT_MODE;else process.env.BASETEN_STRUCTURED_OUTPUT_MODE=priorMode;});
   const previous = process.env.BASETEN_API_KEY; process.env.BASETEN_API_KEY = "fixture";
   t.after(() => { if (previous === undefined) delete process.env.BASETEN_API_KEY; else process.env.BASETEN_API_KEY = previous; });
   let returned: unknown = valid, calls = 0;

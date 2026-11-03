@@ -17,14 +17,18 @@ const vision = z.object({ elements: z.array(z.object({ index: z.number().int().m
 const support = z.object({ verdicts: z.array(z.object({ unitId: z.string().regex(/^decision-[1-8]-unit-[1-9][0-9]*$/).max(100),
   verdict: z.enum(["supported", "unsupported", "uncertain"]),
 }).strict()).max(128) }).strict();
+const discovery = z.object({ fieldCount: z.literal(4) }).strict();
+const understanding = z.object({ fieldCount: z.literal(6) }).strict();
 const receipt = z.object({ receiptId: z.literal("proof-123") }).strict();
 export type ApprovedInvocationResponse =
   | { operation: "visual-selection"; payload: z.infer<typeof selection> }
   | { operation: "runtime-vision"; payload: z.infer<typeof vision> }
   | { operation: "transformation-support"; payload: z.infer<typeof support> }
+  | { operation: "repository-discovery"; payload: { fieldCount: number } }
+  | { operation: "repository-understanding"; payload: { fieldCount: number } }
   | { operation: "receipt-verification"; payload: z.infer<typeof receipt> };
 export function responseAllowed(operation: string) {
-  return ["visual-selection", "runtime-vision", "transformation-support", "receipt-verification"].includes(operation);
+  return ["repository-discovery", "repository-understanding", "visual-selection", "runtime-vision", "transformation-support", "receipt-verification"].includes(operation);
 }
 type RetainedPayload = { payload: unknown | null; reason: string | null };
 function bounded(payload: unknown): RetainedPayload {
@@ -38,6 +42,18 @@ function bounded(payload: unknown): RetainedPayload {
 }
 /** Exact final input string only. No instructions, transport envelope, image or domain object. */
 export function requestPayload(operation: string, input?: string): RetainedPayload {
+  if (operation === "repository-discovery") {
+    try {
+      const metadata = z.object({ ecosystems: z.array(z.string().max(60)).max(8), paths: z.array(z.string().max(120)).max(160), omitted: z.number().int().nonnegative() }).strict().parse(JSON.parse(input ?? ""));
+      return bounded({ pathCount: metadata.paths.length, omitted: metadata.omitted, ecosystemCount: metadata.ecosystems.length });
+    } catch { return { payload: null, reason: "logging-data-invalid" }; }
+  }
+  if (operation === "repository-understanding") {
+    try {
+      const parsed = z.object({ productContext: z.string().max(500).optional(), files: z.array(z.object({ path: z.string().max(1024), text: z.string().max(3500) }).strict()).max(6) }).strict().parse(JSON.parse(input ?? ""));
+      return bounded({ contextSupplied: Boolean(parsed.productContext), fileCount: parsed.files.length, excerptCharacters: parsed.files.reduce((sum, file) => sum + file.text.length, 0) });
+    } catch { return { payload: null, reason: "logging-data-invalid" }; }
+  }
   if (operation !== "visual-selection" && operation !== "receipt-verification") return { payload: null, reason: "not-allowlisted" };
   if (typeof input !== "string" || (operation === "receipt-verification" && input !== "Receipt identifier: proof-123")) return { payload: null, reason: "logging-data-invalid" };
   return bounded({ input });
@@ -45,7 +61,7 @@ export function requestPayload(operation: string, input?: string): RetainedPaylo
 export function responsePayload(operation: string, response?: ApprovedInvocationResponse): RetainedPayload {
   if (!responseAllowed(operation)) return { payload: null, reason: "not-allowlisted" };
   if (!response || operation !== response.operation) return { payload: null, reason: "logging-data-invalid" };
-  const schema = operation === "visual-selection" ? selection : operation === "runtime-vision" ? vision : operation === "transformation-support" ? support : receipt;
+  const schema = operation === "repository-discovery" ? discovery : operation === "repository-understanding" ? understanding : operation === "visual-selection" ? selection : operation === "runtime-vision" ? vision : operation === "transformation-support" ? support : receipt;
   try {
     // Bound before schema traversal; malformed/unknown fields never enter persistence.
     const size = bounded(response.payload);
@@ -63,7 +79,7 @@ export function receiptResponse(data: unknown): ApprovedInvocationResponse | und
 /** Read historical projections through the same strict allowlist; never expose arbitrary JSONB. */
 export function storedResponsePayload(operation: string, value: unknown): unknown | undefined {
   if (!responseAllowed(operation)) return undefined;
-  const schema = operation === "visual-selection" ? selection : operation === "runtime-vision" ? vision : operation === "transformation-support" ? support : receipt;
+  const schema = operation === "repository-discovery" ? discovery : operation === "repository-understanding" ? understanding : operation === "visual-selection" ? selection : operation === "runtime-vision" ? vision : operation === "transformation-support" ? support : receipt;
   const size = bounded(value);
   if (size.reason) return undefined;
   const parsed = schema.safeParse(size.payload);

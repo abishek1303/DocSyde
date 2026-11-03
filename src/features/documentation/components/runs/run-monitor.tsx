@@ -71,6 +71,7 @@ export function RunMonitor({ initial }: { initial: RunView }) {
   const longContext = context.length > 140;
   const selectedResponse = run.responses?.find(response => response.stage === selected?.key);
   return <div className="space-y-6">
+    {run.contextSnapshot?.repositoryUnderstandingUsed && <p className="text-xs text-muted-foreground">Using advisory repository understanding from <code>{run.contextSnapshot.repositoryUnderstandingUsed.sha.slice(0, 12)}</code>.</p>}
     <header className="space-y-4">
       <div className="flex items-start justify-between gap-4">
         <h1 className="min-w-0 flex-1 break-words text-2xl font-semibold">{run.title}</h1>

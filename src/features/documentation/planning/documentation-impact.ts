@@ -14,6 +14,15 @@ export const documentationImpactOutputSchema = z.object({
   uncertainties: z.array(z.string().min(1).max(300).refine(value => value.trim().length > 0)).max(6),
 }).strict();
 
+// Only new model output is concise; immutable/historical plans keep the canonical envelope.
+export const documentationImpactGenerationSchema = documentationImpactOutputSchema.extend({
+ decisions: z.array(documentationImpactOutputSchema.shape.decisions.element.extend({
+  reason: z.string().min(1).max(180).refine(value => value.trim().length > 0),
+  updateIntent: z.string().max(180),
+ })).max(8),
+ uncertainties: z.array(z.string().min(1).max(160).refine(value => value.trim().length > 0)).max(3),
+}).strict();
+
 export const documentationImpactPlanSchema = documentationImpactOutputSchema.extend({
   candidateSelection: candidateSelectionSchema.optional(),
   source: productImpactSchema.shape.provenance.shape.source.pick({ repository: true, base: true, head: true }),

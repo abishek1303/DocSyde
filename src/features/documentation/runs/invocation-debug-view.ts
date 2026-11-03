@@ -1,8 +1,9 @@
 import { modelDiagnosticSchema } from "@/integrations/ai/model-diagnostic";
 import { storedRequestInput, storedResponsePayload } from "@/integrations/ai/invocation-payload";
 import { debugSection, validationMessage, debugPolicy, debugRequestSchema, debugOutputSchema, validationDiagnosticSchema, DEBUG_LIMITS } from "@/integrations/ai/invocation-debug";
+import { structuredOutputModeSchema } from "@/integrations/ai/structured-output-mode";
 import { z } from "zod";
-const configSchema = z.object({ contractVersion: z.string().max(100).nullable(), maxOutputTokens: z.number().int().positive(),
+const configSchema = z.object({ structuredOutput: structuredOutputModeSchema.optional(), contractVersion: z.string().max(100).nullable(), maxOutputTokens: z.number().int().positive(),
   reasoningEffort: z.enum(["low", "medium", "high", "xhigh"]).nullable(), temperature: z.number().nullable(), topP: z.number().nullable() }).strict();
 function boundedParse<S extends z.ZodType>(schema: S, value: unknown): z.output<S> | null {
   try { const json = JSON.stringify(value); if (!json || Buffer.byteLength(json) > DEBUG_LIMITS.column) return null;
@@ -22,7 +23,7 @@ export function invocationDebugView(row: { status?: string; operation: string; f
   return { boundaryMessage, request, input: request?.input ?? (legacyInput === undefined ? undefined : debugSection(legacyInput, DEBUG_LIMITS.input)),
     response: response ?? (projection === undefined ? null : { version: 1, validation: "schema-valid", output: debugSection(JSON.stringify(projection), DEBUG_LIMITS.output) }), diagnostic, diagnosticMessage: diagnostic ? validationMessage(diagnostic.code) : null, config: boundedParse(configSchema, row.inferenceConfig),
     requestAvailability: request ? "Retained sanitized snapshot" : "Unavailable — no approved snapshot retained",
-    responseAvailability: response ? (row.operation === "source-analysis" && configSchema.safeParse(row.inferenceConfig).data?.contractVersion === "source-analysis-v3" ? "Retained model-returned citation references; evidence excerpts are reconstructed separately in the canonical run analysis" : row.operation === "runtime-decision" && configSchema.safeParse(row.inferenceConfig).data?.contractVersion === "runtime-decision-v3" ? "Retained compact routing references; canonical targets and citations are resolved separately in the run decision" : "Retained schema-valid output") : projection !== undefined ? "Retained validated projection; full response unavailable" : "Unavailable — no approved schema-valid output retained",
+    responseAvailability: response ? (row.operation === "source-analysis" && ["source-analysis-v3", "source-analysis-v4"].includes(configSchema.safeParse(row.inferenceConfig).data?.contractVersion ?? "") ? "Retained model-returned citation references; evidence excerpts are reconstructed separately in the canonical run analysis" : row.operation === "runtime-decision" && configSchema.safeParse(row.inferenceConfig).data?.contractVersion === "runtime-decision-v3" ? "Retained compact routing references; canonical targets and citations are resolved separately in the run decision" : "Retained schema-valid output") : projection !== undefined ? "Retained validated projection; full response unavailable" : "Unavailable — no approved schema-valid output retained",
     validation: semantic ? "Semantic / post-validation rejection after schema-valid generation"
       : row.failureKind === "schema-mismatch" || row.failureKind === "invalid-json" ? "Generation / schema-validation failure"
       : row.failureKind ? "Generation / provider failure" : row.status === "structured-success" ? "Schema accepted; grounding/correspondence pending" : row.status === "succeeded" && boundary ? "Schema accepted; operation validation completed" : "No rejection recorded" };

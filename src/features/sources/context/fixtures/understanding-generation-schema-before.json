@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "purpose": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240,
+      "description": "At most two short sentences"
+    },
+    "audience": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[^;]*(?:;[^;]*){0,2}$",
+      "description": "At most three short audience groups, separated by semicolons; retain string shape"
+    },
+    "terminology": {
+      "maxItems": 8,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 90
+      }
+    },
+    "workflows": {
+      "maxItems": 6,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      }
+    },
+    "surfaces": {
+      "maxItems": 8,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      }
+    },
+    "gaps": {
+      "maxItems": 3,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      },
+      "description": "At most three material unknowns; two slots reserved for server coverage limitations"
+    }
+  },
+  "required": [
+    "purpose",
+    "audience",
+    "terminology",
+    "workflows",
+    "surfaces",
+    "gaps"
+  ],
+  "additionalProperties": false
+}

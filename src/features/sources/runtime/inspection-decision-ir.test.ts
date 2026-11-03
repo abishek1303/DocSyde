@@ -69,7 +69,8 @@ test("mocked Meta dispatch and canonical return preserve runtime inspection comp
   const mock = t.mock.method(globalThis, "fetch", async (url: unknown, init?: RequestInit) => {
     assert.equal(url, "https://inference.baseten.co/v1/chat/completions");
     const body = JSON.parse(String(init?.body)); assert.equal(body.model, "meta-models/muse-spark-open-1026"); assert.equal(body.max_tokens, 4096);
-    assert.equal(body.reasoning_effort, undefined); assert.equal(body.response_format, undefined);
+    assert.equal(body.reasoning_effort, "low"); assert.equal(body.response_format.json_schema.strict, true);
+    assert.ok(!body.messages[0].content.includes("Return only JSON matching this schema:"));
     assert.match(body.messages[0].content, /No wrapper/); assert.match(body.messages[0].content, /chain-of-thought/);
     const input = JSON.parse(body.messages[1].content); assert.equal(input.targets[0].targetRef, "target-0"); assert.equal(input.analysis.findings[2].findingRef, "finding-3");
     return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(output) } }] });
