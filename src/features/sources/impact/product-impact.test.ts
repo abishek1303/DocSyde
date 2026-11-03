@@ -275,13 +275,29 @@ test("synthesis advertises the exact claim-kind permissions enforced for capabil
 test("derived source assessment reaches ProductImpact with canonical evidence and unchanged claim rules", async t => {
   for (const internal of [true, false]) await t.test(String(internal), async t => {
     const input = source(internal);
-    input.analysis = reconstructProductAnalysis({ uncertainties: [], findings: input.analysis!.findings.map(f => ({
-      ...f, citations: f.citations.map(({ evidenceId, startLine, endLine }) => ({ evidenceId, startLine, endLine })),
-    })) }, input.bundle);
+    input.analysis = reconstructProductAnalysis({ uncertainties: [], findings: input.analysis!.findings.map(({ reachabilityEvidenceIds: _legacyReachability, ...f }) => {
+    assert.ok(Array.isArray(_legacyReachability));
+    return ({
+      ...f, kind: internal ? "internal-change" : "product-behavior", citations: f.citations.map(({ evidenceId, startLine, endLine }) => ({ evidenceId, startLine, endLine })),
+    });
+  }) }, input.bundle);
     const p = provider(t, output(internal));
     const result = await synthesizeProductImpact({ source: input });
     assert.equal(p.payload().source.assessment, internal ? "internal-only" : "product-change");
     assert.equal(result.impact.assessment, input.analysis.assessment);
     assert.deepEqual(result.impact.provenance.sourceReferences[0].finding, input.analysis.findings[0]);
+  });
+});
+
+test("neutral product findings let ProductImpact interpret UI, behavior and workflow meaning with unchanged grounding", async t => {
+  for (const kind of ["ui-change", "behavior-change", "workflow-change"] as const) await t.test(kind, async t => {
+    const input = source(); input.analysis!.findings[0].kind = "product-behavior";
+    const response = output(); response.claims[0].kind = kind;
+    const p = provider(t, response);
+    const result = await synthesizeProductImpact({ source: input });
+    assert.deepEqual(p.payload().source.findings[0].allowedClaimKinds, ["behavior-change", "workflow-change", "ui-change"]);
+    assert.equal(result.impact.claims[0].kind, kind);
+    response.claims[0].after = "Invented lifecycle transition";
+    await assert.rejects(synthesizeProductImpact({ source: input }), /unsupported-temporal-values/);
   });
 });

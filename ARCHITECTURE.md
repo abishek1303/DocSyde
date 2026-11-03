@@ -1118,3 +1118,21 @@ saved product-context setting. The submitted text (blank means repository-only)
 is advisory input, separate from files and source evidence. Successful artifacts
 record it in optional `generationContext.productContextUsed`; historical artifacts
 remain valid. Saved notes and generated understanding remain distinct records.
+
+## Neutral source finding boundary
+
+New source-analysis-v5 generation classifies grounded source facts only as
+`product-behavior`, `internal-change` or `undetermined`. It does not assign directional
+capability/behavior labels or generate a capability-reachability list. Descriptions,
+source-supported before/after text, qualifications and bounded citation references remain.
+Overall assessment is derived after reference validation: any product finding yields
+product-change; complete nonempty exclusively internal findings yield internal-only;
+otherwise insufficient-evidence. Advisory context never establishes evidence.
+
+Canonical findings accept the neutral product kind alongside historical directional kinds.
+New findings get an empty legacy reachability list at canonical reconstruction. Existing
+artifacts keep their kinds, excerpts and validation; there is no backfill or reinterpretation
+of historical claim permissions. ProductImpact accepts neutral product findings as support
+for behavior, workflow or UI interpretation, while retaining its existing output schema,
+reference checks, temporal-value correspondence and runtime/vision evidence limits.
+Publication and run orchestration are unchanged.

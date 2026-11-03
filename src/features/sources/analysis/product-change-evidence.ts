@@ -41,6 +41,7 @@ export function validateProductAnalysis(analysis: ProductAnalysis, bundle: Produ
   for (const [findingIndex, finding] of analysis.findings.entries()) {
     const cited = finding.citations.map((citation, citationIndex) => validateProductCitation(citation, bundle, findingIndex, citationIndex));
     if (!cited.some(e => e.changed)) reject("missing-change-evidence", findingIndex);
+    // Preserve historical artifact validation; v5 cannot generate this directional kind.
     if (finding.kind === "capability-added" && (!finding.reachabilityEvidenceIds.length || finding.reachabilityEvidenceIds.some(id => !cited.some(e => e.id === id)))) reject("missing-reachability-evidence", findingIndex);
     if (finding.support === "inferred" && !finding.assumptions.length && !finding.uncertainties.length) reject("unqualified-inference", findingIndex);
   }
@@ -49,18 +50,18 @@ export function validateProductAnalysis(analysis: ProductAnalysis, bundle: Produ
 /** Assessment summarizes finding kinds, never advisory context or runtime conclusions.
  * Partial coverage cannot establish that the entire change is internal-only.
  */
-export function deriveProductAssessment(findings: GeneratedProductAnalysis["findings"], limited: boolean): ProductAnalysis["assessment"] {
+export function deriveProductAssessment(findings: ProductAnalysis["findings"] | GeneratedProductAnalysis["findings"], limited: boolean): ProductAnalysis["assessment"] {
   if (findings.some(f => f.kind !== "internal-change" && f.kind !== "undetermined")) return "product-change";
   if (!limited && findings.length > 0 && findings.every(f => f.kind === "internal-change")) return "internal-only";
   return "insufficient-evidence";
 }
 
 /** New model references become canonical citations before any downstream consumer. */
-export function reconstructProductAnalysis(analysis: GeneratedProductAnalysis, bundle: ProductBundle): ProductAnalysis {
+export function reconstructProductAnalysis(analysis: unknown, bundle: ProductBundle): ProductAnalysis {
   const references = productChangeGenerationOutput.parse(analysis);
   if (new Set(bundle.evidence.map(entry => entry.id)).size !== bundle.evidence.length) reject("duplicate-reference");
   const canonical: ProductAnalysis = { ...references, assessment: deriveProductAssessment(references.findings, bundle.limited), findings: references.findings.map((finding, findingIndex) => ({
-    ...finding, citations: finding.citations.map((citation, citationIndex) => {
+    ...finding, reachabilityEvidenceIds: [], citations: finding.citations.map((citation, citationIndex) => {
       const evidence = bundle.evidence.find(e => e.id === citation.evidenceId);
       if (!evidence) reject("unknown-evidence", findingIndex, citationIndex);
       if (evidence.text === null) reject("unavailable-evidence", findingIndex, citationIndex);

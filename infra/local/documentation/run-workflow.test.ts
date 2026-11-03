@@ -77,10 +77,10 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
     const input = text ? JSON.parse(body.messages[1].content) : null;
     let phase: string, output: unknown;
     if (!text) { phase = "vision"; output = { elements: [], observations: ["Title is required."], limitations: ["Visible state only"] }; }
-    else if (instructions.includes("Interpret meaningful PRODUCT")) {
+    else if (instructions.includes("Report concise grounded facts")) {
       assert.equal(input.repositoryUnderstandingAdvisory.summary.purpose, "Request tracker");
       assert.ok(!JSON.stringify(input.evidence).includes("Request tracker"));
-      phase = "source"; output = { findings: [{ kind: "field-requirement-changed", description: "A title is required", before: "Optional", after: "Required", support: "directly-supported", confidence: "high", confidenceReason: "Literal source", citations: [{ evidenceId: "patch-f1", startLine: 2, endLine: 2 }], reachabilityEvidenceIds: [], assumptions: [], uncertainties: [] }], uncertainties: [] };
+      phase = "source"; output = { findings: [{ kind: "product-behavior", description: "A title is required", before: "Optional", after: "Required", support: "directly-supported", confidence: "high", confidenceReason: "Literal source", citations: [{ evidenceId: "patch-f1", startLine: 2, endLine: 2 }], assumptions: [], uncertainties: [] }], uncertainties: [] };
     } else if (Array.isArray(input.targets)) {
       phase = "decision"; output = mode === "not-needed" ? { status: "not-needed", reason: "Source is sufficient for this change", staticEvidence: "sufficient", targets: [], uncertainties: [] }
         : { status: "inspect", reason: "Inspect rendered requirement", staticEvidence: "uncertain", targets: [{ findingRef: "finding-1", targetRef: "target-0", reason: "Check the requirement label" }], uncertainties: [] };

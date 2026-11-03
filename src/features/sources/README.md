@@ -320,3 +320,10 @@ actual configured count is in the schema. The 3072-token ceiling is reasoning
 headroom, not expected response size. No candidate projection/ranking, capture, vision
 context/prompt/schema or other AI-stage behavior changes. See MODEL_USAGE.md for safe
 selection-specific invocation snapshots and historical v2 compatibility.
+
+New generation now uses source-analysis-v5 with neutral product-behavior, internal-change
+and undetermined kinds, without a model-authored reachability list. Canonical reconstruction
+supplies an empty legacy list; historical directional findings remain readable and validated.
+ProductImpact owns directional interpretation; neutral product findings allow behavior,
+workflow and UI claims subject to its unchanged evidence/temporal checks. Assessment stays
+deterministic and citation reconstruction is unchanged.

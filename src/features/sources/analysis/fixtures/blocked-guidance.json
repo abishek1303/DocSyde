@@ -1,0 +1,53 @@
+{
+  "bundle": {
+    "repository": "https://github.com/abishek1303/docksyde-demo-app-test-subject",
+    "base": "52995911826a07247049aa9a914627ff3e9b9e50",
+    "head": "c120171beb7ebf280b9eab877277f0f1f08d1517",
+    "inventory": [
+      {
+        "path": "src/client/components/issue-detail.tsx",
+        "previousPath": null,
+        "kind": "modified"
+      }
+    ],
+    "evidence": [
+      {
+        "id": "patch-f1",
+        "path": "src/client/components/issue-detail.tsx",
+        "side": "patch",
+        "commitId": null,
+        "text": "@@ -103,6 +103,12 @@ export function IssueDetail() {\n           </h1>\n         )}\n \n+        {issue.status === \"blocked\" && (\n+          <p role=\"note\" aria-label=\"Blocked issue guidance\">\n+            Blocked: work is paused while a dependency is unresolved. Change the issue status when work can continue.\n+          </p>\n+        )}\n+\n         {/* Description */}\n         {editing === \"description\" ? (\n           <div>",
+        "status": "included",
+        "changed": true
+      }
+    ],
+    "limited": false,
+    "notice": "Selected context only. Supplied patches may be incomplete. Runtime behavior, deployment and tests are unverified."
+  },
+  "output": {
+    "findings": [
+      {
+        "kind": "behavior-removed",
+        "description": "Issue detail view now conditionally renders a guidance note when issue.status is 'blocked'. The note is a <p role='note' aria-label='Blocked issue guidance'> with text stating work is paused while a dependency is unresolved and the user must change status when work can continue. Previously no blocked-specific guidance was rendered in this location.",
+        "before": "No blocked-status guidance note rendered in IssueDetail.",
+        "after": "When issue.status === 'blocked', renders <p role='note' aria-label='Blocked issue guidance'>Blocked: work is paused while a dependency is unresolved. Change the issue status when work can continue.</p>",
+        "support": "directly-supported",
+        "confidence": "high",
+        "confidenceReason": "Patch directly adds conditional JSX rendering with exact text and accessibility attributes.",
+        "citations": [
+          {
+            "evidenceId": "patch-f1",
+            "startLine": 5,
+            "endLine": 8,
+            "excerpt": "+        {issue.status === \"blocked\" && (\n+          <p role=\"note\" aria-label=\"Blocked issue guidance\">\n+            Blocked: work is paused while a dependency is unresolved. Change the issue status when work can continue.\n+          </p>"
+          }
+        ],
+        "reachabilityEvidenceIds": [],
+        "assumptions": [],
+        "uncertainties": []
+      }
+    ],
+    "uncertainties": [],
+    "assessment": "product-change"
+  }
+}

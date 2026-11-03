@@ -12,7 +12,7 @@ export type InferenceOptions = z.infer<typeof optionsSchema>;
 const policies = {
   "repository-discovery": [4096, "repository-discovery-v1"],
   "repository-understanding": [8192, "repository-understanding-v3"],
-  "source-analysis": [8192, "source-analysis-v4"],
+  "source-analysis": [8192, "source-analysis-v5"],
   "source-summary": [8192, "source-summary-v1"],
   "runtime-decision": [4096, "runtime-decision-v3"],
   "visual-selection": [3072, "visual-selection-v3"],
@@ -25,9 +25,16 @@ const policies = {
   "receipt-verification": [4096, "receipt-verification-v1"],
 } as const;
 export type ModelOperation = keyof typeof policies;
-// Classification/planning only; other operations retain omitted provider defaults.
+// Bounded text operations start low; source analysis, synthesis and authoring use medium.
+// Unlisted operations and Meta vision retain omitted provider defaults.
 const operationInference: Partial<Record<ModelOperation, InferenceOptions>> = {
+  "source-analysis": { reasoningEffort: "medium" },
   "runtime-decision": { reasoningEffort: "low" },
+  "visual-selection": { reasoningEffort: "low" },
+  "documentation-planning": { reasoningEffort: "low" },
+  "transformation-support": { reasoningEffort: "low" },
+  "product-impact": { reasoningEffort: "medium" },
+  "documentation-transformation": { reasoningEffort: "medium" },
 };
 function museReasoning(model: string) {
   return ["meta-models/muse-spark-open", "meta-models/muse-spark-open-1026"].includes(model);

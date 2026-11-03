@@ -816,8 +816,11 @@ and `npm run documentation:test` cover generation limits and historical compatib
 fixtures and no provider calls. Approved payloads are SQL-only; the Logs UI continues
 to expose metadata and sanitized diagnostics. No new environment variables are required.
 
-Runtime decision now requests low reasoning through the AI operation policy; other
-reasoning defaults, sampling defaults and output ceilings are unchanged. Safe invocation
+The central AI operation policy requests low reasoning for runtime decision, visual
+selection, documentation planning and transformation support; source analysis, product
+impact and documentation transformation request medium. Unlisted operations, Meta
+vision settings, sampling defaults and output ceilings are unchanged. There is no
+automatic reasoning escalation or new retry behavior. Safe invocation
 diagnostics include reported reasoning tokens and visible response size when available.
 Do not use live AI verification commands to tune settings without separate authorization. See
 [MODEL_USAGE.md](MODEL_USAGE.md#reliability-baseline-and-safe-payload-policy) for the
@@ -1113,3 +1116,12 @@ selects compatibility mode before dispatch; default is `auto`. Native failures n
 trigger a second request or automatic downgrade. No migration/dependency changes.
 Invocation configuration records mode, schema name/version/hash and fallback reason;
 raw schemas remain limited to the existing debug allowlist.
+
+### Neutral source facts
+
+New source-analysis-v5 uses product-behavior, internal-change and undetermined findings;
+source analysis remains at medium effort. Directional product interpretation belongs to
+ProductImpact after source/runtime evidence is assembled. Historical source artifacts
+remain readable without migration. Citation and inferred-finding qualification checks
+remain authoritative. `npm run sources:test` covers neutral Blocked guidance, historical
+readability, deterministic assessment and downstream claim permissions.

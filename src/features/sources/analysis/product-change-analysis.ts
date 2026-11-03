@@ -6,12 +6,12 @@ export const productCitation = z.object({ evidenceId: z.string().min(1).max(30).
 export const productChangeOutput = z.object({
   assessment: z.enum(["product-change", "internal-only", "insufficient-evidence"]),
   findings: z.array(z.object({
-    kind: z.enum(["workflow-changed", "field-requirement-changed", "capability-added", "behavior-modified", "behavior-removed", "internal-change", "undetermined"]),
+    kind: z.enum(["product-behavior", "workflow-changed", "field-requirement-changed", "capability-added", "behavior-modified", "behavior-removed", "internal-change", "undetermined"]),
     description: z.string().min(1).max(500), before: z.string().max(400).nullable(), after: z.string().max(400).nullable(),
     audience: z.string().max(200).optional(), surface: z.string().max(200).optional(),
     support: z.enum(["directly-supported", "inferred"]), confidence: z.enum(["low", "medium", "high"]),
     confidenceReason: z.string().min(1).max(300), citations: z.array(productCitation).min(1).max(4),
-    // Required only for capability claims; local checks verify references, not reachability itself.
+    // Historical capability claims only; v5 generation omits this legacy field.
     reachabilityEvidenceIds: z.array(z.string().max(30)).max(4),
     assumptions: z.array(z.string().max(300)).max(4), uncertainties: z.array(z.string().max(300)).max(4),
   }).strict()).max(4),
@@ -20,10 +20,10 @@ export const productChangeOutput = z.object({
 // Generation-only limits: historical evidence/results retain their original allowance.
 export const sourceGenerationLimits = { findings: 4, citations: 2, confidenceReason: 200 } as const;
 export const productChangeGenerationOutput = productChangeOutput.omit({ assessment: true }).extend({
-  findings: z.array(productChangeOutput.shape.findings.element.extend({
+  findings: z.array(productChangeOutput.shape.findings.element.omit({ reachabilityEvidenceIds: true }).extend({
+    kind: z.enum(["product-behavior", "internal-change", "undetermined"]),
     confidenceReason: z.string().min(1).max(sourceGenerationLimits.confidenceReason),
     citations: z.array(productCitation.omit({ excerpt: true })).min(1).max(sourceGenerationLimits.citations),
-    reachabilityEvidenceIds: productChangeOutput.shape.findings.element.shape.reachabilityEvidenceIds.max(sourceGenerationLimits.citations),
   })).max(sourceGenerationLimits.findings),
 });
 export type GeneratedProductAnalysis = z.infer<typeof productChangeGenerationOutput>;

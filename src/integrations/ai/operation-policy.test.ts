@@ -4,15 +4,21 @@ import { z } from "zod";
 import { resolveInference, inferenceSnapshot, basetenInferenceFields, operationPolicy } from "./operation-policy";
 import { generateStructured } from "./generate-structured";
 
+const expectedEfforts: Record<string, "low" | "medium"> = {
+  "source-analysis": "medium", "runtime-decision": "low", "visual-selection": "low",
+  "documentation-planning": "low", "transformation-support": "low",
+  "product-impact": "medium", "documentation-transformation": "medium",
+};
+
 test("operation ceilings stay intentional with operation-specific reasoning and omitted sampling", t => {
   const previous = process.env.BASETEN_MODEL; delete process.env.BASETEN_MODEL;
   t.after(() => { if (previous === undefined) delete process.env.BASETEN_MODEL; else process.env.BASETEN_MODEL = previous; });
   for (const [operation, ceiling] of Object.entries({ "repository-understanding":8192, "repository-discovery":4096, "source-analysis":8192, "source-summary":8192, "runtime-decision":4096, "visual-selection":3072, "product-impact":8192, "documentation-planning":4096, "documentation-draft":8192, "documentation-transformation":8192, "transformation-support":8192 })) {
     const settings = resolveInference("baseten", operation);
-    assert.equal(settings.maxOutputTokens, ceiling); assert.deepEqual(basetenInferenceFields(settings), operation === "runtime-decision" ? { reasoning_effort: "low" } : {});
-    assert.equal(inferenceSnapshot(operation, settings).reasoningEffort, operation === "runtime-decision" ? "low" : null);
+    assert.equal(settings.maxOutputTokens, ceiling); assert.deepEqual(basetenInferenceFields(settings), expectedEfforts[operation] ? { reasoning_effort: expectedEfforts[operation] } : {});
+    assert.equal(inferenceSnapshot(operation, settings).reasoningEffort, expectedEfforts[operation] ?? null);
   }
-  assert.deepEqual(basetenInferenceFields(resolveInference("baseten", "source-analysis", undefined, { temperature: undefined })), {});
+  assert.deepEqual(basetenInferenceFields(resolveInference("baseten", "source-analysis", undefined, { temperature: undefined })), { reasoning_effort: "medium" });
 });
 
 test("unconfirmed model controls and arbitrary provider options reject before fetch", async t => {
@@ -53,7 +59,7 @@ test("Baseten native schema changes only formatting, preserving all operation ce
       assert.equal(String(url), "https://inference.baseten.co/v1/chat/completions");
       assert.deepEqual(JSON.parse(String(init?.body)), {
         model: "meta-models/muse-spark-open-1026", stream: false, max_tokens: max,
-        ...(operation === "runtime-decision" ? { reasoning_effort: "low" } : {}),
+        ...(expectedEfforts[operation] ? { reasoning_effort: expectedEfforts[operation] } : {}),
         response_format: { type: "json_schema", json_schema: { name: operationPolicy(operation)?.[1], strict: true, schema: z.toJSONSchema(schema) } },
         messages: [{ role: "system", content: "Extract" }, { role: "user", content: "value" }],
       });
@@ -63,13 +69,16 @@ test("Baseten native schema changes only formatting, preserving all operation ce
   }
 });
 
-test("runtime-only reasoning defaults remain provider/model scoped and explicitly overridable", t => {
+test("operation reasoning defaults remain provider/model scoped and explicitly overridable", t => {
   const prior = process.env.BASETEN_MODEL;
   t.after(() => { if (prior === undefined) delete process.env.BASETEN_MODEL; else process.env.BASETEN_MODEL = prior; });
   delete process.env.BASETEN_MODEL;
   assert.equal(resolveInference("baseten", "runtime-decision").reasoningEffort, "low");
-  assert.equal(resolveInference("baseten", "source-analysis").reasoningEffort, undefined);
-  assert.equal(resolveInference("meta", "runtime-decision").reasoningEffort, undefined);
+  assert.equal(resolveInference("baseten", "source-summary").reasoningEffort, undefined);
+  for (const operation of [...Object.keys(expectedEfforts), "runtime-vision", "unknown"]) {
+    assert.equal(resolveInference("meta", operation).reasoningEffort, undefined);
+  }
+  assert.equal(resolveInference("baseten", "unknown").reasoningEffort, undefined);
   assert.equal(resolveInference("baseten", "runtime-decision", undefined, { reasoningEffort: "medium" }).reasoningEffort, "medium");
   process.env.BASETEN_MODEL = "other/provider-model";
   assert.equal(resolveInference("baseten", "runtime-decision").reasoningEffort, undefined);

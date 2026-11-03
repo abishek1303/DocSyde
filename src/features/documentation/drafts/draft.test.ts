@@ -70,10 +70,12 @@ test("trusted flow distinguishes rejected output from limited eligible findings 
     const address = String(url);
     if (address.includes("baseten")) {
       const request = JSON.parse(String(init?.body));
-      if (request.messages[0].content.includes("Interpret meaningful PRODUCT")) {
+      if (request.messages[0].content.includes("Report concise grounded facts")) {
         analyses++;
-        const finding = { ...result.analysis!.findings[0], kind: "internal-change", citations: [{ evidenceId: "patch-f1", startLine: mode === "citation" ? 2 : 1, endLine: mode === "citation" ? 2 : 1 }] };
-        const data = { assessment: mode === "internal" ? "internal-only" : "insufficient-evidence", findings: [finding], uncertainties: ["Limited source context"] };
+        const { reachabilityEvidenceIds: _legacyReachability, ...sourceFinding } = result.analysis!.findings[0];
+        assert.ok(Array.isArray(_legacyReachability));
+        const finding = { ...sourceFinding, kind: mode === "eligible" ? "product-behavior" : "internal-change", citations: [{ evidenceId: "patch-f1", startLine: mode === "citation" ? 2 : 1, endLine: mode === "citation" ? 2 : 1 }] };
+        const data = { findings: [finding], uncertainties: ["Limited source context"] };
         return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(mode === "schema" ? { ...data, assessment: "invented" } : data) } }] });
       }
       drafts++;
@@ -89,13 +91,15 @@ test("trusted flow distinguishes rejected output from limited eligible findings 
   const schema = await createDraftFromChanges(input);
   assert.deepEqual(schema.analysisRejection, { stage: "model-output", code: "schema-mismatch" }); assert.equal(schema.document, null);
   mode = "internal";
-  const internal = await createDraftFromChanges(input);
-  assert.equal(internal.analysisRejection?.code, "limited-evidence-internal-only"); assert.equal(internal.document, null);
-  assert.equal(drafts, 0); assert.equal(analyses, 3);
+  let internalAssessment: string | undefined;
+  const internal = await createDraftFromChanges(input, [], null, { onAnalysis: async analysis => { internalAssessment = analysis.analysis?.assessment; } });
+  assert.equal(internalAssessment, "insufficient-evidence");
+  assert.equal(internal.analysisRejection, undefined); assert.equal(internal.status, "draft");
+  assert.equal(drafts, 1); assert.equal(analyses, 3);
   mode = "eligible";
   const valid = await createDraftFromChanges(input);
   assert.equal(valid.status, "draft"); assert.equal(valid.document?.provenance.limited, true);
   assert.ok(valid.document?.provenance.limitations.includes("Limited source context"));
-  assert.equal(analyses, 4); assert.equal(drafts, 1);
+  assert.equal(analyses, 4); assert.equal(drafts, 2);
   assert.ok(!JSON.stringify(citation.analysisRejection).includes("secret-fixture"));
 });

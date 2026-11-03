@@ -9,9 +9,12 @@ import { rejectionDiagnostic } from "@/integrations/ai/invocation-debug";
 
 const bundle = fixture.bundle as ProductBundle;
 function references() {
-  return productChangeGenerationOutput.parse({ uncertainties: fixture.output.uncertainties, findings: fixture.output.findings.map(f => ({ ...f,
+  return productChangeGenerationOutput.parse({ uncertainties: fixture.output.uncertainties, findings: fixture.output.findings.map(({ reachabilityEvidenceIds: _legacyReachability, ...f }) => {
+    assert.ok(Array.isArray(_legacyReachability));
+    return ({ ...f, kind: f.kind === "internal-change" ? "internal-change" : f.kind === "undetermined" ? "undetermined" : "product-behavior",
     citations: f.citations.map(({ evidenceId, startLine, endLine }) => ({ evidenceId, startLine, endLine })),
-  })) });
+  });
+  }) });
 }
 test("historical semantic references succeed and excerpts come only from canonical evidence", async () => {
   const output = references();
@@ -68,9 +71,8 @@ test("multi-hunk additions/deletions retain inclusive evidence coordinates and l
   assert.throws(() => reconstructProductAnalysis(output, { ...input, evidence: [input.evidence[0], input.evidence[0]] }), /duplicate-reference/);
 });
 
-test("reference reconstruction preserves changed-evidence and capability-reachability requirements", () => {
+test("reference reconstruction preserves changed-evidence and rejects removed generation fields", () => {
   const output = references();
   assert.throws(() => reconstructProductAnalysis(output, { ...bundle, evidence: bundle.evidence.map(e => ({ ...e, changed: false })) }), /missing-change-evidence/);
-  output.findings[0].kind = "capability-added"; output.findings[0].reachabilityEvidenceIds = ["invented"];
-  assert.throws(() => reconstructProductAnalysis(output, bundle), /missing-reachability-evidence/);
+  assert.equal(productChangeGenerationOutput.safeParse({ ...output, findings: [{ ...output.findings[0], reachabilityEvidenceIds: ["invented"] }] }).success, false);
 });
