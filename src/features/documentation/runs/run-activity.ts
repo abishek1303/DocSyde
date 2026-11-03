@@ -15,10 +15,11 @@ export const activityLabels: Record<string, string> = {
 };
 export type ActivityStep = { label: string; status: string };
 /** Project recorded boundaries only. Missing invocation logs never imply completion. */
-export function activitySubsteps(stage: RunView["stages"][number], calls: RunInvocationSummary[]): ActivityStep[] {
+export function activitySubsteps(stage: RunView["stages"][number], calls: RunInvocationSummary[], options: { supportRejected?: boolean } = {}): ActivityStep[] {
   const own = calls.filter(call => call.stage === stage.key);
   const operation = (name: string) => own.find(call => call.operation === name);
-  const status = (call: RunInvocationSummary | undefined) => !call ? "waiting" : call.status === "failed" ? "failed" : call.status === "succeeded" ? "completed" : "running";
+  const terminal = !["running", "waiting"].includes(stage.status);
+  const status = (call: RunInvocationSummary | undefined) => !call ? terminal ? "not-recorded" : "waiting" : call.status === "failed" ? "failed" : call.status === "succeeded" ? "completed" : terminal ? "interrupted" : "running";
   if (stage.key === "source-analysis") {
     const call = operation("source-analysis");
     return [
@@ -34,7 +35,7 @@ export function activitySubsteps(stage: RunView["stages"][number], calls: RunInv
   if (stage.key === "documentation-transformation") return [
     { label: "Generating replacement copy", status: status(operation("documentation-transformation")) },
     ...(operation("documentation-composition") ? [{ label: "Composing with Muse Wonder", status: status(operation("documentation-composition")) }] : []),
-    { label: "Checking evidence support", status: status(operation("transformation-support")) },
+    { label: "Checking evidence support", status: options.supportRejected ? "failed" : status(operation("transformation-support")) },
   ];
   return [];
 }

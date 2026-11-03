@@ -101,3 +101,30 @@ test("Latest Changes is blocked without existing documentation before source rea
   const result = await createBranchDocumentationRun({ repository: "example/empty", branch: "main" });
   assert.equal(result.status, "blocked");
 });
+
+test("Full Scan pins a current snapshot without a diff, prior documents, inference or publication writes", async t => {
+  const { createFullScanRun } = await import("./prepare-run");
+  const previous = { GITHUB_TOKEN: process.env.GITHUB_TOKEN, DATABASE_URL: process.env.DATABASE_URL, DOCSYDE_ANALYSIS_REPOSITORIES: process.env.DOCSYDE_ANALYSIS_REPOSITORIES };
+  process.env.GITHUB_TOKEN = "fixture";
+  process.env.DATABASE_URL = "postgres://fixture:fixture@localhost/fixture";
+  process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "example/product";
+  t.after(async () => { await stopRunCoordinator(); await closeDatabase(); for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
+  const head = "a".repeat(40);
+  t.mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
+    const url = new URL(input instanceof Request ? input.url : input);
+    assert.equal(url.origin, "https://api.github.com");
+    assert.match(url.pathname, /\/commits\//, "No comparison, diff or tree needed to create a run");
+    return Response.json({ sha: head, html_url: `https://github.com/example/product/commit/${head}`, parents: [], commit: { message: "Initial commit", author: { name: "Test" }, committer: { date: "2026-11-01T00:00:00Z" } } });
+  });
+  let inserted: unknown;
+  t.mock.method(Pool.prototype, "query", async (query: { text: string }, params: unknown[]) => {
+    assert.ok(!/documentation_(drafts|publications|reviews)/.test(query.text), "Published documents and proposals remain untouched during setup");
+    if (query.text.startsWith("insert")) inserted = typeof params[3] === "string" ? JSON.parse(params[3]) : params[3];
+    else assert.ok(query.text.startsWith("select"));
+    return { rows: [] };
+  });
+  const result = await createFullScanRun({ repository: "example/product", branch: "main", runContext: "Explain onboarding", route: "/onboarding" });
+  assert.ok(result.id);
+  assert.ok(inserted && typeof inserted === "object" && "input" in inserted);
+  assert.deepEqual(inserted.input, { owner: "example", repo: "product", mode: "current-state", branch: "main", base: head, head, paths: [], associations: [{ id: "scan-route", kind: "route", value: "/onboarding", origin: "operator" }], runContext: "Explain onboarding" });
+});

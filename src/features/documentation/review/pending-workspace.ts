@@ -49,6 +49,7 @@ async function prepare(raw: unknown) {
   const groups = new Map<string, Group>(), excluded = new Set(input.excluded), observations: unknown[] = [];
   for (const state of states) for (const result of state.proposal.results) {
     if (!["add", "revise"].includes(result.decision.action)) continue;
+    if (state.review?.exclusions?.some(item => item.decisionId === result.decisionId)) continue;
     if (state.review && !state.review.selection.decisions.some(choice => choice.decisionId === result.decisionId && choice.choice === "approve")) continue;
     const unitId = result.decision.documentId ?? result.decisionId;
     const targets = state.targets.filter(target => target.unitId === unitId);
@@ -126,7 +127,7 @@ export async function publishPendingWorkspace(raw: unknown): Promise<PendingPubl
     if (data.hash !== parsed.expectedHash) return { status: "changed", message: "Pending or live documentation changed. Reload and review the current preview." };
     if (!view.count || view.blocked) return { status: "blocked", message: "Resolve or exclude the conflicting changes before publishing." };
     const activeGroups = data.groups.filter(group => group.entries.some(included));
-    const activeStates = data.states.filter(state => data.groups.some(group => group.entries.some(entry => entry.state === state && (included(entry) || (!state.review && !entry.unavailable)))));
+    const activeStates = data.states.filter(state => data.groups.some(group => group.entries.some(entry => entry.state === state && (included(entry) || entry.excluded || (!state.review && !entry.unavailable)))));
     await documentationReviewBatchTransaction(activeStates.map(state => state.proposal.proposalId), async scopes => {
       const byId = new Map(scopes.map(scope => [scope.row?.id, scope]));
       // Complete all integrity, expiry, baseline and destination checks before writing.
@@ -188,6 +189,8 @@ export async function publishPendingWorkspace(raw: unknown): Promise<PendingPubl
           const unitEntries = data.groups.flatMap(group => group.entries).filter(item => item.state === state && (item.result.decision.documentId ?? item.result.decisionId) === target.unitId);
           review.publications.push({ decisionIds: unitEntries.filter(included).map(item => item.result.decisionId), excludedDecisionIds: unitEntries.filter(item => !included(item)).map(item => item.result.decisionId), targetId: target.id, intent: target.observedId ? "replace" : "publish", status: "published", expectedId: target.observedId, actualId: publication.id, actualDocumentId: publication.draftId, at, reason: null });
         }
+        const excluded = data.groups.flatMap(group => group.entries).filter(entry => entry.state === state && entry.excluded);
+        if (excluded.length) review.exclusions = [...(review.exclusions ?? []), ...excluded.map(entry => ({ decisionId: entry.result.decisionId, at }))];
         await byId.get(state.proposal.proposalId)!.receipt(acceptedReviewSchema.parse(review));
       }
     });

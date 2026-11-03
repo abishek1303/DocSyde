@@ -31,9 +31,10 @@ const commit = z.string().regex(/^[a-f0-9]{40}$/i);
 const path = z.string().min(1).max(1024);
 export const inspectionSourceSchema = z.object({
   bundle: z.object({
+    mode: z.literal("current-state").optional(),
     repository: z.string().min(1).max(2048), base: commit, head: commit,
     inventory: z.array(z.object({ path, previousPath: path.nullable(), kind: z.enum([
-      "added", "deleted", "modified", "renamed", "copied", "type-changed",
+      "added", "deleted", "modified", "renamed", "copied", "type-changed", "current-file",
     ]) }).strict()).max(30),
     evidence: z.array(z.object({
       id: z.string().min(1).max(30), path, side: z.enum(["patch", "base", "head"]),

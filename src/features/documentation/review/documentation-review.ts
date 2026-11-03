@@ -35,6 +35,7 @@ export const publicationReceiptSchema = z.object({
 }).strict();
 export const acceptedReviewSchema = z.object({
   operationId: z.uuid(), selectionHash: hash, selection: reviewSelectionSchema, acceptedAt: z.iso.datetime(),
+  exclusions: z.array(z.object({ decisionId: decisionIdSchema, at: z.iso.datetime() }).strict()).max(8).optional(),
   saves: z.array(saveReceiptSchema).max(8), publications: z.array(publicationReceiptSchema).max(REVIEW_MAX_PUBLICATION_TARGETS),
 }).strict();
 export type ReviewSelection = z.infer<typeof reviewSelectionSchema>;

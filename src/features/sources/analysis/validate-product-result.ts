@@ -10,10 +10,14 @@ export function validateProductResult(source: unknown) {
   const bundle = input.bundle;
   if (new Set(bundle.evidence.map(entry => entry.id)).size !== bundle.evidence.length
     || new Set(bundle.inventory.map(entry => entry.path)).size !== bundle.inventory.length) reject("duplicate-evidence-or-path");
-  if (bundle.inventory.some(file => !bundle.evidence.some(entry => entry.side === "patch" && entry.path === file.path))) reject("incomplete-change-inventory");
+  if (!bundle.mode && bundle.inventory.some(file => file.kind === "current-file")) reject("invalid-change-kind");
+  if (bundle.mode === "current-state" && (bundle.base !== bundle.head || !bundle.limited
+    || bundle.inventory.some(file => file.kind !== "current-file" || file.previousPath !== null)
+    || bundle.evidence.some(entry => entry.side !== "head" || entry.changed || !bundle.inventory.some(file => file.path === entry.path)))) reject("invalid-current-state-bundle");
+  if (bundle.inventory.some(file => !bundle.evidence.some(entry => entry.side === (bundle.mode === "current-state" ? "head" : "patch") && entry.path === file.path))) reject("incomplete-change-inventory");
   for (const entry of bundle.evidence) {
     if (entry.commitId !== (entry.side === "patch" ? null : bundle[entry.side])) reject("unpinned-evidence");
-    const changed = bundle.inventory.some(file => file.path === entry.path || file.previousPath === entry.path);
+    const changed = bundle.mode !== "current-state" && bundle.inventory.some(file => file.path === entry.path || file.previousPath === entry.path);
     if (entry.changed !== changed) reject("contradictory-change-evidence");
     if (entry.side === "patch") {
       if (!changed || !["included", "empty", "unavailable", "over-budget"].includes(entry.status)

@@ -5,7 +5,7 @@ import { productChangeOutput } from "./product-change-analysis";
 import { validateProductAnalysis, serializeProductEvidence } from "./product-change-evidence";
 
 export const storedProductResult = z.object({
-  bundle: z.object({ repository: z.string().url(), base: z.string(), head: z.string(),
+  bundle: z.object({ mode: z.literal("current-state").optional(), repository: z.string().url(), base: z.string(), head: z.string(),
     inventory: z.array(z.object({ path: z.string(), previousPath: z.string().nullable(), kind: z.string() })).max(300),
     evidence: z.array(z.object({ id: z.string(), path: z.string(), side: z.enum(["patch", "base", "head"]), commitId: z.string().nullable(), text: z.string().nullable(), status: z.string(), contentId: z.string().nullable().optional(), changed: z.boolean() })).max(1000),
     limited: z.boolean(), notice: z.string(),

@@ -40,7 +40,10 @@ export function validateProductAnalysis(analysis: ProductAnalysis, bundle: Produ
   if (analysis.assessment === "product-change" && !analysis.findings.some(f => !["internal-change", "undetermined"].includes(f.kind))) reject("product-change-without-behavior");
   for (const [findingIndex, finding] of analysis.findings.entries()) {
     const cited = finding.citations.map((citation, citationIndex) => validateProductCitation(citation, bundle, findingIndex, citationIndex));
-    if (!cited.some(e => e.changed)) reject("missing-change-evidence", findingIndex);
+    if (bundle.mode === "current-state") {
+      if (bundle.base !== bundle.head || bundle.evidence.some(e => e.changed || e.side !== "head" || e.commitId !== bundle.head)
+        || !cited.length || finding.before !== null || finding.after !== null || !["product-behavior", "internal-change", "undetermined"].includes(finding.kind)) reject("invalid-current-state-evidence", findingIndex);
+    } else if (!cited.some(e => e.changed)) reject("missing-change-evidence", findingIndex);
     // Preserve historical artifact validation; v5 cannot generate this directional kind.
     if (finding.kind === "capability-added" && (!finding.reachabilityEvidenceIds.length || finding.reachabilityEvidenceIds.some(id => !cited.some(e => e.id === id)))) reject("missing-reachability-evidence", findingIndex);
     if (finding.support === "inferred" && !finding.assumptions.length && !finding.uncertainties.length) reject("unqualified-inference", findingIndex);

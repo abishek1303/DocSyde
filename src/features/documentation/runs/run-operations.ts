@@ -22,9 +22,12 @@ export async function createDocumentationRun(raw: unknown) {
   assertAllowedRepository(input.owner, input.repo);
   if (input.associations.some(choice => choice.origin !== "operator" || choice.findingRef)) throw new Error("Associations must be explicit operator context.");
   if (new Set(input.associations.map(choice => choice.id)).size !== input.associations.length || input.associations.some(choice => choice.kind === "route" && (!choice.value.startsWith("/") || choice.value.startsWith("//") || /[?#\x00-\x20]/.test(choice.value)))) throw new Error("Check association IDs and routes.");
+  if (input.mode === "current-state" && input.base !== input.head) throw new Error("A current-state scan requires one revision.");
   const pinned = await pinChangeInput({ owner: input.owner, repo: input.repo, base: input.base, head: input.head, paths: input.paths });
+  // Branch refs may move between independent resolves. One resolved head owns the snapshot.
+  if (input.mode === "current-state") pinned.base = pinned.head;
   const commit = await readSelectedChange(pinned, pinned.head);
-  const record: RunRecord = { schemaVersion: 2, disposition: null, activeStage: null, reason: null, execution: null, artifacts: [], models: [], warnings: [], input: { ...input, ...pinned }, title: commit.message.split("\n")[0].slice(0, 500), status: "pending", startedAt: null, finishedAt: null, summary: "Ready to start.", stages: initialWorkflowStages() };
+  const record: RunRecord = { schemaVersion: 2, disposition: null, activeStage: null, reason: null, execution: null, artifacts: [], models: [], warnings: [], input: { ...input, ...pinned }, title: input.mode === "current-state" ? `Full scan · ${input.branch ?? pinned.head.slice(0, 12)}` : commit.message.split("\n")[0].slice(0, 500), status: "pending", startedAt: null, finishedAt: null, summary: "Ready to start.", stages: initialWorkflowStages() };
   await insertDocumentationRun(id, repositoryIdentity(pinned), runRecord.parse(record));
   return id;
 }
@@ -40,7 +43,7 @@ export function runView(run: NonNullable<Awaited<ReturnType<typeof getDocumentat
   return { ...(includeResponses ? { responses: projectStageResponsePreviews(record) } : {}), schemaVersion: v2 ? 2 : 1, input: record.input, title: record.title,
     status: v2 ? record.disposition ?? record.status : record.status, summary: record.summary, startedAt: record.startedAt, finishedAt: record.finishedAt,
     stages: record.stages, contextSnapshot: record.contextSnapshot, ...(v2 ? { lifecycle: record.status, activeStage: record.activeStage, disposition: record.disposition,
-      outputs: { analysisSha256: record.analysisSha256, impactAssessment: record.impact?.assessment, models: record.models,
+      outputs: { sourceCoverage: record.analysis?.bundle.mode === "current-state" ? record.analysis.bundle.notice : undefined, supportRejected: record.transformation?.results.some(result => result.support === "unsupported" || result.support === "uncertain"), analysisSha256: record.analysisSha256, impactAssessment: record.impact?.assessment, models: record.models,
         plan: record.plan ? { actionable: record.plan.decisions.filter(d => d.action === "revise" || d.action === "add").length, noChange: record.plan.decisions.filter(d => d.action === "no-change").length, unresolved: record.plan.decisions.filter(d => d.action === "unresolved").length } : undefined,
         transformation: record.transformation ? { status: record.transformation.status, reviewReadyActions: record.transformation.results.filter(r => r.reviewReady).length } : undefined },
       failure: record.failure, runtime: record.runtime, retainedProposal: record.retainedProposal, reason: record.reason } : {}),

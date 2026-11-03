@@ -18,6 +18,7 @@ import { associationChoice, documentSchema } from "../documents/document";
 
 const stageKey = z.enum(["prepare-context", "read-evidence", "understand-impact", "propose-documentation", "validate-draft"]);
 export const runInput = productChangeInput.extend({
+  mode: z.literal("current-state").optional(),
   branch: z.string().max(1024).optional(), runContext: z.string().max(300).nullable().default(null),
   associations: z.array(associationChoice).max(20).default([]),
 });
@@ -56,7 +57,8 @@ export const runRecordV2 = z.object({
   if (r.failure && (r.status !== "finished" || !["failed", "incomplete", "interrupted"].includes(r.disposition ?? ""))) ctx.addIssue({ code: "custom", message: "Failure details require an unsuccessful terminal run." });
   try {
     const repository = `https://github.com/${r.input.owner.toLowerCase()}/${r.input.repo.toLowerCase()}`;
-    if (r.analysis && (documentationHash(r.analysis) !== r.analysisSha256 || r.analysis.bundle.repository.toLowerCase() !== repository || r.analysis.bundle.base !== r.input.base || r.analysis.bundle.head !== r.input.head)) throw new Error("Source identity mismatch");
+    if (r.input.mode === "current-state" && r.input.base !== r.input.head) throw new Error("Snapshot revision mismatch");
+    if (r.analysis && (r.analysis.bundle.mode !== r.input.mode || documentationHash(r.analysis) !== r.analysisSha256 || r.analysis.bundle.repository.toLowerCase() !== repository || r.analysis.bundle.base !== r.input.base || r.analysis.bundle.head !== r.input.head)) throw new Error("Source identity mismatch");
     if (r.impact) {
       validateProductImpact(r.impact);
       if (r.impact.provenance.source.repository.toLowerCase() !== repository || r.impact.provenance.source.base !== r.input.base || r.impact.provenance.source.head !== r.input.head) throw new Error("Impact identity mismatch");
@@ -75,7 +77,7 @@ export type RunView = {
   startedAt: string | null; finishedAt: string | null; stages: (z.infer<typeof workflowStage> | LegacyRunRecord["stages"][number])[];
   contextSnapshot?: z.infer<typeof generationContextSnapshot>; runtime?: z.infer<typeof runtimeInspectionContextSchema>;
   retainedProposal?: RunRecordV2["retainedProposal"];
-  outputs?: { analysisSha256?: string; impactAssessment?: string; plan?: { actionable: number; noChange: number; unresolved: number }; transformation?: { status: string; reviewReadyActions: number }; models: RunRecordV2["models"] };
+  outputs?: { sourceCoverage?: string; supportRejected?: boolean; analysisSha256?: string; impactAssessment?: string; plan?: { actionable: number; noChange: number; unresolved: number }; transformation?: { status: string; reviewReadyActions: number }; models: RunRecordV2["models"] };
   responses?: StageResponsePreview[];
   failure?: RunFailure;
   reason?: string | null;

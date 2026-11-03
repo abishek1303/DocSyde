@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { publicationRoute } from "../publication/publication-target";
 import { hasExistingDocumentation } from "../library/library-operations";
 import { defaultBranch, recentChanges, selectedRepository, runBranchSelection } from "@/features/sources/run-preparation";
 import { previewSourceComparison, readSelectedChange } from "@/features/sources/product-analysis";
@@ -38,4 +39,13 @@ export async function createBranchDocumentationRun(raw: unknown) {
   const { owner, repo, branch } = prepared.repository;
   const id = await createDocumentationRun({ owner, repo, branch, base: prepared.preview.base, head: prepared.preview.head, paths: [], associations: [], runContext: input.runContext });
   return { status: "created" as const, id, repository: prepared.repository.name, branch };
+}
+
+/** Current revision only: no comparison or prior documentation required. */
+export async function createFullScanRun(raw: unknown) {
+  const input = z.object({ repository: z.string(), branch: z.string().min(1).max(1024), route: publicationRoute.optional(), runContext: z.string().max(300).nullable().default(null) }).strict().parse(raw);
+  const repository = selectedRepository({ repository: input.repository });
+  const id = await createDocumentationRun({ owner: repository.owner, repo: repository.repo, branch: input.branch,
+    base: input.branch, head: input.branch, mode: "current-state", paths: [], associations: input.route ? [{ id: "scan-route", kind: "route", value: input.route, origin: "operator" }] : [], runContext: input.runContext });
+  return { id, repository: repository.name, branch: input.branch };
 }

@@ -91,6 +91,30 @@ test("consolidated pending publication preserves grounding, atomicity and curren
  assert.equal((await publishPendingWorkspace({repository,excluded:[excludedApproved],expectedHash:approvedSubset.hash})).status,"published");
  const approvedReceipt=await getDocumentationReview(alreadyApproved.proposalId);
  if(approvedReceipt.status==="found") {assert.equal(approvedReceipt.review!.selectionHash,oldSelectionHash,"historical approval is immutable");assert.deepEqual(approvedReceipt.review!.publications[0].decisionIds,["decision-1"]);assert.deepEqual(approvedReceipt.review!.publications[0].excludedDecisionIds,["decision-2"]);}
+ // A wholly excluded previously approved proposal must also leave Pending Changes.
+ const excludedBase=draftFixture();excludedBase.provenance.repository=location;excludedBase.context.find(choice=>choice.kind==="route")!.value="/excluded-unit";
+ await saveDocumentationDraft(excludedBase);await publishDocumentation({owner,repo:"product",route:"/excluded-unit",draftId:excludedBase.id});
+ const wholeExcluded=reviewProposalFixture(excludedBase,false);const retainedExcluded=await retainDocumentationProposal(wholeExcluded);
+ const previousApproval=await applyDocumentationReview({proposalId:wholeExcluded.proposalId,expectedProposalHash:retainedExcluded.proposalHash,decisions:wholeExcluded.results.map(result=>({decisionId:result.decisionId,choice:result.reviewReady?"approve":"acknowledge"})),publications:[]});
+ const includeBase=draftFixture();includeBase.provenance.repository=location;includeBase.context.find(choice=>choice.kind==="route")!.value="/included-unit";
+ await saveDocumentationDraft(includeBase);await publishDocumentation({owner,repo:"product",route:"/included-unit",draftId:includeBase.id});
+ const newIncluded=reviewProposalFixture(includeBase,false);await retainDocumentationProposal(newIncluded);
+ const beforeExclusion=await getPendingWorkspace({repository});
+ const allExcluded=beforeExclusion.groups.flatMap(group=>group.changes).filter(change=>change.proposalId===wholeExcluded.proposalId).map(change=>change.key);
+ assert.ok(allExcluded.length);
+ const batch=await getPendingWorkspace({repository,excluded:allExcluded});
+ assert.equal((await publishPendingWorkspace({repository,excluded:allExcluded,expectedHash:batch.hash})).status,"published");
+ const refreshed=await getPendingWorkspace({repository});
+ assert.ok(!refreshed.groups.some(group=>group.changes.some(change=>change.proposalId===wholeExcluded.proposalId)),"excluded approvals never reappear on refresh");
+ const excludedReceipt=await getDocumentationReview(wholeExcluded.proposalId);
+ if(excludedReceipt.status==="found") {
+   assert.equal(excludedReceipt.review!.selectionHash,previousApproval.review!.selectionHash,"previous approval remains immutable");
+   assert.deepEqual(excludedReceipt.review!.exclusions?.map(item=>item.decisionId),["decision-1"]);
+ }
+ assert.equal((await getPublication({owner,repo:"product",route:"/excluded-unit"}))!.draftId,excludedBase.id,"excluded destination remains unchanged");
+ const future=reviewProposalFixture(includeBase,false);await retainDocumentationProposal(future);
+ const futureReview=await getDocumentationReview(future.proposalId);if(futureReview.status==="found")assert.equal(futureReview.review,null,"future proposals retain independent review authority");
+ assert.ok((await getPendingWorkspace({repository})).groups.some(group=>group.changes.some(change=>change.proposalId===future.proposalId)));
  const expired=reviewProposalFixture(baseline,false); await retainDocumentationProposal(expired,{lifetimeMs:1});await new Promise(resolve=>setTimeout(resolve,5));
  const expiredView=await getPendingWorkspace({repository});assert.ok(expiredView.groups.flatMap(group=>group.changes).some(change=>change.unavailable?.includes("expired")));
 });

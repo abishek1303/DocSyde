@@ -65,8 +65,8 @@ export function RuntimeInspectionPane({ runId, terminal }: { runId: string; term
     { label: "Selecting visual evidence", start: "visual-selection-started", end: "visual-selection-completed" },
     { label: "Analyzing screenshots", start: "vision-analysis-started", end: "vision-analysis-completed" },
   ];
-  return <section aria-label="Runtime inspection" className="space-y-5 p-5 sm:p-6">
-    <header><p className="mb-2 text-xs text-muted-foreground">Playwright · connected product</p><h2 className="text-lg font-semibold">Inspecting the running product</h2>
+  return <section aria-label="Runtime inspection" className="min-w-0 space-y-5">
+    <header>
       <p role="status" className="mt-2 text-sm leading-6 text-muted-foreground">{current ? inspectionEventLabel(current) : terminal ? "Recorded inspection evidence" : "Waiting for the browser session"}</p></header>
     {message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}
     {failureCode && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">{runtimeFailureMessage(failureCode)}</div>}
@@ -74,14 +74,14 @@ export function RuntimeInspectionPane({ runId, terminal }: { runId: string; term
       const start = [...events].reverse().find(e => e.kind === step.start);
       const end = [...events].reverse().find(e => e.kind === step.end);
       const complete = end && ((step.end === "checkpoint-created" && events.some(e => e.kind === "visual-selection-started")) || !start || end.seq > start.seq);
-      return <li key={step.label} className={`flex items-center gap-2 text-xs ${complete ? "text-foreground" : "text-muted-foreground"}`}><span aria-hidden="true" className={`size-1.5 rounded-full ${complete ? "bg-primary" : start ? "bg-primary motion-safe:animate-pulse" : "bg-border"}`} />{step.label}<span className="sr-only">{complete ? ": complete" : start ? ": started" : ": not recorded"}</span></li>;
+      return <li key={step.label} className={`flex items-center gap-2 text-xs ${complete ? "text-foreground" : "text-muted-foreground"}`}><span aria-hidden="true" className={`size-1.5 rounded-full ${complete ? "bg-primary" : start && !terminal ? "bg-primary motion-safe:animate-pulse" : "bg-border"}`} />{step.label}<span className="sr-only">{complete ? ": complete" : start ? terminal ? ": incomplete" : ": started" : ": not recorded"}</span></li>;
     })}</ol>
-    <div className="overflow-hidden rounded-xl border bg-muted/20">
+    {framePath && <div className="overflow-hidden rounded-xl border bg-muted/20">
       <div className="flex items-center gap-3 border-b bg-muted/40 px-3 py-2 text-xs text-muted-foreground"><span aria-hidden="true">● ● ●</span><span className="truncate">{pathname && "pathname" in pathname ? pathname.pathname : "Connected product"}</span><span className="ml-auto shrink-0">Masked capture</span></div>
-      <div className="relative flex aspect-[16/10] w-full items-center justify-center">
+      <div className="relative flex aspect-[16/10] max-h-[32rem] w-full items-center justify-center">
         {frame.url && frame.path === framePath ? <MotionReveal key={frame.path} className="absolute inset-0"><Image unoptimized fill sizes="(max-width: 1024px) 100vw, 720px" src={frame.url} alt="Latest masked runtime capture" className="object-contain" /></MotionReveal> : <p className="max-w-xs p-6 text-center text-sm leading-6 text-muted-foreground">{frameError === framePath && framePath ? "Screenshot unavailable. Recorded activity is available in details." : "Browser screenshots will appear here as the workflow reaches checkpoints."}</p>}
       </div>
-    </div>
+    </div>}
     <p className="text-xs text-muted-foreground">{selectedCapture || retained || (!preview && canonical) ? "Retained evidence" : preview ? "Live masked preview · not yet retained evidence" : "No frame recorded yet"}. Screenshots show observed state, not proof of all product behavior.</p>
     {!!view?.captures.length && <div><div className="mb-3 flex items-center justify-between"><h3 className="text-xs font-medium text-muted-foreground">Captured evidence</h3>{selectedCapture && <button className="text-xs text-primary underline" onClick={() => setSelectedCapture(null)}>Follow latest capture</button>}</div>
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">{view.captures.map((cp, index) => <button type="button" aria-pressed={selectedCapture === cp.captureId} key={cp.captureId} onClick={() => setSelectedCapture(cp.captureId)} className="min-w-0 text-left focus-visible:outline-2 focus-visible:outline-ring"><Image unoptimized width={192} height={120} loading="lazy" src={`/runs/${runId}/inspection/screenshots/${cp.captureId}`} alt={`Masked checkpoint ${index + 1}`} className="aspect-[16/10] w-full rounded-md border object-contain aria-pressed:border-primary" /><span className="mt-1 block text-[11px] text-muted-foreground">Checkpoint {index + 1}{cp.selected ? " · selected" : ""}</span></button>)}</div>

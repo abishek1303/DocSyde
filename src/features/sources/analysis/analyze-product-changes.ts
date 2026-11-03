@@ -10,11 +10,12 @@ import { selectEvidence } from "../summary/summary-evidence";
 import { productChangeInput, productChangeGenerationOutput, type ProductBundle, type ProductResult } from "./product-change-analysis";
 import { serializeProductEvidence, ProductAnalysisValidationError } from "./product-change-evidence";
 import { validateWithDiagnostics } from "./analysis-diagnostics";
+import { readCurrentStateBundle } from "./read-current-state-bundle";
 import { productChangeInstructions } from "./product-change-prompt";
 import { PRODUCT_CHANGE_OUTPUT_TOKENS } from "./product-change-limits";
 import { captureGenerationContext } from "../context/repository-context";
 import { type GenerationContextSnapshot } from "../context/generation-context";
-export async function analyzeProductChanges(raw: unknown, capturedSnapshot?: GenerationContextSnapshot, onProgress?: SourceProgress, options: { invocation?: InvocationContext; signal?: AbortSignal } = {}): Promise<ProductResult> {
+export async function analyzeProductChanges(raw: unknown, capturedSnapshot?: GenerationContextSnapshot, onProgress?: SourceProgress, options: { invocation?: InvocationContext; signal?: AbortSignal; currentState?: boolean } = {}): Promise<ProductResult> {
   options.signal?.throwIfAborted();
   const input = productChangeInput.parse(raw);
   const generationSnapshot = capturedSnapshot ?? await captureGenerationContext(input, null);
@@ -24,6 +25,11 @@ export async function analyzeProductChanges(raw: unknown, capturedSnapshot?: Gen
     const deadline = AbortSignal.any([AbortSignal.timeout(180_000), ...(options.signal ? [options.signal] : [])]);
     const signal = AbortSignal.any([deadline, AbortSignal.timeout(60_000)]);
     await onProgress?.({ step: "read-evidence", status: "running", summary: "Reading pinned commits, patches and selected source files." });
+    if (options.currentState) {
+      if (input.base !== input.head) throw new Error("Current-state scan requires one pinned revision.");
+      const bundle = await readCurrentStateBundle(input, signal);
+      return analyzeSourceBundle(bundle, generationSnapshot, onProgress, options, deadline);
+    }
     const comparison = await compareCommits(input, { maxCommits: 100, signal });
     const selected = selectEvidence(comparison);
     const bundle: ProductBundle = { repository: comparison.repository.location, base: comparison.base.commitId, head: comparison.head.commitId,
@@ -52,20 +58,27 @@ export async function analyzeProductChanges(raw: unknown, capturedSnapshot?: Gen
         text: file.status === "available" ? file.text : null, status: file.status === "available" ? "available" : `${file.status}: ${file.reason}`, changed: comparison.files.some(f => f.path === file.path || f.previousPath === file.path) });
     }
     await onProgress?.({ step: "read-evidence", status: "completed", summary: `${comparison.files.length} changed file${comparison.files.length === 1 ? "" : "s"}; ${bundle.evidence.filter(e => e.text !== null).length} evidence items supplied${bundle.limited ? " (limited coverage)" : ""}.` });
-    const payload = serializeProductEvidence(bundle, generationSnapshot);
-    const result: ProductResult = { bundle, bytes: Buffer.byteLength(payload, "utf8"), status: "insufficient-evidence", analysis: null };
-    if (!bundle.evidence.some(e => e.changed && e.text)) return result;
-    await onProgress?.({ step: "understand-impact", status: "running", summary: "Interpreting product behavior and validating citations." });
-    try {
-      const generated = await generateStructured({ postValidation: true, invocation: { stage: "source-analysis", operation: "source-analysis", ...options.invocation }, instructions: productChangeInstructions, input: payload, schema: productChangeGenerationOutput, maxOutputTokens: PRODUCT_CHANGE_OUTPUT_TOKENS, signal: deadline });
-      deadline.throwIfAborted();
-      const canonical = await validateInvocation(generated.invocationId, () => validateWithDiagnostics(generated.data, bundle, payload, true), "grounding-rejection");
-      await onProgress?.({ step: "understand-impact", status: "completed", summary: `${generated.data.findings.length} validated finding${generated.data.findings.length === 1 ? "" : "s"} · ${canonical.assessment}.` });
-      return { ...result, status: canonical.assessment === "insufficient-evidence" ? "insufficient-evidence" : "analyzed", analysis: canonical, model: generated.model, elapsedMs: generated.elapsedMs };
-    } catch (error) {
-      const rejection = error instanceof ModelError ? { stage: "model-output" as const, code: error.code } : error instanceof ProductAnalysisValidationError ? error.rejection : undefined;
-      await onProgress?.({ step: "understand-impact", status: "failed", summary: "Semantic output or evidence validation failed." });
-      return { ...result, ...(error instanceof ModelError && error.diagnostic ? { diagnostic: error.diagnostic } : {}), status: "error", ...(rejection ? { rejection } : {}), error: rejection ? `Semantic analysis rejected (${rejection.stage}: ${rejection.code}). Draft generation must be skipped. Retry manually.` : "Semantic analysis validation failed. Retry manually." };
-    }
+    return analyzeSourceBundle(bundle, generationSnapshot, onProgress, options, deadline);
   });
 }
+
+async function analyzeSourceBundle(bundle: ProductBundle, generationSnapshot: GenerationContextSnapshot, onProgress: SourceProgress | undefined, options: { invocation?: InvocationContext; signal?: AbortSignal }, deadline: AbortSignal): Promise<ProductResult> {
+  const payload = serializeProductEvidence(bundle, generationSnapshot);
+  const result: ProductResult = { bundle, bytes: Buffer.byteLength(payload, "utf8"), status: "insufficient-evidence", analysis: null };
+  if (!bundle.evidence.some(e => (bundle.mode === "current-state" || e.changed) && e.text)) return result;
+  await onProgress?.({ step: "understand-impact", status: "running", summary: "Interpreting product behavior and validating citations." });
+  try {
+    const generated = await generateStructured({ postValidation: true, invocation: { stage: "source-analysis", operation: "source-analysis", ...options.invocation }, instructions: bundle.mode === "current-state" ? currentStateInstructions : productChangeInstructions, input: payload, schema: productChangeGenerationOutput, maxOutputTokens: PRODUCT_CHANGE_OUTPUT_TOKENS, signal: deadline });
+    deadline.throwIfAborted();
+    const canonical = await validateInvocation(generated.invocationId, () => validateWithDiagnostics(generated.data, bundle, payload, true), "grounding-rejection");
+    await onProgress?.({ step: "understand-impact", status: "completed", summary: `${generated.data.findings.length} validated finding${generated.data.findings.length === 1 ? "" : "s"} · ${canonical.assessment}.` });
+    return { ...result, status: canonical.assessment === "insufficient-evidence" ? "insufficient-evidence" : "analyzed", analysis: canonical, model: generated.model, elapsedMs: generated.elapsedMs };
+  } catch (error) {
+    const rejection = error instanceof ModelError ? { stage: "model-output" as const, code: error.code } : error instanceof ProductAnalysisValidationError ? error.rejection : undefined;
+    await onProgress?.({ step: "understand-impact", status: "failed", summary: "Semantic output or evidence validation failed." });
+    return { ...result, ...(error instanceof ModelError && error.diagnostic ? { diagnostic: error.diagnostic } : {}), status: "error", ...(rejection ? { rejection } : {}), error: rejection ? `Semantic analysis rejected (${rejection.stage}: ${rejection.code}). Draft generation must be skipped. Retry manually.` : "Semantic analysis validation failed. Retry manually." };
+  }
+}
+
+const currentStateInstructions = `${productChangeInstructions}
+CURRENT-STATE SCAN OVERRIDE: This is a bounded snapshot, not a Git comparison. No changes, additions or removals are established. Describe currently supported product behavior only, with before=null and after=null. Each finding requires a citation to supplied pinned head source instead of change evidence. Inventory contains selected current files only. Report coverage gaps in uncertainties. Advisory repository understanding and operator notes are never evidence. Do not claim all files or workflows were analyzed.`;

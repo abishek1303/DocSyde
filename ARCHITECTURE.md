@@ -1220,3 +1220,27 @@ the coordinator or loading inference capabilities. Normal run APIs retain their
 existing execution initialization. No new table, migration, image store, or garbage
 collector is introduced; the existing storage directory must be preserved with the
 database. Runtime observations remain distinct from verified source-revision evidence.
+
+## Current-state documentation regeneration and run presentation
+
+Full Scan adds a current-state mode to the existing documentation run, not a second
+pipeline or understanding store. Sources pins a single head (base equals head as a
+snapshot identity), samples up to 16 deterministic paths across distinct repository
+areas using existing discovery relevance, and reads bounded source prefixes through
+the authorized reader. Snapshot inventory uses `current-file`; evidence is pinned
+head content with `changed: false`. Mode-specific validation requires current
+citations and null temporal values; comparison validation still requires changed
+evidence. Saved understanding remains advisory. Coverage limits travel in the
+source notice. Existing runtime decisions, impact, planning, transformation,
+support checks, retention and human publication handle downstream work. No automatic
+save/publication occurs. Initial publication requires an explicit route association;
+existing live documents keep their retained destinations. This is bounded sampling,
+not exhaustive regeneration, and inference quality still requires live verification.
+
+Consolidated publication now records optional timestamped exclusion receipts on the
+existing accepted review JSON, including exclusions of whole previously approved
+units. Earlier selections and selection hashes remain immutable. Pending queries
+and feature projection both omit finalized exclusions; no table or migration is
+added. Activity renders stages and outputs in one GSAP timeline, with inline runtime
+evidence, specific structured outcome explanations and direct Pending Changes/log
+links. Generating text alone does not establish review readiness.

@@ -39,25 +39,27 @@ async function Setup({ searchParams }: { searchParams: Promise<SetupSearch> }) {
   }
   const available = !search.rerun ? await hasExistingDocumentation(repository).catch(() => null) : null;
   const latest = !search.rerun && search.mode === "changes" && available === true;
-  const branches = latest ? await runBranchSelection(repository).catch(() => null) : null;
+  const fullScan = !search.rerun && search.mode === "full";
+  const branches = latest || fullScan ? await runBranchSelection(repository).catch(() => null) : null;
   const query = new URLSearchParams({ repository: repository.name, ...(repository.branch ? { branch: repository.branch } : {}) });
   const unavailableReason = available === null ? "We couldn’t check this project’s documentation. Please try again." : "No documentation is available to update yet.";
   return <AppShell repository={repository.name} branchContext={<span>{search.rerun ? "Rerun" : "New run"}</span>} active="Runs">
-    <RunBreadcrumbs repository={repository.name} current={search.rerun ? "Rerun" : latest ? "Latest Changes" : "New run"} />
-    <header className="space-y-3"><h1 className="text-3xl font-semibold tracking-tight">{search.rerun ? "Rerun" : latest ? "Latest Changes" : "Start a new run"}</h1>
+    <RunBreadcrumbs repository={repository.name} current={search.rerun ? "Rerun" : latest ? "Latest Changes" : fullScan ? "Full Scan" : "New run"} />
+    <header className="space-y-3"><h1 className="text-3xl font-semibold tracking-tight">{search.rerun ? "Rerun" : latest ? "Latest Changes" : fullScan ? "Full Scan / Regenerate" : "Start a new run"}</h1>
       {!search.rerun && <p className="max-w-2xl text-sm leading-7 text-muted-foreground">{latest ? "Compare the latest change on a branch, reuse product understanding, and prepare documentation updates for review." : "Choose a project, then decide how DocSyde should explore it."}</p>}
     </header>
     {!search.rerun && <RepositoryPicker selected={repository.name} repositories={configuredRepositories()} />}
-    {search.rerun ? <Suspense fallback={<LoadingList />}><RerunSetup search={search} /></Suspense> : latest ? <>
+    {search.rerun ? <Suspense fallback={<LoadingList />}><RerunSetup search={search} /></Suspense> : latest || fullScan ? <>
       <Link href={`/runs/new?${query}`} className="text-sm text-primary underline">← Run options</Link>
-      <BranchRunForm key={repository.name} repository={repository.name} branches={branches?.names ?? []} latestChanges={branches?.changes ?? []} selected={branches?.selected ?? repository.branch} selectionUnavailable={!branches} />
+      {fullScan && <Link href={`/sources/understanding?${query}`} className="block text-sm text-primary underline">View or refresh reusable product understanding</Link>}
+      <BranchRunForm fullScan={fullScan} key={repository.name} repository={repository.name} branches={branches?.names ?? []} latestChanges={branches?.changes ?? []} selected={branches?.selected ?? repository.branch} selectionUnavailable={!branches} />
     </> : <>
       {search.mode === "changes" && <p role="status" className="text-sm text-muted-foreground">{unavailableReason}</p>}
       <div className="grid max-w-4xl gap-5 md:grid-cols-2">
-        <Link href={`/sources/understanding?${query}`} className="group flex min-h-72 flex-col rounded-2xl border bg-card p-6 transition-colors hover:border-primary/50 hover:bg-accent/25 focus-visible:outline-2 focus-visible:outline-ring motion-reduce:transition-none">
+        <Link href={`/runs/new?${query}&mode=full`} className="group flex min-h-72 flex-col rounded-2xl border bg-card p-6 transition-colors hover:border-primary/50 hover:bg-accent/25 focus-visible:outline-2 focus-visible:outline-ring motion-reduce:transition-none">
           <ScanSearch aria-hidden="true" className="mb-6 size-6 text-primary" /><h2 className="text-xl font-semibold">Full scan</h2>
-          <p className="mt-3 mb-6 text-sm leading-7 text-muted-foreground">Understand this product from its repository structure and selected source files. Add optional product context and review what DocSyde learns.</p>
-          <span className="mt-auto flex items-center gap-2 text-sm font-medium text-primary">Understand product <ArrowRight aria-hidden="true" className="size-4" /></span>
+          <p className="mt-3 mb-6 text-sm leading-7 text-muted-foreground">Generate or regenerate documentation from the current repository. Add optional product context, then review proposals before publishing.</p>
+          <span className="mt-auto flex items-center gap-2 text-sm font-medium text-primary">Generate documentation <ArrowRight aria-hidden="true" className="size-4" /></span>
         </Link>
         {available ? <Link href={`/runs/new?${query}&mode=changes`} className="group flex min-h-72 flex-col rounded-2xl border bg-card p-6 transition-colors hover:border-primary/50 hover:bg-accent/25 focus-visible:outline-2 focus-visible:outline-ring motion-reduce:transition-none">
           <GitCompareArrows aria-hidden="true" className="mb-6 size-6 text-primary" /><h2 className="text-xl font-semibold">Latest Changes</h2>

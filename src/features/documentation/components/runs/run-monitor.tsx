@@ -12,6 +12,7 @@ import type { RunInvocationSummary } from "../../runs/run-invocation-summary";
 import { ActivityDetails } from "./activity-details";
 import { RunBreadcrumbs } from "./run-breadcrumbs";
 import { MotionReveal } from "@/components/application/motion-reveal";
+import { runOutcome, presentedStage, pendingChangesHref, showRuntimeOutput, skippedRuntimeExplanation } from "../../runs/run-presentation";
 import type { RunView } from "../../runs/run-record";
 
 export function RunMonitor({ initial }: { initial: RunView }) {
@@ -19,7 +20,6 @@ export function RunMonitor({ initial }: { initial: RunView }) {
   const [calls, setCalls] = useState<RunInvocationSummary[]>([]);
   const [executionError, setExecutionError] = useState("");
   const [message, setMessage] = useState("");
-  const [selectedStage, setSelectedStage] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [contextExpanded, setContextExpanded] = useState(false);
   const started = useRef(false);
@@ -66,17 +66,12 @@ export function RunMonitor({ initial }: { initial: RunView }) {
   const failure = runFailureForView(run);
   const failureDescription = failure ? runFailureDescription(failure.code) : null;
   const modelFailure = failure && (failure.diagnostic || failure.code.startsWith("model-") || ["evidence-validation", "transformation-failed"].includes(failure.code));
-  const following = selectedStage === null;
-  const liveStage = run.stages.find(stage => stage.status === "running")
-    ?? run.stages.find(stage => ["failed", "incomplete", "cancelled"].includes(stage.status))
-    ?? [...run.stages].reverse().find(stage => stage.status === "completed")
-    ?? run.stages[0];
-  const selected = run.stages.find(stage => stage.key === selectedStage) ?? liveStage;
-  const labelFor = (key: string) => activityLabels[key] ?? key.replaceAll("-", " ");
+  const labelFor = (key: string) => run.input.mode === "current-state" && key === "source-analysis" ? "Understanding current repository behavior" : activityLabels[key] ?? key.replaceAll("-", " ");
   const summaryFor = (stage: RunView["stages"][number]) => failureDescription && stage.status === "failed" ? failureDescription.message : failure && stage.status === "skipped" ? "Not run because an earlier stage stopped." : stage.summary;
   const context = run.input.runContext?.trim() ?? "";
   const longContext = context.length > 140;
-  const selectedResponse = run.responses?.find(response => response.stage === selected?.key);
+  const outcome = runOutcome(run);
+  const stoppedStage = failure?.stage ?? run.stages.find(stage => ["failed", "incomplete"].includes(presentedStage(run, stage).status))?.key;
   return <div className="space-y-6">
     <RunBreadcrumbs repository={`${run.input.owner}/${run.input.repo}`} branch={run.input.branch} current={run.title} />
     <header className="space-y-4">
@@ -92,56 +87,53 @@ export function RunMonitor({ initial }: { initial: RunView }) {
         <p id={`run-context-${id}`} className="whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">{longContext && !contextExpanded ? `${context.slice(0, 140).trimEnd()}…` : context}</p>
         {longContext && <button type="button" aria-expanded={contextExpanded} aria-controls={`run-context-${id}`} onClick={() => setContextExpanded(expanded => !expanded)} className="rounded-sm text-xs font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring">{contextExpanded ? "Read less" : "Read more"}</button>}
       </div>}
+      <Link href={`/ai-model-usage?${query}&runId=${id}`} className="inline-block text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">AI activity / Logs</Link>
+      {run.input.mode === "current-state" && <p className="max-w-3xl text-sm leading-6 text-muted-foreground">{run.outputs?.sourceCoverage ?? "Current-state scan: bounded source sampling, with up to 16 files and four findings. Coverage gaps remain; published docs require explicit review and publication."}</p>}
     </header>
     {message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}
     {run.status === "pending" && executionError && <p role="alert" className="text-sm text-destructive">{executionError}</p>}
     {["incomplete", "failed", "cancelled", "interrupted", "no-change"].includes(run.status) && <section role={run.status === "no-change" ? "status" : "alert"} className="space-y-2 rounded-xl border bg-card p-6">
-      <h2 className="text-lg font-semibold">{run.status === "no-change" ? "No documentation update is needed" : run.status === "cancelled" ? "This run was cancelled" : "This run needs attention"}</h2>
-      <p className="text-sm leading-7 text-muted-foreground">{run.reason === "transformation-not-review-ready" ? "The generated update did not pass all grounding or evidence-support checks. No proposal is ready for review. Nothing was published." : failureDescription?.message ?? "This run ended without a review-ready update. Open the activity details to inspect the recorded outcome."}</p>
+      <h2 className="text-lg font-semibold">{outcome.title}</h2>
+      <p className="text-sm leading-7 text-muted-foreground">{outcome.message}</p>
+      {stoppedStage && <p className="text-sm">Stopped at: {labelFor(stoppedStage)}</p>}
+      {run.status !== "no-change" && <p className="text-sm text-muted-foreground">No review-ready proposal is available. Nothing was published by this run.</p>}
+      <p className="text-sm leading-6">{outcome.nextStep}</p>
+      <Link className="inline-block text-sm text-primary underline" href={`/runs/new?${query}&mode=full`}>Start a new Full Scan</Link>
     </section>}
     {run.status === "awaiting-review" && <MotionReveal className="rounded-xl border border-primary/25 bg-accent p-6">
       <p className="mb-2 text-xs font-medium uppercase tracking-wider text-primary">Ready for your review</p>
       <h2 className="text-xl font-semibold">Documentation updates are ready for review.</h2>
-      <p className="mt-2 mb-5 text-sm text-muted-foreground">Evidence checks passed. You decide what to save; publication is a separate step.</p>
-      <Link href={`/runs/${id}/review?${query}`} className={buttonVariants()}>Review documentation</Link>
+      <p className="mt-2 mb-5 text-sm text-muted-foreground">Evidence checks passed. Review the proposed changes, exclude anything unwanted, then publish when ready.</p>
+      <Link href={pendingChangesHref(run)} className={buttonVariants()}>Review changes</Link>
     </MotionReveal>}
-    <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
-      <section aria-labelledby="pipeline-title" className="min-w-0 overflow-hidden rounded-xl border bg-card">
-        <div className="border-b px-5 py-4"><h2 id="pipeline-title" className="text-sm font-semibold">Activity</h2></div>
-        <ol aria-label="Execution timeline" className="divide-y px-3">{run.stages.map(stage => {
-          const stageLabel = labelFor(stage.key);
-          const Icon = stage.status === "running" ? LoaderCircle : stage.status === "completed" ? CheckCircle2 : ["failed", "incomplete", "cancelled"].includes(stage.status) ? XCircle : stage.status === "skipped" ? SkipForward : Circle;
-          return <RunStageMotion key={stage.key} status={stage.status}>
-            <button type="button" aria-pressed={selected?.key === stage.key} aria-controls="stage-output" onClick={() => setSelectedStage(stage.key)} className="flex w-full min-w-0 items-start gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring aria-pressed:bg-accent motion-reduce:transition-none">
-              <span data-stage-icon className="mt-0.5 inline-flex size-5 shrink-0"><Icon aria-hidden="true" className={`size-5 ${stage.status === "running" ? "motion-safe:animate-spin text-primary" : ["failed", "incomplete", "cancelled"].includes(stage.status) ? "text-destructive" : stage.status === "completed" ? "text-success" : "text-muted-foreground"}`} /></span>
-              <span className="min-w-0 flex-1"><span className="block text-sm font-medium">{stageLabel}</span><span className="mt-1 block text-xs text-muted-foreground">{stage.status === "waiting" ? "Up next" : stage.status === "running" ? "In progress" : stage.status === "completed" ? "Complete" : stage.status}</span></span>
-            </button>
-            {(stage.status !== "waiting" && activitySubsteps(stage, calls).length > 0) && <ol aria-label={`${stageLabel} steps`} className="mb-3 ml-8 space-y-2 border-l border-primary/20 pl-5">{activitySubsteps(stage, calls).map(step => <li key={step.label} className="flex items-center gap-2 text-xs text-muted-foreground"><span aria-hidden="true" className={`size-1.5 rounded-full ${step.status === "completed" ? "bg-primary" : step.status === "running" ? "bg-primary motion-safe:animate-pulse" : step.status === "failed" ? "bg-destructive" : "bg-border"}`} />{step.label}<span className="sr-only">: {step.status}</span></li>)}</ol>}
-          </RunStageMotion>;
-        })}</ol>
-      </section>
-      <section id="stage-output" aria-label="Stage activity" className="min-w-0 overflow-hidden rounded-xl border bg-card">
-        {!following && <div className="flex justify-end px-5 pt-4">
-          <Button variant="ghost" size="sm" onClick={() => setSelectedStage(null)}>Follow pipeline</Button>
-        </div>}
-        {selected?.key === "runtime-inspection" ? <RuntimeInspectionPane runId={id} terminal={!["pending", "running"].includes(run.status)} /> : selected && <div className="space-y-5 p-5 sm:p-6">
-          <div><p className="mb-2 text-xs text-muted-foreground">{["pending", "running"].includes(run.status) ? "DocSyde is working" : "Recorded activity"}</p><h2 className="text-lg font-semibold">{labelFor(selected.key)}</h2></div>
-          <p role="status" className="text-sm leading-7 text-muted-foreground">{selected.status === "completed" ? selectedResponse?.preview ?? "This step is complete." : selected.status === "waiting" ? "This step will begin after the earlier work finishes." : selected.status === "running" ? "Working with the connected product and its source evidence…" : summaryFor(selected)}</p>
-        </div> }
-        {selected?.key !== "runtime-inspection" && run.activeStage === "runtime-inspection" && <RuntimeInspectionPane runId={id} terminal={!["pending", "running"].includes(run.status)} />}
-        {selected && <div className="px-5 pb-5"><ActivityDetails label={`Details · ${labelFor(selected.key)}`}>
-          <p className="mb-3 text-xs text-muted-foreground">Internal operation: {selected.key} · {selected.status}</p>
-          {calls.filter(call => call.stage === selected.key).map(call => <p key={call.id} className="mb-2 break-words text-xs text-muted-foreground">{call.operation} · {call.provider} · {call.model ?? "Model pending"} · {call.status}{call.elapsedMs !== null ? ` · ${call.elapsedMs} ms` : ""} · {call.inputTokens ?? "—"} input / {call.outputTokens ?? "—"} output tokens</p>)}
-          <StageActivity key={`${id}:${selected.key}`} runId={id} stage={selected} label={labelFor(selected.key)} response={selectedResponse} summary={summaryFor(selected)} />
-        </ActivityDetails></div>}
-        {modelFailure && selected?.key === failure?.stage && <p className="px-6 pb-6 text-sm"><Link href={`/runs/${id}/model-failure/${encodeURIComponent(failure.stage)}?${query}`} className="text-primary underline underline-offset-4">View model failure details</Link></p>}
-        {failureDescription && !modelFailure && selected?.key === failure?.stage && <p className="px-6 pb-6 text-sm leading-6 text-muted-foreground">{failureDescription.nextStep}</p>}
-        {following && !["pending", "running"].includes(run.status) && (run.retainedProposal || run.hasDraft || (run.savedAt && run.documentId)) && <div className="px-5 pb-5">
-          {run.savedAt && run.documentId ? <Link href={`/documentation/drafts/${run.documentId}?${new URLSearchParams({ repository: `https://github.com/${run.input.owner}/${run.input.repo}` })}`} className={buttonVariants()}>Open saved draft</Link>
-            : <Link href={`/runs/${id}/review?${query}`} className={buttonVariants()}>Review documentation</Link>}
-        </div>}
-      </section>
-    </div>
+    <section aria-labelledby="pipeline-title" className="mx-auto w-full min-w-0 max-w-4xl">
+      <h2 id="pipeline-title" className="mb-4 text-sm font-semibold">Activity</h2>
+      <ol aria-label="Execution timeline" className="space-y-5">{run.stages.map(recorded => {
+        const stage = presentedStage(run, recorded);
+        const stageLabel = labelFor(stage.key);
+        const response = run.responses?.find(response => response.stage === stage.key);
+        const Icon = stage.status === "running" ? LoaderCircle : stage.status === "completed" ? CheckCircle2 : ["failed", "incomplete", "cancelled"].includes(stage.status) ? XCircle : stage.status === "skipped" ? SkipForward : Circle;
+        const substeps = activitySubsteps(stage, calls, { supportRejected: run.outputs?.supportRejected });
+        return <RunStageMotion key={stage.key} status={stage.status}>
+          <div className="min-w-0 pl-5 sm:pl-7">
+            <div className="flex items-start gap-3">
+              <span data-stage-icon className="mt-0.5 shrink-0"><Icon aria-hidden="true" className={`size-5 ${stage.status === "running" ? "motion-safe:animate-spin text-primary" : ["failed", "incomplete"].includes(stage.status) ? "text-destructive" : stage.status === "completed" ? "text-success" : "text-muted-foreground"}`} /></span>
+              <h3 className="flex-1 text-sm font-semibold">{stageLabel}</h3>
+              <span className="text-xs text-muted-foreground">{stage.status === "waiting" ? "Up next" : stage.status === "running" ? "In progress" : stage.status === "completed" ? "Complete" : stage.status === "incomplete" ? "Not accepted" : stage.status}</span>
+            </div>
+            {stage.status !== "waiting" && <div className="mt-3 space-y-4 pl-8">
+              {substeps.length > 0 && <ol aria-label={`${stageLabel} steps`} className="space-y-2">{substeps.map(step => <li key={step.label} className="flex items-center gap-2 text-xs text-muted-foreground"><span aria-hidden="true" className={`size-1.5 shrink-0 rounded-full ${step.status === "completed" ? "bg-primary" : step.status === "running" ? "bg-primary motion-safe:animate-pulse" : step.status === "failed" ? "bg-destructive" : "bg-border"}`} />{run.input.mode === "current-state" && step.label === "Reading changed files" ? "Reading sampled current files" : step.label}<span className="sr-only">: {step.status}</span></li>)}</ol>}
+              <p className="max-w-3xl whitespace-pre-wrap break-words text-sm leading-7 text-muted-foreground">{stage.key === "runtime-inspection" && stage.status === "skipped" ? skippedRuntimeExplanation(run) : stage.status === "completed" ? response?.preview ?? "This stage is complete." : stage.status === "running" ? "Working with the connected product and its source evidence…" : summaryFor(stage)}</p>
+              {showRuntimeOutput(stage) && <RuntimeInspectionPane runId={id} terminal={!["pending", "running"].includes(run.status)} />}
+              {stage.status !== "skipped" && <ActivityDetails label="Technical details">
+                <StageActivity key={`${id}:${stage.key}`} runId={id} stage={stage} label={stageLabel} response={response} summary={summaryFor(stage)} />
+                {modelFailure && stage.key === failure?.stage && <Link href={`/runs/${id}/model-failure/${encodeURIComponent(failure.stage)}?${query}`} className="block pt-4 text-sm text-primary underline">View model failure details</Link>}
+              </ActivityDetails>}
+            </div>}
+          </div>
+        </RunStageMotion>;
+      })}</ol>
+    </section>
     <ActivityDetails label="Run context and model usage"><p className="mb-3 text-xs text-muted-foreground">Repository understanding: {run.contextSnapshot?.repositoryUnderstandingUsed?.sha.slice(0, 12) ?? "Not provided"}. Product and change context are advisory, never evidence. {run.reason ? `Recorded outcome: ${run.reason}.` : ""}</p><Link href={`/ai-model-usage?${query}&runId=${id}`} className="inline-block text-sm text-primary underline underline-offset-4">View AI model usage log</Link></ActivityDetails>
   </div>;
 }

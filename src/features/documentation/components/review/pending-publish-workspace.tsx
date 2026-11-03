@@ -7,10 +7,12 @@ import { DraftInspector } from "../reader/draft-inspector";
 import { previewPendingChanges, publishPendingChanges } from "../../review/pending-workspace-actions";
 import type { PendingWorkspace } from "../../review/pending-workspace";
 
-export function PendingPublishWorkspace({ initial }: { initial: PendingWorkspace }) {
+export function PendingPublishWorkspace({ initial, focusProposal }: { initial: PendingWorkspace; focusProposal?: string }) {
   const [view, setView] = useState(initial), [busy, setBusy] = useState(false), [error, setError] = useState("");
   const [removedImages, setRemovedImages] = useState<string[]>(initial.groups.flatMap(group => group.images.filter(choice => choice.removed).map(choice => choice.image.id)));
   const router = useRouter();
+  const focused = view.groups.filter(group => group.changes.some(change => change.proposalId === focusProposal));
+  const orderedGroups = [...focused, ...view.groups.filter(group => !focused.includes(group))];
   const affected = view.groups.filter(group => group.changes.some(change => !change.unavailable && !change.excluded)).length;
   async function toggle(key: string) {
     const rejected = view.groups.flatMap(group => group.changes).filter(change => change.excluded).map(change => change.key);
@@ -40,7 +42,7 @@ export function PendingPublishWorkspace({ initial }: { initial: PendingWorkspace
     } catch { setError("Publication could not be confirmed. Reload before trying again."); }
     finally { setBusy(false); }
   }
-  if (!view.groups.length) return <section className="space-y-2 rounded-xl border border-dashed p-8"><h2 className="font-medium">No documentation changes waiting for review.</h2><p className="text-sm text-muted-foreground">New documentation updates will appear here after a change analysis.</p><Link className="inline-block text-sm text-primary underline" href={`/documentation/drafts?${new URLSearchParams({ repository: `https://github.com/${view.repository}` })}`}>Browse saved documents</Link></section>;
+  if (!view.groups.length) return <section className="space-y-2 rounded-xl border border-dashed p-8"><h2 className="font-medium">No documentation changes waiting for review.</h2><Link className="inline-block text-sm text-primary underline" href={`/docs?${new URLSearchParams({ repository: view.repository })}`}>View Latest Docs →</Link><p className="text-sm text-muted-foreground">New documentation updates will appear here after a change analysis.</p><Link className="inline-block text-sm text-primary underline" href={`/documentation/drafts?${new URLSearchParams({ repository: `https://github.com/${view.repository}` })}`}>Browse saved documents</Link></section>;
   return <div className="mx-auto w-full max-w-4xl space-y-10" aria-busy={busy}>
     <div className="flex flex-wrap items-center justify-between gap-5 border-b pb-6">
       <div className="space-y-2"><h2 className="text-lg font-semibold">{view.count} {view.count === 1 ? "change" : "changes"} across {affected} {affected === 1 ? "document" : "documents"}</h2><p className="max-w-xl text-sm leading-6 text-muted-foreground">Read the combined result below. Exclude anything you don’t want, then publish the remaining updates together.</p></div>
@@ -48,8 +50,8 @@ export function PendingPublishWorkspace({ initial }: { initial: PendingWorkspace
     </div>
     {error && <p role="alert" className="rounded-lg border border-destructive/30 p-4 text-sm">{error} <button className="underline" onClick={() => window.location.reload()}>Reload workspace</button></p>}
     {view.blocked && <p role="alert" className="text-sm text-destructive">Some included changes overlap. Exclude a conflicting change before publishing.</p>}
-    {view.groups.map(group => <section key={group.key} aria-label={`Pending document: ${group.title}`} className="space-y-6 border-b pb-10 last:border-0">
-      <div className="space-y-3"><h2 className="text-xl font-semibold">{group.title}</h2>
+    {orderedGroups.map(group => <section key={group.key} aria-label={`Pending document: ${group.title}`} className="space-y-6 border-b pb-10 last:border-0">
+      <div className="space-y-3">{focused.includes(group) && <p className="text-xs font-medium text-primary">Changes from your run</p>}<h2 className="text-xl font-semibold">{group.title}</h2>
         <ul className="divide-y rounded-lg border">{group.changes.map(change => <li key={change.key} className={`flex items-start justify-between gap-4 px-4 py-3 ${change.excluded ? "bg-muted/30" : ""}`}>
           <div className="min-w-0 space-y-1"><p className={`text-sm font-medium ${change.excluded ? "text-muted-foreground line-through" : ""}`}>{change.label}</p><p className="text-sm leading-6 text-muted-foreground">{change.reason}</p>
             {change.unavailable && <p className="text-sm text-destructive">{change.unavailable}</p>}

@@ -1,7 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { createDocumentationRun, getDocumentationRun } from "@/features/documentation/runs/run-operations";
-import { createBranchDocumentationRun } from "@/features/documentation/runs/prepare-run";
+import { createFullScanRun, createBranchDocumentationRun } from "@/features/documentation/runs/prepare-run";
 import { classifyRunFailure } from "@/features/documentation/runs/classify-run-failure";
 import { runFailureDescription } from "@/features/documentation/runs/run-failure";
 import { associationChoice } from "@/features/documentation/documents/document";
@@ -44,4 +44,12 @@ export async function startBranchRun(_previous: { error?: string }, form: FormDa
     return { error: `${detail.message} ${detail.nextStep}` };
   }
   redirect(`/runs/${result.id}?${new URLSearchParams({ repository: result.repository, ...(result.branch ? { branch: result.branch } : {}) })}`);
+}
+
+export async function startFullScan(_previous: { error?: string }, form: FormData): Promise<{ error?: string }> {
+  let result;
+  try {
+    result = await createFullScanRun({ repository: form.get("repository"), branch: form.get("branch"), route: form.get("route") || undefined, runContext: form.get("runContext") || null });
+  } catch { return { error: "Could not start a full scan. Check the branch, repository access and database, then try again." }; }
+  redirect(`/runs/${result.id}?${new URLSearchParams({ repository: result.repository, branch: result.branch })}`);
 }

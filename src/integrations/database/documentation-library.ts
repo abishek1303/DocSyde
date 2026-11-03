@@ -49,7 +49,9 @@ export async function selectHubReviews(repository: string, offset: number, inclu
       (${reviews.review} IS NULL AND (${includeExpired} OR ${reviews.expiresAt} > now())) OR
       (${reviews.review} IS NOT NULL AND EXISTS (
         SELECT 1 FROM jsonb_array_elements(${reviews.review}->'selection'->'decisions') choice
-        WHERE choice->>'choice' = 'approve' AND NOT EXISTS (
+        WHERE choice->>'choice' = 'approve'
+          AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(${reviews.review}->'exclusions', '[]'::jsonb)) exclusion
+            WHERE exclusion->>'decisionId' = choice->>'decisionId') AND NOT EXISTS (
           SELECT 1 FROM jsonb_array_elements(${reviews.review}->'saves') receipt
           WHERE receipt->>'status' = 'saved' AND receipt->'decisionIds' ? (choice->>'decisionId')
         )
@@ -58,6 +60,9 @@ export async function selectHubReviews(repository: string, offset: number, inclu
         SELECT 1 FROM jsonb_array_elements(${reviews.review}->'saves') receipt,
           jsonb_array_elements(${reviews.targets}) target
         WHERE receipt->>'status' = 'saved' AND receipt->>'unitId' = target->>'unitId'
+          AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(receipt->'decisionIds') saved_decision
+            WHERE NOT EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(${reviews.review}->'exclusions', '[]'::jsonb)) exclusion
+              WHERE exclusion->>'decisionId' = saved_decision))
           AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(${reviews.review}->'publications') published_receipt
             WHERE published_receipt->>'targetId' = target->>'id' AND published_receipt->>'status' = 'published')
           AND NOT EXISTS (SELECT 1 FROM ${live} current_publication

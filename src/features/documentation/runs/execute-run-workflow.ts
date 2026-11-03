@@ -51,7 +51,7 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
   let source: Awaited<ReturnType<typeof analyzeProductChanges>>;
   await stage("source-analysis", async () => {
     const { owner, repo, base, head, paths } = record.input;
-    source = await analyzeProductChanges({ owner, repo, base, head, paths }, record.contextSnapshot, undefined, { signal, invocation: invocation("source-analysis") });
+    source = await analyzeProductChanges({ owner, repo, base, head, paths }, record.contextSnapshot, undefined, { signal, invocation: invocation("source-analysis"), currentState: record.input.mode === "current-state" });
     await check();
     // Error results are useful diagnostics but are not accepted as downstream evidence.
     return { analysis: source, analysisSha256: documentationHash(source), models: [...record.models, ...model("source-analysis", source)] };
@@ -145,6 +145,7 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
   });
   if (!proposal!.results.some(r => (r.decision.action === "revise" || r.decision.action === "add") && r.reviewReady)) {
     const technical = proposal!.batches.some(b => b.status === "failed") || proposal!.results.some(r => r.support === "failed" || r.generation === "failed");
+    await checkpoint(r => ({ ...r, stages: r.stages.map(stage => stage.key === "documentation-transformation" ? { ...stage, status: technical ? "failed" : "incomplete", summary: "Generated output was not accepted for review." } : stage) }));
     await finish(technical ? "failed" : "incomplete", technical ? "transformation-provider-or-support-failure" : "transformation-not-review-ready", technical ? { stage: "documentation-transformation", code: "transformation-failed" } : undefined); return;
   }
   await checkpoint(r => ({ ...r, activeStage: "proposal-retention", stages: changeWorkflowStage(r.stages, "proposal-retention", "running", "Retaining trusted proposal.") }));

@@ -74,13 +74,14 @@ export async function synthesizeProductImpact(
       vision: capture.vision })),
     visualReferences,
   });
+  const requestInstructions = bundle.mode === "current-state" ? instructions + "\n" + "If source.base equals source.head, this is a CURRENT-STATE scan, not a Git comparison. Describe current supported behavior and documentation needs only. Change-kind schema labels classify documentation impact, never proof of a historical change. Never assert new/added/removed behavior; before/after must be null. Preserve sampling limits." : instructions;
   const schema = productImpactOutputSchema.extend({ uncertainties: productImpactOutputSchema.shape.uncertainties.max(captures.length ? 5 : 6) });
   // Bound the entire capability request, including instructions and generated schema,
   // rather than only the evidence body. Provider configuration remains adapter-owned.
-  const request = JSON.stringify({ instructions, input: payload, schema: z.toJSONSchema(schema), maxOutputTokens: PRODUCT_IMPACT_OUTPUT_TOKENS });
+  const request = JSON.stringify({ instructions: requestInstructions, input: payload, schema: z.toJSONSchema(schema), maxOutputTokens: PRODUCT_IMPACT_OUTPUT_TOKENS });
   if (Buffer.byteLength(request, "utf8") > PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES) reject("request-over-budget");
   options.signal?.throwIfAborted();
-  const generated = await generateStructured({ postValidation: true, invocation: { stage: "impact-synthesis", ...options.invocation, operation: "product-impact" }, instructions, input: payload, schema,
+  const generated = await generateStructured({ postValidation: true, invocation: { stage: "impact-synthesis", ...options.invocation, operation: "product-impact" }, instructions: requestInstructions, input: payload, schema,
     maxOutputTokens: PRODUCT_IMPACT_OUTPUT_TOKENS, signal: options.signal });
   try {
     return await validateInvocation(generated.invocationId, () => {

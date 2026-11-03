@@ -25,7 +25,7 @@ async function DocsContent({ searchParams }: { searchParams: Promise<Search> }) 
     return <AppShell repository={repository.name} showBranch={false} active="Documentation" headerContent={tabs}>
       <Breadcrumbs items={[{ label: "Documents", href: rootHref }, { label: "Pending Changes" }]} />
       <header className="mx-auto w-full max-w-4xl space-y-3"><h1 className="text-3xl font-semibold tracking-tight">Pending Changes</h1><p className="text-sm leading-7 text-muted-foreground">All documentation updates, ready to publish together.</p></header>
-      {workspace ? <PendingPublishWorkspace key={workspace.hash} initial={workspace} /> : <p role="alert">Pending documentation could not be loaded. Please reload.</p>}
+      {workspace ? <PendingPublishWorkspace key={workspace.hash} initial={workspace} focusProposal={search.proposal} /> : <p role="alert">Pending documentation could not be loaded. Please reload.</p>}
     </AppShell>;
   }
   const href = (params: Record<string, string>) => `/docs?${new URLSearchParams({ repository: repository.name, tab, ...params })}`;
