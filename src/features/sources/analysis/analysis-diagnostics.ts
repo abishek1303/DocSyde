@@ -28,7 +28,7 @@ export async function validateWithDiagnostics(analysis: ProductAnalysis | Genera
         }
         withValidationDiagnostic(error, validationDiagnosticSchema.parse({
           kind: "grounding-rejection", validator: "source-analysis", code,
-          ...(findingIndex !== undefined && citationIndex !== undefined ? { path: `findings[${findingIndex}].citations[${citationIndex}]` } : {}),
+          ...(findingIndex !== undefined ? { path: `findings[${findingIndex}]${citationIndex !== undefined ? `.citations[${citationIndex}]` : ""}` } : {}),
           expectedSha256: debugHash(serializedInput), rejectedSha256: debugHash(JSON.stringify(citation ?? { findingIndex, citationIndex })),
           ...(citation ? { citation: debugSection(JSON.stringify({ findingIndex, citationIndex, evidenceId: citation.evidenceId,
             path: evidence?.path ?? null, side: evidence?.side ?? null, returnedRange: [citation.startLine, citation.endLine],

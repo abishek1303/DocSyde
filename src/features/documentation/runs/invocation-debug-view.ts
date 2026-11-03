@@ -17,7 +17,8 @@ export function invocationDebugView(row: { status?: string; operation: string; f
   const response = policy.output ? boundedParse(debugOutputSchema, row.responsePayload) : null;
   const projection = storedResponsePayload(row.operation, row.responsePayload);
   const legacyInput = storedRequestInput(row.operation, row.requestPayload);
-  const diagnostic = boundedParse(validationDiagnosticSchema, row.diagnostic);
+  // Validation details share a stored object with provider timing and usage metadata.
+  const diagnostic = boundedParse(validationDiagnosticSchema.strip(), row.diagnostic);
   const boundary = boundedParse(modelDiagnosticSchema, row.diagnostic)?.boundary ?? diagnostic?.boundary;
   const boundaryMessage = boundary ? `Attempt ${boundary.attempt}: ${boundary.attempt === 2 ? "format retry; " : ""}${boundary.retryReason ? "format retry requested" : boundary.canonical === "rejected" ? "strict schema rejected" : boundary.canonical !== "accepted" ? "format rejected" : boundary.wrapper || boundary.ignoredCount ? "normalized provider fields" : boundary.extraction !== "none" ? "recovered JSON" : "accepted directly"}; extraction: ${boundary.extraction}; ignored keys: ${boundary.ignoredCount}${boundary.wrapper ? `; wrapper: ${boundary.wrapper}` : ""}.` : null;
   return { boundaryMessage, request, input: request?.input ?? (legacyInput === undefined ? undefined : debugSection(legacyInput, DEBUG_LIMITS.input)),

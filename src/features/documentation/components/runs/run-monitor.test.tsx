@@ -77,3 +77,19 @@ test("unavailable managed startup exposes safe details without an empty screensh
   assert.match(html, /Application startup details/);
   assert.ok(!html.includes("Browser screenshots will appear"));
 });
+
+test("run layout keeps collapsible stage output with real duration and secondary resources", () => {
+  const run = fixture();
+  run.input.runContext = "Explain issue browsing.";
+  run.stages[0].status = "completed";
+  run.stages[0].startedAt = "2026-11-01T00:00:00Z";
+  run.stages[0].finishedAt = "2026-11-01T00:00:03Z";
+  const html = renderToStaticMarkup(<RunMonitor initial={run} />);
+  assert.match(html, /Run summary and resources/);
+  assert.match(html, /User context/);
+  assert.match(html, /Explain issue browsing/);
+  assert.match(html, /<details open="" class="group\/stage">/);
+  assert.match(html, /3\.0s/);
+  assert.match(html, /Source evidence and product analysis/);
+  assert.ok(!html.includes("Proposal ready"));
+});

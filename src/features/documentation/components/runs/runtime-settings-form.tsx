@@ -10,6 +10,7 @@ export function RuntimeSettingsForm({ repository, saved, workflowPath }: { repos
   const [state, action, pending] = useActionState<RuntimeSettingsState, FormData>(configureRuntime, {});
   const value = state.preview?.input ?? saved?.input;
   return <form action={action} className="space-y-5" key={state.preview?.fingerprint ?? "initial"}>
+    {saved && <p role="status" className="text-sm text-muted-foreground">{saved.enabled ? "Managed startup is approved for this project." : "Managed startup is disabled."}</p>}
     <input type="hidden" name="repository" value={repository} />
     <input type="hidden" name="fingerprint" value={state.preview?.fingerprint ?? ""} />
     <div className="space-y-2"><label htmlFor="checkout" className="text-sm font-medium">Local checkout directory</label><Input id="checkout" name="checkout" defaultValue={value?.checkout ?? ""} required disabled={pending} placeholder="/absolute/path/to/application" /><p className="text-xs text-muted-foreground">Its Git origin must match this project. Nothing is cloned or installed automatically.</p></div>
@@ -28,7 +29,7 @@ export function RuntimeSettingsForm({ repository, saved, workflowPath }: { repos
       <details><summary className="cursor-pointer text-sm">All manifest scripts (including lifecycle hooks)</summary><pre className="mt-3 whitespace-pre-wrap break-words text-xs leading-6">{JSON.stringify(state.preview.scripts, null, 2)}</pre></details>
       <label className="flex items-start gap-3 text-sm leading-6"><input type="checkbox" name="approved" disabled={pending} className="mt-1" />I approve running this project’s code locally with my user permissions when runtime inspection is needed. No dependencies will be installed automatically.</label>
     </section>}
-    <div className="flex flex-wrap gap-3"><Button name="intent" value="inspect" variant="outline" disabled={pending}>{pending ? "Checking…" : "Review configuration"}</Button>{state.preview && <Button name="intent" value="approve" disabled={pending}>Approve managed startup</Button>}{saved?.enabled && <Button name="intent" value="disable" variant="ghost" disabled={pending} formNoValidate>Disable managed startup</Button>}</div>
+    <div className="flex flex-wrap gap-3"><Button type="submit" name="intent" value="inspect" variant="outline" disabled={pending}>{pending ? "Checking…" : "Review configuration"}</Button>{state.preview && <Button type="submit" name="intent" value="approve" disabled={pending}>Approve managed startup</Button>}{saved?.enabled && <Button type="submit" name="intent" value="disable" variant="ghost" disabled={pending} formNoValidate>Disable managed startup</Button>}</div>
     {state.message && <p role="status" className="text-sm">{state.message}</p>}{state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
     <p className="text-xs leading-6 text-muted-foreground">Suggestions are untrusted until approved. Changes to settings, scripts, lockfiles or the workflow require a new review. Raw command output is discarded to avoid retaining application secrets; sanitized process errors appear in the run’s expandable inspection details.</p>
   </form>;

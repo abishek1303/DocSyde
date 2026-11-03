@@ -76,3 +76,17 @@ test("schema excludes zero/negative starts and evidence selection omits oversize
     files: [{ path: "large.ts", previousPath: null, kind: "modified", additions: 1, deletions: 1, patch: "+".repeat(12 * 1024 + 1) }] });
   assert.equal(selected.files[0].patch, null); assert.equal(selected.files[0].coverage, "over-budget"); assert.equal(selected.limited, true);
 });
+
+test("unqualified inference preserves the finding-level rejection diagnostic", async () => {
+  const output = structuredClone(analysis);
+  output.findings = [output.findings[0]];
+  output.findings[0].support = "inferred";
+  output.findings[0].assumptions = [];
+  output.findings[0].uncertainties = [];
+  await assert.rejects(validateWithDiagnostics(output, bundle, serializeProductEvidence(bundle)), error => {
+    const diagnostic = rejectionDiagnostic(error, "grounding-rejection");
+    assert.equal(diagnostic.code, "unqualified-inference");
+    assert.equal(diagnostic.path, "findings[0]");
+    return true;
+  });
+});
