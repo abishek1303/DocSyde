@@ -108,7 +108,7 @@ async function prepare(raw: unknown, database: DatabaseExecutor = getDatabase(),
       catch { group.issue = "These updates cannot be combined within the document contract. Exclude a conflicting change or run a new analysis."; }
       if (group.document) {
         const document = group.document, used = new Set([...document.associations, ...document.sections.flatMap(section => section.associations)]);
-        for (const entry of selected) for (const target of entry.state.targets.filter(target => target.unitId === (entry.result.decision.documentId ?? entry.result.decisionId) && !target.observedId)) {
+        for (const entry of selected) for (const target of entry.state.targets.filter(target => target.unitId === (entry.result.decision.documentId ?? entry.result.decisionId) && (!target.observedId || target.associationIds.length > 0))) {
           if (!document.context.some(choice => choice.kind === "route" && choice.value === target.route && target.associationIds.includes(choice.id) && used.has(choice.id))) entry.unavailable = "The supported document does not select its approved product route association. Review its destination before publication.";
         }
       }
@@ -158,7 +158,7 @@ export async function publishPendingWorkspace(raw: unknown): Promise<PendingPubl
         for (const entry of group.entries.filter(included)) for (const target of entry.state.targets.filter(target => target.unitId === (entry.result.decision.documentId ?? entry.result.decisionId))) {
           const live = await scope.publication(data.repository, target.route);
           if ((live?.id ?? null) !== target.observedId || (target.observedId && live?.draftId !== target.baselineId)) throw new Error("changed");
-          if (!target.observedId) {
+          if (!target.observedId || target.associationIds.length > 0) {
             const document = group.document!, used = new Set([...document.associations, ...document.sections.flatMap(section => section.associations)]);
             if (!document.context.some(choice => choice.kind === "route" && choice.value === target.route && target.associationIds.includes(choice.id) && used.has(choice.id))) throw new Error("changed");
           }

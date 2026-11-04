@@ -8,6 +8,7 @@ import type { DocumentationChangeProposal } from "../transformation/documentatio
 import { validateDocumentationProposal } from "../transformation/validate-documentation-proposal";
 import { documentationHash, documentationId } from "../documents/document-identity";
 import { acceptedReviewSchema, publicationDescriptorSchema, REVIEW_INITIAL_LIFETIME_MS, REVIEW_MAX_PUBLICATION_TARGETS, type PublicationDescriptor } from "./documentation-review";
+import { intrinsicReviewReady } from "./materialize-approved-changes";
 import { publicationRoute } from "../publication/publication-target";
 
 export function reviewRepository(location: string) {
@@ -58,14 +59,18 @@ export async function retainDocumentationProposal(output: DocumentationChangePro
   const units = new Map<string, typeof mutable>();
   for (const r of mutable) { const key = r.decision.documentId ?? r.decisionId; units.set(key, [...(units.get(key) ?? []), r]); }
   for (const [unitId, results] of units) {
+    if (proposal.plan.objective === "fresh" && !results.every(result => intrinsicReviewReady(proposal, result))) continue;
     const baseline = proposal.targets.find(t => t.document.id === unitId)?.document;
     // Existing published versions retain their observed destinations; old discovery hints cannot expand authority.
     const choices = [...(baseline?.context.filter(choice => choice.origin !== "discovery") ?? []), ...proposal.authorizations.filter(a => results.some(r => r.decisionId === a.decisionId)).flatMap(a => a.associations).filter(choice => !baseline || choice.origin !== "discovery")];
     const routes = new Map<string, string[]>();
     for (const choice of choices) if (choice.kind === "route" && publicationRoute.safeParse(choice.value).success) routes.set(choice.value, [...new Set([...(routes.get(choice.value) ?? []), choice.id])]);
     for (const [route, associationIds] of routes) {
-      if (await findPublication(repository, route)) continue;
-      targets.push({ id: documentationId(`${proposal.proposalId}:publish:${unitId}:${route}`), unitId, baselineId: baseline?.id ?? null, route, observedId: null, associationIds, ...(choices.some(choice => choice.kind === "route" && choice.value === route && choice.origin === "discovery") ? { requiresConfirmation: choices.filter(choice => choice.kind === "route" && choice.value === route).every(choice => choice.origin === "discovery" && choice.routeEvidence?.requiresConfirmation) } : {}) });
+      const live = await findPublication(repository, route);
+      // Fresh candidates are already generated and support checked. Only now match
+      // route/version identity, without reading or reusing old document content.
+      if (live && proposal.plan.objective !== "fresh") continue;
+      targets.push({ id: documentationId(`${proposal.proposalId}:publish:${unitId}:${route}`), unitId, baselineId: live?.draftId ?? baseline?.id ?? null, route, observedId: live?.id ?? null, associationIds, ...(choices.some(choice => choice.kind === "route" && choice.value === route && choice.origin === "discovery") ? { requiresConfirmation: choices.filter(choice => choice.kind === "route" && choice.value === route).every(choice => choice.origin === "discovery" && choice.routeEvidence?.requiresConfirmation) } : {}) });
       if (targets.length > REVIEW_MAX_PUBLICATION_TARGETS) throw new Error("Publication context exceeds review bound.");
     }
   }

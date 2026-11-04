@@ -73,7 +73,7 @@ async function publishUnit(scope: ReviewTransaction, proposal: DocumentationChan
     const expected = materializeApprovedUnit(proposal, review.operationId, unit.results);
     if (candidate.id !== saved.documentId || reviewRepository(candidate.provenance.repository) !== repository
       || documentationHash(candidate) !== saved.sha256 || documentationHash(expected) !== saved.sha256) throw new Error("Saved candidate mismatch.");
-    if (intent.intent === "publish") {
+    if (intent.intent === "publish" || target.associationIds.length > 0) {
       const used = new Set([...candidate.associations, ...candidate.sections.flatMap(s => s.associations)]);
       if (!candidate.context.some(c => c.kind === "route" && c.value === target.route && target.associationIds.includes(c.id) && used.has(c.id))) throw new Error("Approved subset lacks route association.");
     }

@@ -135,7 +135,7 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
   const routes = record!.input.mode === "current-state" ? discoverProductRoutes(validatedSource.bundle) : [];
   if (record!.input.mode === "current-state") for (const observed of observedProductRoutes(record!.impact!)) if (routes.length < 12 && !routes.some(route => route.pathname === observed.pathname)) routes.push(observed);
   await stage("documentation-planning", async () => {
-    const result = await planDocumentationImpact({ impact: record.impact!, context: record.input.associations, publishedOnly: record.input.mode === "current-state", routes }, { signal, invocation: invocation("documentation-planning") });
+    const result = await planDocumentationImpact({ impact: record.impact!, context: record.input.associations, objective: record.input.mode === "current-state" ? "fresh" : undefined, routes }, { signal, invocation: invocation("documentation-planning") });
     return { plan: result.plan, models: [...record.models, ...model("documentation-planning", result)] };
   });
   const plan = record!.plan!;

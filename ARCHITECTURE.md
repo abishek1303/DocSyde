@@ -1232,10 +1232,18 @@ head content with `changed: false`. Mode-specific validation requires current
 citations and null temporal values; comparison validation still requires changed
 evidence. Saved understanding remains advisory. Coverage limits travel in the
 source notice. Existing runtime decisions, impact, planning, transformation,
-support checks, retention and human publication handle downstream work. No automatic
-save/publication occurs. Initial publication requires an explicit route association;
-existing live documents keep their retained destinations. This is bounded sampling,
-not exhaustive regeneration, and inference quality still requires live verification.
+support checks, retention and human publication handle downstream work. Full Scan
+uses a fresh planning objective: it never retrieves previous documents for planning,
+generation or composition, and only add-document/unresolved decisions are permitted.
+Current source/runtime evidence drives fresh guides, not documentation coverage gaps.
+Latest Changes keeps the incremental documentation-aware planner unchanged.
+After support validation, retention matches selected verified routes to current
+publication/draft IDs only. Those observed IDs prepare explicit replacements through
+the existing compare-and-swap and archive contracts; no old prose or evidence is
+copied into fresh documents. Unknown destinations remain unresolved, and conflicting
+new guides on one route retain the existing conflict guard. No automatic save or
+publication occurs. This is bounded sampling, not exhaustive regeneration, and
+inference quality still requires live verification.
 
 Consolidated publication now records optional timestamped exclusion receipts on the
 existing accepted review JSON, including exclusions of whole previously approved

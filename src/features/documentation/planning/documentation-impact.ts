@@ -24,6 +24,7 @@ export const documentationImpactGenerationSchema = documentationImpactOutputSche
 }).strict();
 
 export const documentationImpactPlanSchema = documentationImpactOutputSchema.extend({
+  objective: z.literal("fresh").optional(),
   candidateSelection: candidateSelectionSchema.optional(),
   source: productImpactSchema.shape.provenance.shape.source.pick({ repository: true, base: true, head: true }),
   claimCatalog: z.array(z.object({ id: z.string().regex(/^claim-[1-6]$/), claimIndex: z.number().int().min(0).max(5),
