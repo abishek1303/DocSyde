@@ -80,7 +80,7 @@ export function validateRuntimeDecision(decision: InspectionDecision, bundle: Pr
 export function runtimeDecisionTargets(routes: ReturnType<typeof inspectionRouteCandidates>, authority?: InspectionCapabilities) {
   const targets = [
     ...(authority?.capabilities ?? []).map(capability => ({ capabilityId: capability.id, pathname: capability.pathname, description: capability.description, citation: null })),
-    ...routes.map(route => ({ ...route, capabilityId: undefined, description: "Source-evidenced literal route" })),
+    ...routes.map(route => ({ ...route, capabilityId: undefined, description: "Source-verified screen or literal route" })),
   ];
   if (targets.length > 1_000_000) reject("request-over-budget");
   return targets.map((target, index) => ({ ...target, targetRef: `target-${index}` }));

@@ -176,6 +176,11 @@ changes invalidate approval. Keep this directory when retaining local settings.
 No new environment variables, database tables or migrations are needed. Existing
 `DOCSYDE_RUN_RUNTIME_CONFIG` launch/attach files still work as before.
 
+Pinned screen discovery also supplies inspection candidates for SPA entry screens and
+file-based routes. Empty optional capabilities do not prevent source-backed selection;
+the selected path must still be covered by the approved workflow. Discovery never
+adds commands, browser steps, or operator capabilities.
+
 When inspection is needed, DocSyde revalidates approval, reuses the approved healthy
 URL or starts only the selected package script with explicit arguments and no shell
 interpolation. Install dependencies yourself first; DocSyde never runs an installer

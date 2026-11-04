@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { decideRuntimeInspection } from "./decide-runtime-inspection";
 import { type InspectionDecision } from "./inspection-decision";
 import { inspectionRouteCandidates } from "./inspection-routes";
+import opentodo from "./fixtures/opentodo-routes.json";
 import type { ProductResult } from "../analysis/product-change-analysis";
 
 const base = "a".repeat(40), head = "b".repeat(40);
@@ -108,4 +109,35 @@ test("comments, templates, removed/base evidence, filenames and composed paths a
   assert.deepEqual(inspectionRouteCandidates(input.bundle), []);
   input.bundle.evidence[1].side = "head"; input.bundle.evidence[1].path = "navigation.md";
   assert.deepEqual(inspectionRouteCandidates(input.bundle), []);
+});
+
+function openTodoSource(): ProductResult {
+  const input = source();
+  input.bundle = { ...input.bundle, mode: "current-state", base: head, limited: true,
+    inventory: Object.keys(opentodo).map(path => ({ path, previousPath: null, kind: "current-file" })),
+    evidence: Object.entries(opentodo).map(([path, text], index) => ({ id: `snapshot-${index + 1}`, path, side: "head", commitId: head, text, changed: false, status: "available" })),
+  };
+  const route = inspectionRouteCandidates(input.bundle)[0];
+  input.analysis!.findings[0] = { ...input.analysis!.findings[0], kind: "product-behavior", before: null, after: null, citations: [route.citation] };
+  return input;
+}
+test("OpenTodo verified SPA root is selectable without invented operator capabilities", async t => {
+  const input = openTodoSource();
+  assert.deepEqual(inspectionRouteCandidates(input.bundle).map(route => route.pathname), ["/"]);
+  const p = provider(t, { status: "inspect", reason: "Check the source-backed screen", staticEvidence: "uncertain",
+    targets: [{ findingRef: "finding-1", targetRef: "target-0", reason: "Observe the application" }], uncertainties: [] });
+  const result = await decideRuntimeInspection(input, { operatorCapabilities: { workflow: { id: "approved-root", version: "1", sha256: "a".repeat(64) }, capabilities: [] } });
+  assert.equal(result.decision.status, "inspect");
+  assert.equal(result.decision.targets[0].pathname, "/");
+  assert.equal(result.decision.targets[0].capabilityId, undefined, "source discovery does not manufacture approved capabilities");
+  assert.deepEqual(result.decision.targets[0].citations, input.analysis!.findings[0].citations);
+  assert.equal(JSON.parse(p.payload()).targets[0].pathname, "/");
+  assert.equal(p.fetch.mock.callCount(), 1, "reuse the existing decision call");
+});
+test("SPA discovery requires pinned entry evidence and cannot authorize arbitrary paths", () => {
+  const input = openTodoSource();
+  input.bundle.evidence = input.bundle.evidence.filter(file => file.path !== "src/client/main.tsx");
+  assert.deepEqual(inspectionRouteCandidates(input.bundle), []);
+  const mismatched = openTodoSource(); mismatched.bundle.base = base;
+  assert.deepEqual(inspectionRouteCandidates(mismatched.bundle), []);
 });

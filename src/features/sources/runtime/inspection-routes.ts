@@ -1,5 +1,6 @@
 import { type ProductAnalysis, type ProductBundle, type ProductEvidence } from "../analysis/product-change-analysis";
 import { isConcreteInspectionPath } from "./inspection-decision";
+import { discoverProductRoutes } from "./discover-product-routes";
 
 type RouteCandidate = { pathname: string; citation: ProductAnalysis["findings"][number]["citations"][number] };
 
@@ -21,6 +22,16 @@ function completeSource(evidence: ProductEvidence, bundle: ProductBundle): { tex
 
 export function inspectionRouteCandidates(bundle: ProductBundle): RouteCandidate[] {
   const candidates: RouteCandidate[] = [];
+  // Reuse pinned screen discovery for SPAs/file routes that have no literal URL
+  // declaration. These are source candidates, not new executable capabilities;
+  // the run still checks the approved workflow's supported paths before capture.
+  for (const route of discoverProductRoutes(bundle)) {
+    const proof = route.evidence.sources.find(source => source.excerpt.length <= 600);
+    if (!proof) continue;
+    const evidence = bundle.evidence.find(file => file.path === proof.path && file.side === "head" && file.commitId === bundle.head);
+    if (!evidence) continue;
+    candidates.push({ pathname: route.pathname, citation: { evidenceId: evidence.id, startLine: proof.line, endLine: proof.line + proof.excerpt.split("\n").length - 1, excerpt: proof.excerpt } });
+  }
   for (const evidence of bundle.evidence) {
     if (!/\.(?:[cm]?[jt]sx?|json)$/.test(evidence.path)) continue;
     const source = completeSource(evidence, bundle);

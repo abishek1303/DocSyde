@@ -13,7 +13,7 @@ import { runRecordV2 } from "@/features/documentation/runs/run-record";
 import { getDatabase, closeDatabase } from "@/integrations/database/client";
 import { documentationRuns, documentationDrafts, documentationReviews, documentationPublications } from "@/integrations/database/schema";
 import { getDocumentationReview, retainDocumentationProposal } from "@/features/documentation/review/review-proposal-operations";
-import { getPendingWorkspace } from "@/features/documentation/review/pending-workspace";
+import { getPendingWorkspace, discardPendingWorkspace } from "@/features/documentation/review/pending-workspace";
 import { draftFixture } from "./draft-fixture";
 import { reviewProposalFixture } from "./review-fixtures";
 import { initialStages } from "@/features/documentation/drafts/run-progress";
@@ -102,7 +102,7 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
       assert.ok(input.authorizations, "Legacy draft generation is never invoked");
       phase = "transformation"; output = { entries: input.authorizations.map((auth: TransformationAuthorization) => {
         const entry = transformationEntryFixture(auth, input.documents);
-        if (mode === "illustrated" && entry.change.kind === "add-document") entry.change.associations = auth.associations.map(choice => choice.id);
+        if (entry.change.kind === "add-document") entry.change.associations = auth.associations.map(choice => choice.id);
         return entry;
       }) };
     }
@@ -117,7 +117,13 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
     if (mode === "provider-failure" && phase === "source" || mode === "support-failure" && phase === "support") return Response.json({}, { status: 500 });
     return Response.json({ model: "mock-run", choices: [{ finish_reason: "stop", message: { content: JSON.stringify(output) } }] });
   });
-  const create = async () => { const id = await createDocumentationRun({ ...repo, base, head: same ? base : head, paths: [], ...(mode === "illustrated" ? { associations: [{ id: "route-illustrated", kind: "route", value: "/requests/new", origin: "operator" }] } : {}) }); ids.push(id); return id; };
+  // Resolve only this isolated fixture project's previous batch before its next run.
+  const resolvePending = async () => {
+    const pending = await getPendingWorkspace({ repository: `${repo.owner}/${repo.repo}` });
+    if (pending.count) assert.equal((await discardPendingWorkspace({ repository: `${repo.owner}/${repo.repo}`, expectedHash: pending.hash, confirmed: true })).status, "discarded");
+  };
+  t.afterEach(resolvePending);
+  const create = async () => { await resolvePending(); const id = await createDocumentationRun({ ...repo, base, head: same ? base : head, paths: [], associations: [{ id: "route-illustrated", kind: "route", value: "/requests/new", origin: "operator" }] }); ids.push(id); return id; };
   const read = async (id: string) => { const run = await getDocumentationRun(id); assert.ok(run); return runRecordV2.parse(run.record); };
   const wait = async (id: string) => {
     for (let i = 0; i < 1000; i++) { const record = await read(id); if (record.status === "finished") { if (record.retainedProposal) proposalIds.push(record.retainedProposal.proposalId); await new Promise(resolve => setTimeout(resolve, 10)); return record; } await new Promise(resolve => setTimeout(resolve, 20)); }
@@ -165,6 +171,8 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
       assert.equal(retained.proposal.plan.qualifications.runtimeInspection?.outcome, "unavailable");
       assert.ok(retained.proposal.results[0].limitations.some(l => l.includes("unavailable")));
     }
+    const pending = await getPendingWorkspace({ repository: `${repo.owner}/${repo.repo}` });
+    assert.equal(pending.count, 1, "supported, materializable work has a selected publication destination");
     assert.ok(!JSON.stringify(completed).includes('"candidates"'));
     await executeDocumentationRun(id); assert.equal(counts.source, 1);
     await cancelDocumentationRun(second);
@@ -196,6 +204,7 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
       assert.equal(result.record.transformation?.results.length, 2);
       assert.equal(result.record.transformation?.results[0].reviewReady, true);
       assert.equal(result.record.transformation?.results[1].reviewReady, false);
+      assert.equal((await getPendingWorkspace({ repository: `${repo.owner}/${repo.repo}` })).count, 1, "unsupported or unresolved work stays outside the actionable batch");
       const retained = await getDocumentationReview(result.record.retainedProposal!.proposalId);
       assert.equal(retained.status, "found"); if (retained.status === "found") assert.equal(retained.proposal.results.length, 2);
     }
@@ -345,6 +354,8 @@ test("schema-v2 end-to-end orchestration and local execution boundary", { timeou
     assert.equal(runView((await getDocumentationRun(ids[0]))!).schemaVersion, 2);
     const drafts = await getDatabase().select().from(documentationDrafts).where(sql`${documentationDrafts.document}->'provenance'->>'repository' = ${repository}`); assert.equal(drafts.length, 0);
     const publications = await getDatabase().select().from(documentationPublications).where(eq(documentationPublications.repository, repository)); assert.equal(publications.length, 0);
-    process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "another/repo"; await assert.rejects(getDocumentationRun(ids[0]), /not allowed/);
+    const allowed = process.env.DOCSYDE_ANALYSIS_REPOSITORIES;
+    try { process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "another/repo"; await assert.rejects(getDocumentationRun(ids[0]), /not allowed/); }
+    finally { process.env.DOCSYDE_ANALYSIS_REPOSITORIES = allowed; }
   });
 });
