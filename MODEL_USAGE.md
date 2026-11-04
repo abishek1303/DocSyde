@@ -26,10 +26,11 @@ it is never a fallback for new runs.
 
 With composition disabled, typical actionable source-only runs cost five calls when runtime is unavailable,
 six when inspected semantically as unnecessary. A successful runtime path costs
-7–10 with one transformation batch. Worst bounded path is 17 calls (14 text, three
-vision). Empty comparison costs zero. No-change/unresolved-only plans use no
-transformation/support/retention. Failures stop later calls; no automatic retries,
-repair, fallback or hidden regeneration occurs. Metadata records returned model IDs,
+7–10 with one transformation batch. The path before recovery is at most 17 calls (14 text, three
+vision); shared admission caps all attempts at 32 calls per production run. Empty comparison costs zero. No-change/unresolved-only plans use no
+transformation/support/retention. Unrecoverable failures stop later calls. The shared AI boundary allows up to three
+logged attempts per operation for formatting, allowlisted prose overflow or genuine
+token truncation, within the shared budget; no semantic repair or provider fallback occurs. Metadata records returned model IDs,
 elapsed time, batch/support attempts and failures where capability contracts expose
 them; no token/cost estimates are invented.
 
@@ -61,8 +62,8 @@ call only when the local verifier is invoked without a supplied plan.
 
 No-change/unresolved use zero transformation/support calls. Per-decision catalogs
 prevent cross-decision authority; unknown targets/refs/provenance reject independently.
-Malformed whole output fails its batch. There are no retries, repair loops or new
-providers. The checker only labels new wording supported/unsupported/uncertain and
+Malformed whole output fails its batch after bounded formatting recovery. Semantic
+rejections never trigger retries; no new providers or evidence repair are introduced. The checker only labels new wording supported/unsupported/uncertain and
 cannot reevaluate planner targeting, existing provenance or retained baseline text.
 Its failures/uncertainty block readiness, and its success is not proof of truth or
 human approval. All product/document/model text stays untrusted data.
@@ -172,7 +173,7 @@ absent from new-run orchestration.
 
 ## Documentation finalization
 
-`META_API_KEY` enables Meta Muse Wonder (default `muse-wonder-1.0`, overridden by `META_COMPOSITION_MODEL`) through the existing provider boundary. It receives only bounded grounded candidate copy, supported facts, and relevant document context. Its validated presentation blocks are mapped into the canonical document model, then the existing support verifier checks the composed wording before retention. No new fact authority, retries, automatic approval, or publication is introduced. Invocation logs retain safe input and accepted validated output only. Missing credentials are explicitly reported in proposal limitations. Failed editorial output blocks the affected guide. The support check also compares the original copy to reject lost details. Both Full Scan and Latest Changes use this pass.
+`META_API_KEY` enables Meta Muse Wonder (default `muse-wonder-1.0`, overridden by `META_COMPOSITION_MODEL`) through the existing provider boundary. It receives only bounded grounded candidate copy, supported facts, and relevant document context. Its validated presentation blocks are mapped into the canonical document model, then the existing support verifier checks the composed wording before retention. No new fact authority, automatic approval, or publication is introduced. Syntax/truncation recovery uses the shared bounded policy. Invocation logs retain safe input and accepted validated output only. Missing credentials are explicitly reported in proposal limitations. Failed editorial output blocks the affected guide. The support check also compares the original copy to reject lost details. Both Full Scan and Latest Changes use this pass.
 
 ## Intentionally not used
 
@@ -434,23 +435,27 @@ The Meta models, ceilings and reasoning/sampling configuration are unchanged.
 See the [stage audit and exact failure policy](src/integrations/ai/structured-output-boundary.md)
 and [code review diff](src/integrations/ai/structured-output-boundary-review.md).
 
-## Native Baseten text output
+## Baseten text output capabilities
 
-Supported Muse Spark Open models now use native strict `response_format.json_schema`
-for closed, representable object schemas; schema text is removed from the system
-prompt. Shared provider capability selection retains prompt-mode extraction/recovery
-for unsupported models/schemas or explicit `BASETEN_STRUCTURED_OUTPUT_MODE=prompt`.
-Native requests never retry or silently downgrade. Zod, reference/grounding checks,
-operation ceilings and feature semantics remain unchanged. Mode and schema identity/
-version/hash are recorded in invocation configuration; raw-schema debug logging
-keeps its existing allowlist. See the [boundary policy](src/integrations/ai/structured-output-boundary.md).
+Muse Spark Open uses schema-bearing prompts and the compatibility parsing boundary.
+Baseten's official documentation says this model accepts `json_schema` without enforcing
+it. The adapter no longer labels its configured aliases as native-enforcing. Strict
+local Zod/reference/grounding validation and truncation rejection remain mandatory.
+No model, sampling/reasoning defaults, output budgets or retry policies changed.
+
+Product-impact-v3 requests short judgments and exact source/visual refs. Before/after
+prose is reconstructed from source-N refs; canonical provenance and stored snapshots
+remain server-owned and compatible. See the
+[boundary policy](src/integrations/ai/structured-output-boundary.md) for bounds and checks.
+Formatting-whitespace counts now distinguish padding from content on truncated responses
+without persisting rejected text.
 
 One live check on the configured `meta-models/muse-spark-open-1026` accepted strict
 native format and validated a receipt (160 input / 113 output tokens, 1.372 seconds).
 One subsequent planner invocation replaying experiment C impact succeeded on attempt 1:
 2,356 input / 3,023 output tokens, stop, 12.018 seconds model latency, unchanged
-4,096-token ceiling, one revise and two unresolved decisions. This verifies one
-schema/semantic-validation sample; it does not establish universal reliability or
+4,096-token ceiling, one revise and two unresolved decisions. This historical request acceptance does not verify provider-side schema enforcement.
+It verifies one local schema/semantic-validation sample; it does not establish universal reliability or
 isolate native formatting from the preceding planner compaction. No transformation,
 save or publication was performed. Local receipt: `.artifacts/native-structured-output/report.json`.
 

@@ -45,7 +45,7 @@ To enable real runtime inspection in DocSyde, uncomment:
 DOCSYDE_RUN_RUNTIME_CONFIG=infra/local/runner/opentodo.example.json
 ```
 
-Also configure `META_API_KEY`, install Chromium, start OpenTodo, and restart DocSyde. The trusted example attaches to the existing process and inspects TASK-1; it never starts or stops the external app. If your issue identifier or port differs, copy the example to an ignored local file, adjust its selectors/URL, and point the variable there. Vision uses strict certainty/bounds variants and independent local validation; uncertain or unlocated elements retain no UI coordinates. Invalid evidence is rejected without repair or retry. Runtime coverage is explicit and bounded; no autonomous browser exploration is enabled. Missing runtime configuration allows source-only analysis with explicit limitations.
+Also configure `META_API_KEY`, install Chromium, start OpenTodo, and restart DocSyde. The trusted example attaches to the existing process and inspects TASK-1; it never starts or stops the external app. If your issue identifier or port differs, copy the example to an ignored local file, adjust its selectors/URL, and point the variable there. Vision uses strict certainty/bounds variants and independent local validation; uncertain or unlocated elements retain no UI coordinates. Invalid spatial evidence is rejected without repair or semantic retry. Runtime coverage is explicit and bounded; no autonomous browser exploration is enabled. Missing runtime configuration allows source-only analysis with explicit limitations.
 
 Controlled source comparison:
 
@@ -74,7 +74,7 @@ the run’s Review changes action. Nothing is published until you explicitly pub
 
 Full Scan reuses saved repository understanding as advisory context, then the existing runtime, planning, transformation, support checking and proposal-retention pipeline. **Product understanding** shows the saved analysis by default. **Rescan repository** opens a dedicated branch → context → review screen; cancel returns to the saved understanding; an empty project offers **Analyze repository**. Opening or cancelling setup does not invoke inference; only the final submit starts analysis. Provider credentials are needed to execute new generation, not to render setup.
 
-A fresh database correctly disables **Latest Changes** until an eligible canonical document has been saved. Unsaved generated proposals do not qualify. Published documents and valid saved documents are eligible for candidate selection; MCP only exposes published documents.
+A fresh database correctly disables **Latest Changes** until an eligible canonical document has been saved. Unsaved generated proposals do not qualify. Latest Changes targets active published documentation only; archived versions and unpublished saved drafts are excluded from its candidate selection. MCP also exposes only active publications.
 
 Each project follows **Analyze → Review changes → Publish or Discard → Analyze again**. Actionable pending changes disable both Full Scan and Latest Changes, with a direct **Review pending changes** link. Server-side creation and execution recheck this rule. **Discard pending changes** requires confirmation, records exclusions and leaves live documentation unchanged. Published, rejected, excluded, expired and unavailable proposals do not block another run; other projects are independent.
 
@@ -87,8 +87,8 @@ batch appears meanwhile, the normal admission checks block it until resolved.
 
 Source citations are reconstructed from pinned references with a 2,000-character
 excerpt limit. Size-only omissions retain independent valid findings with explicit
-coverage gaps when the existing uncertainty bound permits. Aggregate 64 KiB evidence
-request limits and model/run token budgets remain unchanged.
+coverage gaps when the existing uncertainty bound permits. The configured aggregate evidence request budget is 100 KiB; model/run token budgets
+remain unchanged.
 
 Full Scan generates fresh documentation solely from current source/runtime evidence;
 previous documents never enter its planning or writing context. After support checks,
@@ -111,7 +111,9 @@ npm run mcp:query -- get_documentation abishek1303/DockSyde-demo-app-test-subjec
 npm run mcp:query -- get_context_for_surface abishek1303/DockSyde-demo-app-test-subject /
 ```
 
-Use an exact **published route**; `/` above is an example, not an automatic association. Unknown routes return a clean empty result. Override the CLI endpoint with `--url http://127.0.0.1:3000/api/mcp` or optional `DOCSYDE_MCP_URL`. Tools are read-only: no repository writes, approvals, or publication. Current published documentation is authoritative; saved repository understanding is labeled advisory, and pending wording is excluded. Bind to loopback—there is no public authentication layer.
+MCP tools always use the single configured project; ChatGPT does not need its name or ID. Call `get_product_context` with `{}` for an overview, or pass `query` (for example, `{"query":"How do I change an issue's priority?"}`) to search published documentation. Documentation tools accept an optional exact `route` as well. No matching publication returns `not-found`; a project with no publications returns `no-live-documentation`. Legacy `repository` arguments are search text, never project selectors. MCP searches published text independently of historical evidence links. Larger guides return bounded excerpts with an explicit truncation limitation. Queries prioritize matching sections and text blocks within the existing limits; overview and route-only requests retain document order. Stored publications are unchanged.
+
+For exact-route CLI retrieval, use an exact **published route**; `/` above is an example, not an automatic association. Unknown routes return a clean empty result. Override the CLI endpoint with `--url http://127.0.0.1:3000/api/mcp` or optional `DOCSYDE_MCP_URL`. Tools are read-only: no repository writes, approvals, or publication. Current published documentation is authoritative; saved repository understanding is labeled advisory, and pending wording is excluded. Bind to loopback—there is no public authentication layer.
 
 ## Verification and production preview
 
@@ -250,6 +252,107 @@ The run timeline shows an immediate Starting indicator while execution is being 
 
 Run Artifacts lists retained checkpoint screenshots from the existing inspection endpoint, including selected status. Thumbnails open the shared image preview overlay; no additional capture or inference is performed.
 
+For LibreChat running in Docker on the same Mac, set `DOCSYDE_MCP_DOCKER_HOST=host.docker.internal:3000` in `.env` and use `http://host.docker.internal:3000/api/mcp` in LibreChat. This opts that exact Host into the read-only endpoint; foreign browser Origins remain blocked. Only use this on a trusted local machine/network: the endpoint has no authentication.
+
 Source-coverage bookkeeping is nonblocking and retained as a diagnostic. Full Scan preserves cited current behavior independently of screenshots; valid unresolved planning receives one corrective attempt, then source-grounded draft targets only where verified route evidence matches. Existing transformation, evidence, and human publication checks still apply. Latest Changes planning is unchanged. See the [coverage contract](src/features/sources/impact/README.md#source-coverage).
 
 Full Scan discards individually invalid synthesis claims while retaining valid source-grounded claims and safe rejection diagnostics. If no claims survive, it finishes incomplete at impact synthesis before planning. Contradiction/schema checks and publication approval stay strict; Latest Changes is unchanged.
+
+
+### Compact product-impact synthesis
+
+Product-impact-v3 returns short judgments and evidence refs, with exact source-ID
+lookups for before/after text. Canonical results and provenance stay compatible.
+Muse Spark Open uses prompt-schema mode because Baseten does not enforce JSON Schema
+for this model; no configuration change or dependency is needed. Initial output remains 8192
+tokens with existing reasoning/sampling defaults; genuine token truncation can use bounded recovery.
+Counts-only whitespace diagnostics help distinguish padding from generated content.
+See [boundary policy](src/integrations/ai/structured-output-boundary.md).
+
+
+### Bounded model-output recovery
+
+Model outputs vary; bounded recovery cannot guarantee every run succeeds. Each
+failed operation permits at most three attempts for recoverable JSON formatting,
+allowlisted descriptive-prose overflow or provider-confirmed token truncation.
+Only redundant spaces in harmless prose can normalize without another call.
+Inspection reasons allow 180 characters (80 remains the prompt target).
+Only `length` completions increase tokens: 1.5x per retry up to twice the initial
+operation policy ceiling, capped at 16,384. All attempts consume existing shared
+call/token/time budgets. Cancellation, frozen experiment scopes and failed logging
+can stop recovery sooner. Invocation diagnostics show retries and sanitized
+reasons. Documentation content, evidence, IDs, routes, citations and code are never
+shortened; grounding, contradiction and publication validation remain strict.
+No new provider, dependency, configuration or migration is required.
+See the [boundary policy](src/integrations/ai/structured-output-boundary.md).
+
+### Hackathon demo reliability mode
+
+Set `DEMO_RELIABILITY_MODE=true` in the ignored `.env` and restart DocSyde. The
+example defaults to `false`; absent/false keeps the normal policy. This mode spends
+more on inference and may take longer. It improves bounded recovery, not truth or
+guaranteed success. It never publishes automatically.
+
+| Limit | Normal | Demo |
+| --- | --- | --- |
+| Total attempts per model operation | 3 | 5, including at most 2 semantic corrections |
+| Known Baseten Muse Spark Open initial / output ceiling | Operation-specific / up to 16,384 | 16,384 / 32,768 |
+| Known Meta Wonder/Spark initial / output ceiling | 4,096 / 8,192 | 8,192 / 16,384 |
+| Run calls / conservatively reserved token allowance | 32 / 786,432 | 96 / 8,388,608 |
+| Input reservation ceiling per call | 128 Ki tokens | 512 Ki tokens |
+| Workflow deadline | 40 minutes | 40 minutes |
+| Source analysis deadline, including source reads | 3 minutes | 10 minutes, also bounded by workflow cancellation |
+| Serialized product evidence / patch selection | 100 / 64 KiB | 256 / 192 KiB |
+| Individual patch / sampled current-file prefix | 12 KiB / 2,000 characters | 32 KiB / 8,000 characters |
+| Operator-selected inspection context | 16 KiB | 64 KiB; still at most 3 explicitly selected files |
+| Runtime selection / documentation planning request | 32 / 32 KiB | 96 / 64 KiB |
+| Runtime state text / region text projection | 2,000 / 500 characters | 4,000 / 1,000 characters |
+
+Output grows by 1.5x only after a provider-confirmed `length` completion, stopping
+at the application ceilings above. These are conservative allowances within the
+[Baseten model limits](https://docs.baseten.co/inference/model-apis/overview) and
+[Meta model context windows](https://dev.meta.ai/docs/models), not claims of their
+maximum output capacity. Account/deployment limits can still reject a request.
+Unknown model overrides receive no larger initial budget. Baseten's existing
+`-1026` alias uses the configured Muse Spark Open allowance. Model, reasoning,
+sampling, privacy/redaction, screenshot count, deterministic file selection and
+canonical output schemas stay unchanged. Larger context is not unrestricted
+repository access; hard guards still reject oversized evidence.
+
+Logged, allowlisted correspondence failures can correct an invalid supplied
+reference/range, a claim/fact mapping, a missing coverage ledger or an omitted
+supported transformation entry. Only the failing generation operation retries,
+using the same pinned evidence and original schema; validated upstream artifacts
+and the final proposal-retention step are not replayed. Generation preflight has
+no document/proposal side effects, and repaired results pass the original feature
+validators again. Two semantic corrections share the five-call allowance with
+format/truncation retries. Logs retain attempt/retry counts, rejection codes and
+provider token usage; feedback contains approved codes/paths only, not rejected
+content. Frozen verification scopes and smaller caller budgets still stop early.
+
+Nonretryable: insufficient support, source/visual contradictions, authorization or
+route/target violations, unrecognized semantic errors, invalid spatial evidence,
+publication failures, refusals, HTTP/auth/billing/rate-limit errors, timeouts,
+cancellation, exhausted budgets and failed logging. Transformation support and
+editorial-content rejections remain blocking; demo mode cannot turn an unsupported
+verdict into evidence or skip human review. Existing Full Scan source normalization
+and deterministic fallback behavior are unchanged; demo preflight requires fresh
+plans to include supported draft targets rather than stacking another generation
+loop on the five-attempt allowance.
+
+
+### Latest Changes candidate narrowing
+
+Latest Changes ranks validated existing sections using cited source paths, existing
+feature/route associations, matching before-value wording and captured runtime routes.
+Oversized broad matches narrow deterministically while retaining distinct supported
+targets. The planner still receives at most 10 documents/40 matching sections, with
+complete outlines of retained documents. Ranking is retrieval guidance, not evidence
+that an update is supported or approved; no associations are invented.
+
+Retrieval is bounded at 200 section hits, 64 documents and 2 MiB of canonical snapshots.
+A sentinel prevents silently ignoring an unexamined tail. Truly ambiguous sets stay
+incomplete: existing failure details distinguish supported-target overflow,
+indistinguishable matches and retrieval-resource limits with sanitized counts.
+Full Scan does not query documentation history. Saving/publication safeguards and
+human review remain unchanged; no migration or new configuration is required.

@@ -61,16 +61,41 @@ Prefer typed, structured outputs from models rather than free-form text when the
 
 Validate generated structures before using them.
 
-Text-provider formatting is handled at the AI integration boundary. Eligible Baseten
-Muse Spark Open calls use native strict JSON-schema output outside the prompt, then
-strict JSON parsing, unchanged Zod validation and feature grounding. Provider model/
-schema capability selection is centralized; opaque/open schemas, unlisted models or
-explicit prompt compatibility mode retain conservative JSON
-extraction, operation-specific model-facing projection, then unchanged strict canonical
-validation and feature-owned grounding. Native calls never retry or downgrade after
-a failed request. In compatibility mode at most one logged format-only retry is allowed;
-truncation and semantic failures never retry, and explicit single-attempt experiment
-budgets remain single-attempt. See the [boundary policy](src/integrations/ai/structured-output-boundary.md).
+Text-provider formatting is handled at the AI integration boundary. Baseten documents
+that Muse Spark Open accepts JSON Schema without enforcing it, so its configured
+aliases use schema-bearing prompts, conservative JSON extraction, operation-specific
+projection and strict Zod validation. Request acceptance never proves constrained
+decoding. Provider capability selection remains centralized; no currently verified
+Baseten model is marked as enforcing native schemas. The compatibility boundary
+allows at most three total logged attempts per operation for recoverable JSON
+formatting, pure allowlisted descriptive overflow or provider-confirmed token
+truncation. Only redundant ASCII spaces in harmless prose may normalize locally;
+no words or evidence/content are truncated. Length feedback contains fixed paths
+and counts. Only genuine token truncation increases output ceilings (1.5x, capped
+at twice the initial operation policy and 16,384 tokens). All attempts share existing
+call/token/time budgets. Mixed errors and semantic/evidence failures remain fatal;
+frozen experiment scopes stay single-attempt. Feature-owned
+grounding and authorization stay authoritative. See the
+[boundary policy](src/integrations/ai/structured-output-boundary.md).
+
+`DEMO_RELIABILITY_MODE=true` selects bounded allowances at the same integration
+boundary: five total attempts per operation, with at most two logged semantic
+correspondence corrections sharing that cap. Feature-owned pure preflight
+callbacks reuse the original validators against pinned upstream evidence; failures
+carry only approved reference/coverage categories and paths into correction
+instructions. No workflow restart, model switch, authorization exception or
+proposal side effect occurs inside recovery. Final validators, contradiction
+checks, support verdicts and human publication review remain authoritative.
+Default-disabled budgets and frozen experiment scopes remain unchanged; the
+40-minute workflow deadline still applies. See SETUP for effective demo limits.
+
+
+Product-impact v3 uses a compact model-facing contract: short semantic judgments and
+source/visual references. Before/after fields are reconstructed by exact finding ID;
+file identity, hashes, timestamps and canonical provenance stay server-owned. Existing
+canonical ProductImpact schemas and downstream planning/transformation remain unchanged.
+The output allowance stays at 8,192 tokens. Response diagnostics count formatting
+whitespace even on truncation without retaining rejected text or hidden reasoning.
 
 ---
 
@@ -381,8 +406,8 @@ The remaining infrastructure slices are now implemented independently:
 
 - `src/integrations/ai`: narrow text-only `generateStructured` capability with
   Baseten transport, JSON parsing, local Zod validation and sanitized failures.
-  The event model is configurable; native schema enforcement supplements, but never
-replaces, application validation.
+  The event model is configurable; provider schema support never replaces application
+validation, and Muse Spark Open uses the prompt-schema boundary.
 - `src/integrations/local-git`: committed comparisons and pinned file reads using
   type-only reuse of the existing neutral GitHub evidence definitions. No GitHub
   type relocation or provider registry is introduced.
@@ -674,13 +699,28 @@ are generated or persisted. Publication/current state remains in its existing se
 boundary; recency, publication and UUID ordering confer no targeting authority.
 
 A derived PostgreSQL JSONB search projection matches exact case-sensitive association
-kind/value pairs and bounded lowercase ASCII word overlaps. Only up to 41 hit identities
-leave SQL. At most ten documents/40 matching sections are admitted; all eligible hits
-within those bounds are retained, including ties. Validated snapshots are loaded
-through existing operations, and local matching recomputes scores/explanations. Full
-section outlines/text of selected documents still enter the bounded planner call.
+kind/value pairs, bounded lowercase ASCII word overlaps, cited source paths and
+existing-section wording that matches a supplied before-value. Up to 201 identities
+form a retrieval pool; a sentinel beyond 200 sections, more than 64 documents or
+2 MiB of validated snapshots remains incomplete. These read bounds are distinct
+from the unchanged ten-document/40-match planner limits. Source linkage is derived
+from each section's cited historical findings, including v2 evidence-context identity;
+no source paths, features or associations are invented from filenames.
 
-Scoring is fixed: association 40, each matching document-title word 2, section-title
+Local matching recomputes explained scores against canonical snapshots. Oversized
+sets retain all distinctive source/feature targets, existing-section mismatches and
+strong section/runtime matches that fit the planner bounds. Shared application
+files, common headings and broad root routes do not independently establish a
+winner. UUIDs only order ties; recency never breaks ambiguity. If supported targets
+still exceed bounds or only indistinguishable matches remain, selection stays
+incomplete with bounded counts and a fixed constraint code in saved failure details.
+Full outlines/text of retained documents enter the existing validated planner, and
+search-selected coverage never implies corpus completeness or authority. Full Scan
+continues to bypass this corpus entirely. Publication and transformation checks are
+unchanged.
+
+Scoring is fixed: cited source-path match 80, existing before-value wording 60,
+association 40, each matching document-title word 2, section-title
 word 3, body word 1. Text-only eligibility needs two distinct title words (across
 both titles) or three body words. Query words are distinct, stop-word filtered,
 3–40 ASCII characters, capped at 24; query associations are capped at 20. No stemming,
@@ -695,6 +735,8 @@ matches return typed incomplete selection without silently cutting competitors; 
 finish semantically incomplete before planner inference. Storage/validation failures
 do not masquerade as an empty search. The planner receives coverage/relevance hints
 but still owns semantic targeting and must leave unjustified ambiguity unresolved.
+Claim-specific signals prevent a winner for one workflow from hiding unmatched
+ambiguous candidates for another workflow.
 
 Selection metadata is not evidence and cannot justify revise/add/no-change or prove
 missing documentation. Existing grounding, exact targets, 32 KiB request bounds and
@@ -911,7 +953,7 @@ without shrinking stored/historical contracts. Source generation permits two cit
 200-character confidence reasons; v3 citation references replace the earlier model-authored
 500-character excerpts (canonical excerpts retain their 600-character cap). Legacy generated draft
 blocks are limited to 800 characters while historical canonical blocks retain 1500.
-Other evidence counts/spatial fields and all completion ceilings are preserved. Product
+Other evidence counts/spatial fields and initial completion ceilings are preserved. Product
 impact owns an independent 8192-token constant rather than sharing the source constant.
 
 The AI integration resolves typed requested inference options and records a small
@@ -924,7 +966,7 @@ provider-reported reasoning-token counts when present, visible response UTF-8 by
 UTF-16 character length (including truncated responses), completion reason and requested
 effort. Hidden reasoning content and raw malformed responses are never retained. These
 optional diagnostic fields require no migration and preserve historical reading. No model switching, arbitrary
-provider-option passthrough, repair, retry, or automatic tuning loop is introduced.
+provider-option passthrough or unrestricted tuning loop is introduced. Bounded formatting recovery is described above.
 
 ## Opt-in reliability baseline tooling
 
@@ -1095,8 +1137,7 @@ canonical correspondence validator runs afterward. Unknown IDs, duplicate pairs,
 invalid evidence/authority or excessive canonical citations reject; no evidence is
 silently dropped. Canonical/historical decision schemas and downstream execution stay
 unchanged. Debug output is labeled as compact references, separate from resolved run
-metadata. No provider/model/ceiling or reasoning option changes; no fallback or retry
-is added. See the Sources runtime contract and exact review diff for calculated bounds.
+metadata. Provider/model and reasoning options stay unchanged; bounded output recovery is owned by the shared AI boundary above. See the Sources runtime contract and exact review diff for calculated bounds.
 
 ## Bounded repository understanding
 
@@ -1159,8 +1200,11 @@ The Documentation feature owns bounded product-knowledge queries over the existi
 live-library/publication services. `/api/mcp` is a thin, stateless Streamable HTTP
 adapter using the MCP SDK; `/mcp` calls the same application query for its demo.
 There is no new persistence, indexing, inference, or agent orchestration. Three
-read-only tools provide product context, documentation by exact published route,
-and route/surface context. Responses are capped at 64 KiB; product overviews include
+read-only tools provide product context, documentation search or exact published-route retrieval,
+and surface context for the single configured project. Optional natural-language queries
+search live publications using existing section matching/tokenization; legacy repository
+inputs are search intent, never project selectors. Empty searches are distinguished
+from projects with no live publications. Responses are capped at 64 KiB; product overviews include
 at most five documents and explicitly report further coverage.
 
 Only live publications establish current behavior. Unpublished saves and retained
@@ -1168,7 +1212,8 @@ proposals are never read as context. Sources exposes its persisted understanding
 through a read-only entry point; it is returned separately as advisory orientation,
 with its revision/date and no raw human notes or generated workflow assertions.
 No MCP tool can approve, publish, mutate repositories, execute SQL, or access files.
-The local endpoint is opt-in, rejects non-loopback Host and foreign Origin headers,
+The local endpoint is opt-in, rejects non-loopback Host and foreign Origin headers (an optional exact
+`DOCSYDE_MCP_DOCKER_HOST=host.docker.internal:3000` permits a trusted local Docker client),
 and should be served with Next.js bound to loopback. No remote authentication or
 public deployment is provided by this hackathon slice.
 
