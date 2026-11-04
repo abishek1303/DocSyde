@@ -1,3 +1,4 @@
+import { guideWarnings } from "../transformation/grounding-risk";
 import "server-only";
 import { z } from "zod";
 import { getDocumentationReviewPresentation } from "./review-proposal-operations";
@@ -12,6 +13,7 @@ export async function publishReviewedChanges(raw: unknown): Promise<ReviewPublic
   if (state.status !== "found" || state.proposalHash !== parsed.expectedProposalHash || !state.review) return { status: "unavailable" };
   const review = state.review;
   const approved = review.selection.decisions.filter(choice => choice.choice === "approve");
+  if (approved.some(choice => guideWarnings(state.proposal, choice.decisionId).length && !choice.acknowledgeWarnings)) return { status: "unavailable" };
   if (!approved.length || approved.some(choice => !review.saves.some(save => save.status === "saved" && save.decisionIds.includes(choice.decisionId)))) return { status: "unavailable" };
   const coordinates = savedDocumentCoordinates(state.repository);
   const targets = state.targets.flatMap(target => {

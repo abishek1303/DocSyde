@@ -49,7 +49,7 @@ export async function getRunStageResponse(rawId: unknown, rawStage: unknown): Pr
     const repository = `https://github.com/${record.input.owner.toLowerCase()}/${record.input.repo.toLowerCase()}`;
     if (review.status !== "found" || review.repository !== repository || review.proposalHash !== record.retainedProposal.proposalHash || review.proposalHash !== record.transformation?.sha256) throw new Error("Retained response identity mismatch.");
     const proposal = review.proposal;
-    return serializeStageResponse({ entries: proposal.results.map(result => ({ decisionId: result.decisionId, change: result.change, generation: result.generation, support: result.support, issues: result.issues })), supportChecks: proposal.supportChecks }, record.models.filter(model => model.stage === stage).map(model => model.model));
+    return serializeStageResponse({ entries: proposal.results.map(result => ({ decisionId: result.decisionId, change: result.change, generation: result.generation, support: result.support, reviewOutcome: result.reviewOutcome, issues: result.issues })), supportChecks: proposal.supportChecks }, record.models.filter(model => model.stage === stage).map(model => model.model));
   }
   return { status: "unavailable", message: "No response was retained for this stage." };
 }

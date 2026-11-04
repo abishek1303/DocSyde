@@ -101,3 +101,7 @@ metadata for one branch, tag, or commit. `readFileAtCommit` accepts an optional
 second `{ signal }` argument, combined with its existing request deadline. Existing
 callers remain valid. The Sources feature owns authorization and review budgets.
 The adapter exports its revision/path validators for preflight batch validation.
+
+### Single-repository demo mode
+
+`DOCSYDE_DEMO_SINGLE_REPO_ONLY=true` requires one distinct repository in `DOCSYDE_ANALYSIS_REPOSITORIES`. The normal server-side token remains in use. Client creation performs an authenticated read of that target; a shared request hook restricts all REST requests to its `/repos/{owner}/{repo}` path and GraphQL to the existing fixed branch query with matching variables. Redirects remain disabled. The repository selector and feature authorization use the same target. Unknown requests fail closed. This does not enumerate or attest to the PAT’s explicit grants, and it does not require a particular token prefix. With the flag unset/false, existing token and multi-repository behavior is unchanged.

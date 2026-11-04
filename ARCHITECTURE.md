@@ -1241,7 +1241,7 @@ After support validation, retention matches selected verified routes to current
 publication/draft IDs only. Those observed IDs prepare explicit replacements through
 the existing compare-and-swap and archive contracts; no old prose or evidence is
 copied into fresh documents. Unknown destinations remain unresolved, and conflicting
-new guides on one route retain the existing conflict guard. No automatic save or
+supported new guides selecting the same verified route consolidate into one document before retention and replacement matching. Distinct or unresolved destinations stay separate; publication conflict guards remain. No automatic save or
 publication occurs. This is bounded sampling, not exhaustive regeneration, and
 inference quality still requires live verification.
 
@@ -1330,7 +1330,7 @@ route correspondence without another inference call or index. Discovery associat
 an additive `discovery` origin with pinned route proof, separate from operator choices,
 finding-derived hints, and product facts. Canonical byte, evidence and support checks remain.
 
-New canonical document proposals may use verified discovery associations. Ambiguous or
+New canonical document proposals select verified discovery associations through the analysis model; discovery candidates are never attached as route defaults. Supported guides sharing one selected verified route combine their sections and evidence into one review unit. Canonical v2 documents allow up to 32 sections (eight guides of four); individual generation limits and the 128 KiB document bound remain. Wonder finalization runs when Meta credentials are configured, before final support validation, for both planning modes. Missing credentials produce explicit limitations; editorial failures block affected guides. Ambiguous or
 runtime-only navigation candidates require operator confirmation. Candidate descriptors and
 confirmation timestamps live in the existing review target metadata; immutable proposals and
 support results are preserved. Only selected/verified destinations enter active Pending Changes.

@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { ArrowUpRight, GitBranch, History, RotateCcw } from "lucide-react";
+import { ArrowUpRight, GitBranch, Play, RotateCcw } from "lucide-react";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { listDocumentationRuns } from "../../runs/run-operations";
+import { IllustratedEmptyState } from "@/components/application/illustrated-empty-state";
+import { buttonVariants } from "@/components/ui/button";
 import { RunStatus } from "./run-status";
 
 function duration(start: string | null, finish: string | null) {
@@ -16,12 +18,7 @@ export async function RunHistory({ owner, repo, limit = 20, before, branch }: { 
   const page = await listDocumentationRuns({ owner, repo, limit, before }).catch(() => null);
   const query = new URLSearchParams({ repository: `${owner}/${repo}`, ...(branch ? { branch } : {}) });
   if (!page) return <p role="alert" className="rounded-lg border bg-card p-5 text-sm text-muted-foreground">Run history is unavailable. Check PostgreSQL migrations, then reload.</p>;
-  if (!page.runs.length) return <section className="space-y-3 rounded-xl border bg-card p-8">
-    <History className="size-6 text-muted-foreground" aria-hidden="true" />
-    <h2 className="font-semibold">No runs yet</h2>
-    <p className="text-sm text-muted-foreground">Start a run to see what your source changes mean for your documentation.</p>
-    <Link href={`/runs/new?${new URLSearchParams({ repository: `${owner}/${repo}` })}`} className="inline-block text-sm underline">Start a run</Link>
-  </section>;
+  if (!page.runs.length) return <IllustratedEmptyState kind="runs" title="No runs yet" action={<Link href={`/runs/new?${query}`} className={buttonVariants({ size: "lg" })}><Play aria-hidden="true" />Start a new run</Link>} />;
   return <div className="space-y-5">
     <div className="overflow-hidden rounded-xl border bg-card">
       <Table className="min-w-[960px]">

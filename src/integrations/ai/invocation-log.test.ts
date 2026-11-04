@@ -429,3 +429,63 @@ test("Wonder logs native request, metrics and only grounding-approved output; re
   await assert.rejects(generateComposition('{}', options));
   assert.equal(calls, 3, "no retries"); assert.ok(!JSON.stringify([...s.rows.values()]).includes("PRIVATE_MALFORMED"));
 });
+
+test("Wonder HTTP validation diagnostics reach usage logs without rejected values or raw responses", async t => {
+  const s = setup(t);
+  const { generateComposition } = load("./src/integrations/ai/generate-composition.ts") as typeof import("./generate-composition");
+  const fetch = t.mock.method(globalThis, "fetch", async () => Response.json({ error: {
+    type: "invalid_request_error", code: "invalid_json_schema", param: "response_format",
+    message: "oneOf not permitted in strict schema: PRIVATE_REJECTED_VALUE", rejectedValue: "PRIVATE_CREDENTIAL",
+  } }, { status: 400 }));
+  await assert.rejects(generateComposition("{}", { invocation: { ...invocation, stage: "documentation-transformation" } }));
+  const row = [...s.rows.values()].at(-1)!;
+  assert.equal(row.status, "failed"); assert.equal(row.failureKind, "invalid-request");
+  const diagnostic = row.diagnostic as import("./model-diagnostic").ModelDiagnostic;
+  assert.equal(diagnostic.providerError?.httpStatus, 400);
+  assert.equal(diagnostic.providerError?.parameter, "response_format");
+  assert.equal(diagnostic.providerError?.message, "Strict JSON schema does not support oneOf or allOf.");
+  assert.equal(row.responsePayload, null); assert.equal(row.inputTokens, null); assert.equal(row.outputTokens, null);
+  assert.ok(!JSON.stringify([...s.rows.values()]).includes("PRIVATE_REJECTED_VALUE"));
+  assert.ok(!JSON.stringify([...s.rows.values()]).includes("PRIVATE_CREDENTIAL"));
+  assert.equal(fetch.mock.callCount(), 1);
+});
+
+
+test("vision invariant diagnostics persist without rejected UI content or coordinate values", async t => {
+  const s = setup(t);
+  t.mock.method(globalThis, "fetch", async () => Response.json({ model: "muse-spark-1.3", choices: [{ finish_reason: "stop", message: { content: JSON.stringify({
+    elements: [{ description: "PRIVATE_UI_CONTENT", visibleText: "PRIVATE_UI_CONTENT", certainty: "uncertain", bounds: { xMin: 0.12345, yMin: 0.2, xMax: 0.5, yMax: 0.8 } }], observations: [], limitations: [],
+  }) } }], usage: { prompt_tokens: 20, completion_tokens: 30 } }));
+  await assert.rejects(s.generateStructuredVision({ png, context: "Inspect", invocation: { stage: "runtime-inspection", operation: "runtime-vision" } }), { code: "schema-mismatch" });
+  const row = [...s.rows.values()].at(-1)!;
+  assert.equal(row.status, "failed"); assert.equal(row.failureKind, "schema-mismatch");
+  const diagnostic = row.diagnostic as import("./model-diagnostic").ModelDiagnostic;
+  assert.equal(diagnostic.issues?.[0].invariant, "uncertain-element-must-have-null-bounds");
+  assert.equal(diagnostic.issues?.[0].category, "cross-field");
+  assert.equal(row.inputTokens, 20); assert.equal(row.outputTokens, 30);
+  assert.equal(row.requestPayload, null); assert.equal(row.responsePayload, null);
+  assert.ok(!JSON.stringify([...s.rows.values()]).includes("PRIVATE_UI_CONTENT"));
+  assert.ok(!JSON.stringify([...s.rows.values()]).includes("0.12345"));
+});
+
+test("transformation reference diagnostics survive logging without rejected identifiers", async t => {
+  const s = setup(t);
+  const { transformationImpactFixture, transformationPlanFixture, transformationDecisionFixture, transformationEntryFixture } = await import("../../../infra/local/documentation/transformation-fixtures");
+  const { transformationSource, authorizeTransformation } = await import("@/features/documentation/transformation/transformation-input");
+  const { decisionResultSchema, transformationEnvelopeSchema } = await import("@/features/documentation/transformation/documentation-change-proposal");
+  const { validateTransformationEntry } = await import("@/features/documentation/transformation/transformation-validation");
+  const impact = transformationImpactFixture(), decision = transformationDecisionFixture(null, null, "add"), plan = transformationPlanFixture(impact, [decision]);
+  const result = decisionResultSchema.parse({ decisionId: "decision-1", decision, generation: "pending", support: "not-required", reviewReady: false, saveCompatible: false, approval: "not-requested", materialization: "pending", issues: [], limitations: [], change: null, model: null, candidateId: null });
+  const auth = authorizeTransformation(impact, plan, result, undefined, transformationSource(impact, invocation.runId, []), []);
+  const entry = transformationEntryFixture(auth, []); assert.ok(entry.change.kind === "add-document");
+  entry.change.sections[0].content[0].factRefs = ["PRIVATE_REJECTED_REFERENCE"];
+  t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify({ entries: [entry] }) } }] }));
+  const generated = await s.generateStructured({ instructions: "Transform", input: "{}", schema: transformationEnvelopeSchema, postValidation: true, invocation: { ...invocation, operation: "documentation-transformation" } });
+  await assert.rejects(s.validateInvocation(generated.invocationId, () => validateTransformationEntry(generated.data.entries[0], auth), "correspondence-rejection"));
+  const row = s.rows.get(generated.invocationId!)!, diagnostic = row.diagnostic as import("./invocation-debug").ValidationDiagnostic;
+  assert.equal(row.failureKind, "correspondence-rejection");
+  assert.equal(diagnostic.code, "unauthorized-reference");
+  assert.deepEqual(diagnostic.reference, { category: "factRefs", reason: "unknown-in-guide", allowedCount: auth.facts.length, receivedCount: 1 });
+  assert.equal(row.responsePayload, null);
+  assert.ok(!JSON.stringify([...s.rows.values()]).includes("PRIVATE_REJECTED_REFERENCE"));
+});

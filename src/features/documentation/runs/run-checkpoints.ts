@@ -1,3 +1,4 @@
+import { riskCounts } from "../transformation/grounding-risk";
 import "server-only";
 import { mutateDocumentationRun, runningDocumentationRuns, type DocumentationRunRow } from "@/integrations/database/documentation-runs";
 import { runRecord, runRecordV2, type RunRecordV2 } from "./run-record";
@@ -22,9 +23,17 @@ export function finishRun(record: RunRecordV2, disposition: RunDisposition, reas
 /** Completion requires publication eligibility, not generation/support success alone. */
 export function finishRetainedRun(record: RunRecordV2, retainedProposal: NonNullable<RunRecordV2["retainedProposal"]>, reviewReadiness: NonNullable<RunRecordV2["reviewReadiness"]>) {
   const ready = reviewReadiness.actionableDecisionIds.length > 0;
-  return finishRun({ ...record, reviewReadiness, retainedProposal,
-    stages: record.stages.map(stage => stage.key === "proposal-retention" ? { ...stage, status: ready ? "completed" : "incomplete", summary: ready ? "Publishable proposal retained for review." : "Validated work retained, but no update is publishable.", finishedAt: new Date().toISOString() } : stage),
+  const planned = record.plan?.decisions.filter(decision => decision.action === "add" || decision.action === "revise").length
+    ?? record.transformation?.results.filter(result => result.generation !== "not-required").length ?? 0;
+  const accepted = reviewReadiness.actionableDecisionIds.length;
+  const partial = ready && (accepted < planned || reviewReadiness.coverageGaps.length > 0 || record.transformation?.status === "partial");
+  const counts = record.transformation ? riskCounts(record.transformation.results) : null;
+  const summary = ready ? `${partial ? "Partial coverage: " : ""}${accepted} of ${planned} documentation updates ready for review.${partial ? " Coverage gaps remain." : ""}${counts ? ` ${counts.ready} ready, ${counts.warnings} with warnings, ${counts.blocked} blocked.` : ""}`
+    : `Validated work retained, but no update is reviewable.${counts ? ` ${counts.ready} ready, ${counts.warnings} with warnings, ${counts.blocked} blocked.` : ""}`;
+  const finished = finishRun({ ...record, reviewReadiness, retainedProposal,
+    stages: record.stages.map(stage => stage.key === "proposal-retention" ? { ...stage, status: ready ? "completed" : "incomplete", summary, finishedAt: new Date().toISOString() } : stage),
   }, ready ? "awaiting-review" : "incomplete", ready ? "proposal-retained-awaiting-human-review" : "proposal-no-publishable-updates");
+  return runRecordV2.parse({ ...finished, summary });
 }
 export async function writeRunCheckpoint(id: string, token: string, change: (record: RunRecordV2) => RunRecordV2, allowCancellation = false) {
   const result = await mutateDocumentationRun(id, row => {

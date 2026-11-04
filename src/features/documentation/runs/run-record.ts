@@ -79,7 +79,7 @@ export type RunView = {
   startedAt: string | null; finishedAt: string | null; stages: (z.infer<typeof workflowStage> | LegacyRunRecord["stages"][number])[];
   contextSnapshot?: z.infer<typeof generationContextSnapshot>; runtime?: z.infer<typeof runtimeInspectionContextSchema>;
   retainedProposal?: RunRecordV2["retainedProposal"];
-  outputs?: { sourceCoverage?: string; supportRejected?: boolean; analysisSha256?: string; impactAssessment?: string; plan?: { actionable: number; noChange: number; unresolved: number }; transformation?: { status: string; reviewReadyActions: number; batchCount?: number; plannedActions?: number; coverageGaps?: string[] }; models: RunRecordV2["models"] };
+  outputs?: { sourceCoverage?: string; supportRejected?: boolean; analysisSha256?: string; impactAssessment?: string; plan?: { actionable: number; noChange: number; unresolved: number }; transformation?: { status: string; reviewReadyActions: number; riskCounts?: { ready: number; warnings: number; blocked: number }; batchCount?: number; plannedActions?: number; coverageGaps?: string[] }; models: RunRecordV2["models"] };
   responses?: StageResponsePreview[];
   failure?: RunFailure;
   reason?: string | null;

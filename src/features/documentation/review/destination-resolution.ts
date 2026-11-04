@@ -1,3 +1,4 @@
+import { documentUnitId } from "../transformation/document-units";
 import "server-only";
 import { z } from "zod";
 import { documentationReviewBatchTransaction } from "@/integrations/database/documentation-reviews";
@@ -11,7 +12,7 @@ export async function destinationChoices(proposalId: string) {
   const state = await getDocumentationReview(proposalId);
   if (state.status !== "found" || state.review || Date.now() >= Date.parse(state.expiresAt)) return [];
   return state.proposal.results.filter(result => intrinsicReviewReady(state.proposal, result)).map(result => {
-    const unitId = result.decision.documentId ?? result.decisionId;
+    const unitId = documentUnitId(state.proposal, result);
     return { unitId, title: result.change && "title" in result.change ? result.change.title : "Documentation update", proposalHash: state.proposalHash,
       options: state.destinationCandidates.filter(target => target.unitId === unitId).map(target => {
         const choice = state.proposal.authorizations.flatMap(auth => auth.associations).find(choice => target.associationIds.includes(choice.id));
@@ -28,7 +29,7 @@ export async function confirmDocumentationDestination(raw: unknown) {
     const state = readRetainedReview(scope.row);
     if (state.review || Date.now() >= Date.parse(state.expiresAt) || state.proposalHash !== input.expectedHash) throw new Error("Proposal changed or expired.");
     const target = state.destinationCandidates.find(target => target.id === input.targetId);
-    if (!target || !state.proposal.results.some(result => (result.decision.documentId ?? result.decisionId) === target.unitId && intrinsicReviewReady(state.proposal, result))) throw new Error("Unsupported destination.");
+    if (!target || !state.proposal.results.some(result => (documentUnitId(state.proposal, result)) === target.unitId && intrinsicReviewReady(state.proposal, result))) throw new Error("Unsupported destination.");
     if (state.destinationCandidates.some(candidate => candidate.unitId === target.unitId && candidate.confirmedAt && candidate.id !== target.id)) throw new Error("Destination already confirmed.");
     const live = await scope.publication(repository.location.toLowerCase(), target.route);
     if ((live?.id ?? null) !== target.observedId || (target.observedId && live?.draftId !== target.baselineId)) throw new Error("Publication destination changed.");

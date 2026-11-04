@@ -1,6 +1,7 @@
+import { z } from "zod";
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
-import { visualEvidenceJsonSchema } from "@/integrations/ai/visual-evidence";
+import { visualEvidenceJsonSchema, visualEvidenceSchema } from "@/integrations/ai/visual-evidence";
 
 type Options = Parameters<typeof import("./invoke-vision").invokeMetaVision>[0];
 const options: Options = { png: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0]), context: "Inspect visible controls", instructions: "Visible evidence only" };
@@ -57,18 +58,60 @@ test("Meta request uses bearer auth, bounded deadline, no streaming and exactly 
       name: "VisualEvidence", strict: true, schema: visualEvidenceJsonSchema,
     } });
     const schema = body.response_format.json_schema.schema;
+    // Validate the actual serialized schema, not just the exported constant.
+    const strictSubset = (node: Record<string, unknown>, root = false) => {
+      assert.equal(node.oneOf, undefined); assert.equal(node.allOf, undefined);
+      if (root) { assert.equal(node.type, "object"); assert.equal(node.anyOf, undefined); }
+      if (node.type === "object") {
+        assert.equal(node.additionalProperties, false);
+        const properties = node.properties as Record<string, Record<string, unknown>>;
+        assert.deepEqual([...(node.required as string[])].sort(), Object.keys(properties).sort());
+        Object.values(properties).forEach(child => strictSubset(child));
+      }
+      if (node.items) strictSubset(node.items as Record<string, unknown>);
+      if (node.anyOf) (node.anyOf as Record<string, unknown>[]).forEach(child => strictSubset(child));
+    };
+    strictSubset(schema, true);
     assert.equal(schema.additionalProperties, false);
     assert.equal(schema.properties.elements.maxItems, 20);
     assert.equal(schema.properties.observations.maxItems, 10);
     assert.equal(schema.properties.limitations.maxItems, 10);
-    const element = schema.properties.elements.items;
-    assert.equal(element.additionalProperties, false);
-    assert.deepEqual(element.required, ["description", "visibleText", "bounds", "certainty"]);
-    const box = element.properties.bounds.anyOf[0];
+    const variants = schema.properties.elements.items.anyOf;
+    assert.equal(variants.length, 3);
+    for (const element of variants) {
+      assert.equal(element.additionalProperties, false);
+      assert.deepEqual(element.required, ["description", "visibleText", "bounds", "certainty"]);
+    }
+    assert.equal(variants[0].properties.certainty.const, "uncertain");
+    assert.deepEqual(variants[0].properties.bounds, { type: "null" });
+    assert.equal(variants[1].properties.certainty.const, "clear");
+    assert.deepEqual(variants[1].properties.bounds, { type: "null" });
+    assert.equal(variants[2].properties.certainty.const, "clear");
+    const box = variants[2].properties.bounds;
     assert.equal(box.additionalProperties, false);
     for (const edge of ["xMin", "yMin", "xMax", "yMax"]) {
       assert.deepEqual(box.properties[edge], { type: "number", minimum: 0, maximum: 1 });
     }
+    const remote = z.fromJSONSchema(schema);
+    const located = { description: "Visible control", visibleText: null, certainty: "clear", bounds: { xMin: 0, yMin: 0, xMax: 1, yMax: 1 } };
+    const evidence = (element: unknown) => ({ elements: [element], observations: [], limitations: [] });
+    for (const [value, accepted] of [
+      [{ ...located, certainty: "uncertain", bounds: null }, true],
+      [{ ...located, bounds: null }, true], [located, true],
+      [{ ...located, certainty: "uncertain" }, false],
+      [{ ...located, certainty: "verified" }, false],
+      [{ ...located, bounds: { ...located.bounds, xMin: -1 } }, false],
+      [{ ...located, bounds: { xMin: 0 } }, false],
+      [{ description: "Missing fields" }, false],
+      [null, false],
+    ] as const) {
+      assert.equal(remote.safeParse(evidence(value)).success, accepted);
+      assert.equal(visualEvidenceSchema.safeParse(evidence(value)).success, accepted);
+    }
+    // Relative edge ordering cannot be expressed by this supported subset.
+    const reversed = evidence({ ...located, bounds: { ...located.bounds, xMin: 1, xMax: 0 } });
+    assert.equal(remote.safeParse(reversed).success, true);
+    assert.equal(visualEvidenceSchema.safeParse(reversed).success, false);
     assert.equal(body.messages[1].content[1].image_url.url, `data:image/png;base64,${Buffer.from(options.png).toString("base64")}`);
     return Response.json(valid);
   });

@@ -12,7 +12,18 @@ export function transformationRequest(authorizations: TransformationAuthorizatio
       sections: doc.sections.filter((section, index) => whole || scoped.some(auth => auth.target.sectionId === section.id || (auth.shape === "add-section" && index === 0))) };
   });
   // Route proofs remain in trusted authorizations/artifacts; the model only needs reference choices.
-  const choices = authorizations.map(auth => ({ ...auth, associations: auth.associations.map(({ routeEvidence, ...choice }) => ({ ...choice, ...(routeEvidence ? { label: routeEvidence.label } : {}) })) }));
+  const choices = authorizations.map(({ evidenceRefs: _evidenceRefs, claims, facts, ...auth }) => {
+    // Provenance identities are server-owned and are never legal output refs.
+    void _evidenceRefs;
+    return { ...auth,
+      claims: claims.map(({ id, claim: { references: _references, ...claim } }) => { void _references; return { id, claim }; }),
+      facts: facts.map(({ findingRef: _findingRef, ...fact }) => { void _findingRef; return fact; }),
+      allowedReferences: { factRefs: facts.map(fact => fact.id), claimRefs: claims.map(claim => claim.id), associations: auth.associations.map(choice => choice.id) },
+      associations: auth.associations.map(({ routeEvidence, ...choice }) => ({ ...choice,
+        ...(routeEvidence ? { label: routeEvidence.label, requiresConfirmation: routeEvidence.requiresConfirmation,
+          evidenceMethod: routeEvidence.method, evidencePaths: [...new Set(routeEvidence.sources.map(source => source.path))] } : {}) })),
+    };
+  });
   const input = JSON.stringify({ authorizations: choices, documents, maxAuthoredBlocks: TRANSFORMATION_BATCH_BLOCKS, maxCharactersPerBlock: 800 });
   const bytes = 1024 + Buffer.byteLength(JSON.stringify({ instructions: `${transformationInstructions}\nReturn only JSON matching this schema: ${JSON.stringify(z.toJSONSchema(transformationEnvelopeSchema))}`, input, maxOutputTokens: TRANSFORMATION_OUTPUT_TOKENS }));
   const blocks = authorizations.reduce((count, auth) => count + (["add-document", "replace-document"].includes(auth.shape) ? 8 : 2), 0);

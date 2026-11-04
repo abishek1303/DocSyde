@@ -1,6 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { diagnosticShapeKey } from "./model-diagnostic";
+import { diagnosticShapeKey, diagnosticInvariant } from "./model-diagnostic";
 import { z } from "zod";
 
 import type { ModelDiagnostic } from "./model-diagnostic";
@@ -29,6 +29,8 @@ export function parseStructuredOutput<S extends z.ZodType>(text: string, schema:
       ...(retainShapeDiagnostics ? { schemaFailure: { schemaSha256: hash(schemaJson), outputSha256: hash(text), outputBytes: Buffer.byteLength(text, "utf8") } } : {}),
       issues: validated.error.issues.slice(0, 8).map(issue => ({ code: issue.code,
       path: issue.path.map(part => typeof part === "number" ? "[]" : known.has(String(part)) ? String(part) : "[unknown]").join(".").slice(0, 300),
+      ...(issue.code === "custom" && diagnosticInvariant.safeParse(issue.params?.invariant).success
+        ? { category: "cross-field" as const, invariant: diagnosticInvariant.parse(issue.params?.invariant) } : {}),
       ...(retainShapeDiagnostics && issue.code === "unrecognized_keys" ? (() => {
         const recognized = issue.keys.filter(key => diagnosticShapeKey.safeParse(key).success);
         const unexpectedKeys = recognized.slice(0, 8).map(key => diagnosticShapeKey.parse(key));

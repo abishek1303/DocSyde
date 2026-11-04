@@ -48,10 +48,12 @@ export const transformationAuthorizationSchema = z.object({
   associations: z.array(associationChoice).max(40), limitations: z.array(z.string()).max(100),
 }).strict();
 export type TransformationAuthorization = z.infer<typeof transformationAuthorizationSchema>;
+export const supportCategorySchema = z.enum(["none", "omission", "ambiguity", "terminology", "unsupported-feature", "incorrect-value", "incorrect-instruction", "critical-omission", "protocol"]);
 export const decisionResultSchema = z.object({
   decisionId: decisionIdSchema, decision: documentationImpactPlanSchema.shape.decisions.element,
   generation: z.enum(["not-required", "pending", "generated", "incomplete", "failed"]),
   support: z.enum(["not-required", "pending", "supported", "unsupported", "uncertain", "failed"]),
+  reviewOutcome: z.enum(["ready", "warnings", "blocked"]).optional(),
   reviewReady: z.boolean(), materialization: z.enum(["not-applicable", "pending", "ready", "blocked"]),
   // No approval/signature is produced. A valid candidate is save-compatible only.
   approval: z.literal("not-requested"), saveCompatible: z.boolean(),
@@ -73,7 +75,10 @@ export const documentationChangeProposalSchema = z.object({
     status: z.enum(["completed", "failed", "not-attempted"]), model: modelMetadataSchema.nullable() }).strict()).max(8),
   supportModel: modelMetadataSchema.nullable(), supportAttempted: z.boolean(), protocolIssues: z.array(z.string().max(500)).max(20),
   supportChecks: z.array(z.object({ unitId: z.string().min(1).max(100), decisionId: decisionIdSchema,
-    verdict: z.enum(["supported", "unsupported", "uncertain"]), reason: z.string().min(1).max(300) }).strict()).max(128),
+    verdict: z.enum(["supported", "unsupported", "uncertain"]), reason: z.string().min(1).max(300),
+    category: supportCategorySchema.optional(),
+    factRefs: z.array(z.string().min(1).max(100)).max(6).optional(),
+  }).strict()).max(128),
 }).strict();
 export type DocumentationChangeProposal = z.infer<typeof documentationChangeProposalSchema>;
 export type DecisionResult = z.infer<typeof decisionResultSchema>;

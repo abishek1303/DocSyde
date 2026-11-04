@@ -91,8 +91,8 @@ export async function logStructuredInvocation<T extends { model: string; metadat
 }
 
 /** Called only beside existing feature validators. Does not alter provider metadata. */
-export async function finishInvocationValidation(id: string | undefined, rejection?: "grounding-rejection" | "correspondence-rejection", accepted?: () => ApprovedInvocationResponse, diagnostic?: ValidationDiagnostic) {
-  if (rejection) stopInferenceBudget();
+export async function finishInvocationValidation(id: string | undefined, rejection?: "grounding-rejection" | "correspondence-rejection", accepted?: () => ApprovedInvocationResponse, diagnostic?: ValidationDiagnostic, options?: { independentWork?: boolean }) {
+  if (rejection && !options?.independentWork) stopInferenceBudget();
   if (!id) return;
   assertReliabilitySideEffect("invocation-persistence");
   let response: { payload: unknown; reason: string | null } = { payload: null, reason: rejection ? "validation-rejected" : "not-allowlisted" };

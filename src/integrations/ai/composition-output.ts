@@ -5,7 +5,8 @@ const text = z.string().min(1).max(600);
 export const compositionOutputSchema = z.object({ sections: z.array(z.object({
   sectionRef: z.number().int().min(0).max(3), title: z.string().min(1).max(160),
   content: z.array(z.object({ blockRef: z.number().int().min(0).max(1),
-    parts: z.array(z.discriminatedUnion("kind", [
+    // Disjoint literal kinds preserve validation while emitting Meta-supported anyOf.
+    parts: z.array(z.union([
       z.object({ kind: z.literal("paragraph"), text }).strict(),
       z.object({ kind: z.literal("bullets"), items: z.array(z.string().min(1).max(200)).min(1).max(6) }).strict(),
       z.object({ kind: z.literal("steps"), items: z.array(z.string().min(1).max(200)).min(1).max(6) }).strict(),

@@ -1,3 +1,6 @@
+import { groundingRisk } from "./grounding-risk";
+import { validateSourceNormalization } from "./source-normalization";
+import { documentUnitId } from "./document-units";
 import { rejectionDiagnostic as entryRejectionDiagnostic, type ValidationDiagnostic } from "@/integrations/ai/invocation-debug";
 import "server-only";
 import { discoveredAssociations } from "./route-associations";
@@ -119,7 +122,7 @@ export async function transformDocumentation(input: TransformationInput,
 }
 async function executeTransformation(input: TransformationInput,
   { signal, invocation, onProgress }: { invocation?: InvocationContext; signal?: AbortSignal; onProgress?: (progress: TransformationProgress) => Promise<void> }): Promise<DocumentationChangeProposal> {
-  const { proposal, partition, targets, baselines, source, supplied, results, authorizations, limitations } = await prepareTransformation(input, signal);
+  const { proposal, partition, targets, baselines, source, supplied, results, authorizations } = await prepareTransformation(input, signal);
   const batches = partition.batches ?? [];
   const progress = (processed: number, active: number | null) => onProgress?.({ processed, total: batches.length, active, acceptedDecisions: results.filter(result => result.reviewReady).length });
   let budgetExhausted = false;
@@ -140,7 +143,7 @@ async function executeTransformation(input: TransformationInput,
       record.status = "completed"; record.model = { model: generated.model, elapsedMs: generated.elapsedMs };
       let rejected = false;
       let rejectionDiagnostic: ValidationDiagnostic | undefined;
-      const diagnose = (code: ValidationDiagnostic["code"]) => { rejectionDiagnostic ??= { kind: "correspondence-rejection", validator: "documentation-transformation", code }; };
+      const diagnose = (code: ValidationDiagnostic["code"], detail?: ValidationDiagnostic) => { rejectionDiagnostic ??= { ...detail, kind: "correspondence-rejection", validator: "documentation-transformation", code }; };
       const entries = new Map<string, unknown[]>(), expected = new Set(record.decisionIds);
       for (const raw of generated.data.entries) {
         const id = raw !== null && typeof raw === "object" && "decisionId" in raw ? raw.decisionId : null;
@@ -158,7 +161,10 @@ async function executeTransformation(input: TransformationInput,
         if (raw?.length !== 1) { rejected = true; diagnose("missing-or-duplicate-generation-entry"); fail(result, "missing-or-duplicate-generation-entry"); continue; }
         try {
           const change = validateTransformationEntry(raw[0], auth, auth.target.documentId ? baselines.get(auth.target.documentId) : undefined);
-          if (change.kind === "add-document") change.associations = [...new Set([...change.associations, ...auth.associations.filter(choice => choice.origin === "discovery").map(choice => choice.id)])];
+          validateSourceNormalization(change, input.impact, input.plan, result.decision.claimRefs);
+          // Route selection belongs to the model. Discovery supplies candidates, not defaults.
+          if (change.kind === "add-document" && !auth.associations.some(choice => choice.kind === "route" && change.associations.includes(choice.id)))
+            result.limitations.push("publication-route-unresolved: No application route was selected from verified evidence.");
           result.change = change;
           if (change.kind === "incomplete") { fail(result, "model-reported-incomplete"); result.issues.push(change.reason); }
           else {
@@ -168,7 +174,7 @@ async function executeTransformation(input: TransformationInput,
         } catch (error) {
           rejected = true;
           const diagnostic = entryRejectionDiagnostic(error, "correspondence-rejection");
-          diagnose(diagnostic.code === "validator-rejected" ? "invalid-generation-entry" : diagnostic.code);
+          diagnose(diagnostic.code === "validator-rejected" ? "invalid-generation-entry" : diagnostic.code, diagnostic);
           fail(result, "invalid-generation-entry");
         }
       }
@@ -178,7 +184,12 @@ async function executeTransformation(input: TransformationInput,
       record.status = budgetExhausted ? "not-attempted" : "failed";
       batch.items.forEach(auth => fail(results.find(result => result.decisionId === auth.decisionId)!, budgetExhausted ? "run-budget-exhausted" : signal?.aborted ? "cancelled-during-generation" : "generation-provider-or-output-failure", budgetExhausted ? "incomplete" : "failed"));
     }
+    const originalUnits = new Map<string, ReturnType<typeof transformationSupportUnits>>();
     const compositions = new Map<string, Awaited<ReturnType<typeof generateComposition>>>();
+    if (!compositionConfigured()) for (const auth of batch.items) {
+      const result = results.find(result => result.decisionId === auth.decisionId)!;
+      if (result.generation === "generated") result.limitations.push("wonder-finalization-skipped: META_API_KEY is not configured.");
+    }
     if (compositionConfigured()) for (const auth of batch.items) {
       const result = results.find(result => result.decisionId === auth.decisionId)!;
       if (result.generation !== "generated" || !result.change) continue;
@@ -186,23 +197,27 @@ async function executeTransformation(input: TransformationInput,
       let composed: Awaited<ReturnType<typeof generateComposition>> | undefined;
       try {
         signal?.throwIfAborted();
+        originalUnits.set(auth.decisionId, transformationSupportUnits(auth, result.change, baseline));
         composed = await generateComposition(compositionInput(result.change, auth, baseline, input.terminology), { invocation, signal });
-        result.change = applyComposition(result.change, composed.data, auth, baseline);
+        const change = applyComposition(result.change, composed.data, auth, baseline);
+        validateSourceNormalization(change, input.impact, input.plan, result.decision.claimRefs);
+        result.change = change;
         result.compositionModel = { model: composed.model, elapsedMs: composed.elapsedMs };
         compositions.set(auth.decisionId, composed);
       } catch (error) {
         budgetExhausted ||= error instanceof InferenceBudgetError;
-        await finishInvocationValidation(composed?.invocationId, "correspondence-rejection");
+        await finishInvocationValidation(composed?.invocationId, "correspondence-rejection", undefined, entryRejectionDiagnostic(error, "correspondence-rejection"));
         result.change = null; result.support = "not-required";
         fail(result, budgetExhausted ? "run-budget-exhausted" : signal?.aborted ? "cancelled-during-composition" : "composition-provider-or-output-failure", "failed");
       }
     }
     const generated = results.filter(result => batch.items.some(auth => auth.decisionId === result.decisionId) && result.generation === "generated" && result.change);
     const generatedAuth = authorizations.filter(auth => generated.some(result => result.decisionId === auth.decisionId));
-    const unitsFor = (auth: TransformationAuthorization) => transformationSupportUnits(auth, results.find(result => result.decisionId === auth.decisionId)!.change!, auth.target.documentId ? baselines.get(auth.target.documentId) : undefined);
+    const unitsFor = (auth: TransformationAuthorization) => transformationSupportUnits(auth, results.find(result => result.decisionId === auth.decisionId)!.change!, auth.target.documentId ? baselines.get(auth.target.documentId) : undefined)
+      .map(unit => ({ ...unit, ...(originalUnits.has(auth.decisionId) ? { originalText: originalUnits.get(auth.decisionId)?.find(original => original.id === unit.id)?.text } : {}) }));
     const outlines = new Map(generatedAuth.map(auth => [auth.decisionId, (auth.target.documentId ? baselines.get(auth.target.documentId)?.sections ?? [] : []).map(({ id, title, kind }) => ({ id, title, kind }))]));
     const support = minimumTransformationBatches(generatedAuth, group => {
-      const request = supportRequest(group.flatMap(unitsFor), group, outlines);
+      const request = supportRequest(group.flatMap(unitsFor), group, outlines, source);
       return request.feasible ? request.requestBytes : null;
     });
     const unchecked = support.batches === null ? generatedAuth : support.individuallyInfeasible;
@@ -213,14 +228,15 @@ async function executeTransformation(input: TransformationInput,
     for (const group of support.batches ?? []) {
       const selected = generated.filter(result => group.items.some(auth => auth.decisionId === result.decisionId));
       try {
-        const checked = await validateTransformationGrounding(group.items.flatMap(unitsFor), group.items, outlines, signal, () => { proposal.supportAttempted = true; }, invocation);
+        const checked = await validateTransformationGrounding(group.items.flatMap(unitsFor), group.items, outlines, signal, () => { proposal.supportAttempted = true; }, invocation, source);
         proposal.supportModel = checked.model; proposal.supportChecks.push(...checked.checks);
         if (checked.protocolError) proposal.protocolIssues.push("Unknown or malformed support verdict.");
         for (const result of selected) {
           const checks = checked.checks.filter(check => check.decisionId === result.decisionId);
           result.support = checks.some(check => check.verdict === "unsupported") ? "unsupported" : checks.some(check => check.verdict === "uncertain") ? "uncertain" : "supported";
-          if (result.support !== "supported") { result.materialization = "blocked"; result.issues.push("wording-not-supported"); }
-          else result.reviewReady = true;
+          result.reviewOutcome = groundingRisk(checks);
+          if (result.reviewOutcome === "blocked") { result.materialization = "blocked"; result.issues.push("wording-not-supported"); }
+          else { result.reviewReady = true; if (result.reviewOutcome === "warnings") result.issues.push("semantic-review-warning"); }
         }
       } catch (error) {
         budgetExhausted ||= error instanceof InferenceBudgetError;
@@ -228,15 +244,15 @@ async function executeTransformation(input: TransformationInput,
       }
     }
     for (const [decisionId, composed] of compositions) {
-      const supported = results.find(result => result.decisionId === decisionId)?.support === "supported";
+      const supported = results.find(result => result.decisionId === decisionId)?.reviewReady === true;
       await finishInvocationValidation(composed.invocationId, supported ? undefined : "grounding-rejection",
-        supported ? () => ({ operation: "documentation-composition", payload: composed.data }) : undefined);
+        supported ? () => ({ operation: "documentation-composition", payload: composed.data }) : undefined, undefined, { independentWork: true });
     }
     await progress(batchIndex + 1, null);
   }
   const groups = new Map<string, DecisionResult[]>();
   for (const result of results) if (result.decision.action === "revise" || result.decision.action === "add") {
-    const key = result.decision.documentId ?? result.decisionId; groups.set(key, [...(groups.get(key) ?? []), result]);
+    const key = documentUnitId(proposal, result); groups.set(key, [...(groups.get(key) ?? []), result]);
   }
   for (const group of groups.values()) {
     if (group.some(result => !result.reviewReady) || signal?.aborted) {
@@ -246,7 +262,7 @@ async function executeTransformation(input: TransformationInput,
     try {
       const document = assembleDocumentationChange({ proposalId: proposal.proposalId, createdAt: proposal.createdAt, planSha256: proposal.planSha256,
         baseline: group[0].decision.documentId ? baselines.get(group[0].decision.documentId) : undefined,
-        results: group, source, suppliedContext: [...new Map([...supplied, ...authorizations.filter(auth => group.some(result => result.decisionId === auth.decisionId)).flatMap(auth => auth.associations)].map(choice => [choice.id, choice])).values()], limitations });
+        results: group, source, suppliedContext: [...new Map([...supplied, ...authorizations.filter(auth => group.some(result => result.decisionId === auth.decisionId)).flatMap(auth => auth.associations)].map(choice => [choice.id, choice])).values()], limitations: [...new Set(group.flatMap(result => result.limitations))] });
       proposal.candidates.push({ decisionIds: group.map(result => result.decisionId), document });
       group.forEach(result => { result.materialization = "ready"; result.saveCompatible = true; result.candidateId = document.id; });
     } catch { group.forEach(result => { result.materialization = "blocked"; result.issues.push("canonical-materialization-blocked"); }); }

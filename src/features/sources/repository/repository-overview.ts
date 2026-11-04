@@ -1,4 +1,5 @@
 import "server-only";
+import { demoRepository } from "@/integrations/github/demo-repository";
 import { repositoryCoordinates, repositoryLocation } from "@/integrations/github/repository-identity";
 import { readRecentCommits, readRepositoryMetadata, readBranches } from "@/integrations/github/browse";
 import { readRecentBranchSelection } from "@/integrations/github/recent-branch";
@@ -6,6 +7,8 @@ import { revisionInput } from "@/integrations/github/source-reader";
 import { assertAllowedRepository } from "./local-source-access";
 export type RepositorySearch = { repository?: string; branch?: string; before?: string; id?: string; page?: string };
 export function configuredRepositories() {
+  const target = demoRepository();
+  if (target) return [`${target.owner}/${target.repo}`];
   const configured = (process.env.DOCSYDE_ANALYSIS_REPOSITORIES ?? "abishek1303/DocSyde").split(",").map(value => value.trim()).filter(Boolean);
   const seen = new Set<string>();
   return configured.filter(value => {

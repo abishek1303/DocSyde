@@ -9,6 +9,9 @@ import { authoredSections, validateTransformationEntry } from "./transformation-
 export function compositionInput(change: TransformationChange, auth: TransformationAuthorization, baseline?: DocumentationDocument, terminology: string[] = []) {
   return JSON.stringify({ terminology: terminology.filter(term => term.length <= 200).slice(0, 8), sections: authoredSections(change).map((section, sectionRef) => ({ sectionRef, title: section.title,
     content: section.content.map((block, blockRef) => ({ blockRef, markdown: block.markdown,
+      // A coverage checklist, not new factual authority. Never truncate details;
+      // the existing request byte limit and final verifier remain authoritative.
+      requiredDetails: block.markdown.split(/(?<=[.!?])\s+|\n+/).map(detail => detail.trim()).filter(Boolean),
       facts: auth.facts.filter(fact => block.factRefs.includes(fact.id)).map(fact => ({ value: fact.value, qualifications: fact.qualifications })),
       claims: auth.claims.filter(claim => block.claimRefs.includes(claim.id)).map(({ claim }) => ({ description: claim.description, after: claim.after, uncertainties: claim.uncertainties })),
     })), })), existingDocument: baseline ? { title: baseline.title, sections: baseline.sections.map(({ title, kind }) => ({ title, kind })) } : null });

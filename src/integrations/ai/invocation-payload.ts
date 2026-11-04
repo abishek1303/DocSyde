@@ -16,7 +16,7 @@ const vision = z.object({ elements: z.array(z.object({ index: z.number().int().m
 }).strict().refine(element => element.certainty !== "uncertain" || element.bounds === null)).max(20),
   observationCount: z.number().int().min(0).max(10), limitationCount: z.number().int().min(0).max(10),
 }).strict();
-const support = z.object({ verdicts: z.array(z.object({ unitId: z.string().regex(/^decision-[1-8]-unit-[1-9][0-9]*$/).max(100),
+const support = z.object({ verdicts: z.array(z.object({ category: z.enum(["none", "omission", "ambiguity", "terminology", "unsupported-feature", "incorrect-value", "incorrect-instruction", "critical-omission", "protocol"]).optional(), unitId: z.string().regex(/^decision-[1-8]-unit-[1-9][0-9]*$/).max(100),
   verdict: z.enum(["supported", "unsupported", "uncertain"]),
 }).strict()).max(128) }).strict();
 const discovery = z.object({ fieldCount: z.literal(4) }).strict();

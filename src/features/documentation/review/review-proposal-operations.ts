@@ -1,3 +1,5 @@
+import { guideWarnings } from "../transformation/grounding-risk";
+import { documentUnitId } from "../transformation/document-units";
 import "server-only";
 import { z } from "zod";
 import { repositoryCoordinates, repositoryLocation } from "@/integrations/github/repository-identity";
@@ -7,7 +9,7 @@ import { findDocumentationReview, insertDocumentationReview, insertDocumentation
 import type { DocumentationChangeProposal } from "../transformation/documentation-change-proposal";
 import { validateDocumentationProposal } from "../transformation/validate-documentation-proposal";
 import { documentationHash, documentationId } from "../documents/document-identity";
-import { acceptedReviewSchema, publicationDescriptorSchema, REVIEW_INITIAL_LIFETIME_MS, REVIEW_MAX_PUBLICATION_TARGETS, type PublicationDescriptor } from "./documentation-review";
+import { acceptedReviewSchema, requireWarningAcknowledgment, publicationDescriptorSchema, REVIEW_INITIAL_LIFETIME_MS, REVIEW_MAX_PUBLICATION_TARGETS, type PublicationDescriptor } from "./documentation-review";
 import { intrinsicReviewReady } from "./materialize-approved-changes";
 import { publicationRoute } from "../publication/publication-target";
 
@@ -26,12 +28,13 @@ export function readRetainedReview(row: RetainedReviewRow) {
   if (new Set(targets.map(t => t.id)).size !== targets.length) throw new Error("Duplicate publication descriptor.");
   const review = row.review === null ? null : acceptedReviewSchema.parse(row.review);
   if (review && (review.selection.proposalId !== row.id || review.selection.expectedProposalHash !== row.proposalHash || documentationHash(review.selection) !== review.selectionHash)) throw new Error("Retained selection integrity failure.");
+  for (const choice of review?.selection.decisions ?? []) if (choice.choice === "approve") requireWarningAcknowledgment(guideWarnings(proposal, choice.decisionId), choice.acknowledgeWarnings);
   if (review?.exclusions && (new Set(review.exclusions.map(item => item.decisionId)).size !== review.exclusions.length
     || review.exclusions.some(item => !proposal.results.some(result => result.decisionId === item.decisionId && ["add", "revise"].includes(result.decision.action))))) throw new Error("Exclusion receipt integrity failure.");
   for (const receipt of review?.publications ?? []) if (receipt.decisionIds || receipt.excludedDecisionIds) {
     const target = targets.find(target => target.id === receipt.targetId);
     const all = [...(receipt.decisionIds ?? []), ...(receipt.excludedDecisionIds ?? [])];
-    if (!receipt.decisionIds || receipt.decisionIds.some(id => !review!.selection.decisions.some(choice => choice.decisionId === id && choice.choice === "approve")) || !target || new Set(all).size !== all.length || all.some(id => !proposal.results.some(result => result.decisionId === id && (result.decision.documentId ?? result.decisionId) === target.unitId))) throw new Error("Publication decision receipt integrity failure.");
+    if (!receipt.decisionIds || receipt.decisionIds.some(id => !review!.selection.decisions.some(choice => choice.decisionId === id && choice.choice === "approve")) || !target || new Set(all).size !== all.length || all.some(id => !proposal.results.some(result => result.decisionId === id && (documentUnitId(proposal, result)) === target.unitId))) throw new Error("Publication decision receipt integrity failure.");
   }
   const confirmedUnits = new Set(targets.filter(target => target.confirmedAt).map(target => target.unitId));
   const destinationCandidates = targets.filter(target => target.requiresConfirmation !== undefined);
@@ -57,14 +60,17 @@ export async function retainDocumentationProposal(output: DocumentationChangePro
   for (const publication of publications) targets.push({ id: documentationId(`${proposal.proposalId}:replace:${publication.id}`),
     unitId: publication.draftId, baselineId: publication.draftId, route: publicationRoute.parse(publication.route), observedId: publication.id, associationIds: [] });
   const units = new Map<string, typeof mutable>();
-  for (const r of mutable) { const key = r.decision.documentId ?? r.decisionId; units.set(key, [...(units.get(key) ?? []), r]); }
+  for (const r of mutable) { const key = documentUnitId(proposal, r); units.set(key, [...(units.get(key) ?? []), r]); }
   for (const [unitId, results] of units) {
     if (proposal.plan.objective === "fresh" && !results.every(result => intrinsicReviewReady(proposal, result))) continue;
     const baseline = proposal.targets.find(t => t.document.id === unitId)?.document;
     // Existing published versions retain their observed destinations; old discovery hints cannot expand authority.
     const choices = [...(baseline?.context.filter(choice => choice.origin !== "discovery") ?? []), ...proposal.authorizations.filter(a => results.some(r => r.decisionId === a.decisionId)).flatMap(a => a.associations).filter(choice => !baseline || choice.origin !== "discovery")];
     const routes = new Map<string, string[]>();
-    for (const choice of choices) if (choice.kind === "route" && publicationRoute.safeParse(choice.value).success) routes.set(choice.value, [...new Set([...(routes.get(choice.value) ?? []), choice.id])]);
+    const selected = new Set(results.flatMap(result => result.change && "associations" in result.change ? result.change.associations : []));
+    const hasSelectedRoute = choices.some(choice => choice.kind === "route" && selected.has(choice.id));
+    const operatorRoutes = choices.filter(choice => choice.kind === "route" && choice.origin === "operator");
+    for (const choice of choices) if ((baseline ? choice.origin !== "discovery" : hasSelectedRoute ? selected.has(choice.id) : operatorRoutes.length === 1 && choice === operatorRoutes[0]) && choice.kind === "route" && publicationRoute.safeParse(choice.value).success) routes.set(choice.value, [...new Set([...(routes.get(choice.value) ?? []), choice.id])]);
     for (const [route, associationIds] of routes) {
       const live = await findPublication(repository, route);
       // Fresh candidates are already generated and support checked. Only now match

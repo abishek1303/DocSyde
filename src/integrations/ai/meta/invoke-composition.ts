@@ -1,3 +1,4 @@
+import { safeMetaProviderError } from "./provider-error";
 import "server-only";
 import { assertReliabilityTransport } from "@/integrations/reliability/execution-context";
 import { assertInferenceTransport } from "../inference-budget";
@@ -49,7 +50,7 @@ export async function invokeMetaComposition(options: {
       const code = ({ 400: "invalid-request", 401: "unauthorized", 402: "billing", 403: "forbidden",
         404: "model-unavailable", 413: "invalid-request", 429: "rate-limited" } as Record<number, string>)[response.status] ?? "upstream";
       const retry = response.headers.get("retry-after");
-      await response.body?.cancel().catch(() => {});
+      diagnostic = { ...diagnostic, providerError: await safeMetaProviderError(response) };
       throw new MetaCompositionError(code, retry && /^\d+$/.test(retry) && Number.isSafeInteger(Number(retry)) ? Number(retry) : undefined);
     }
     let envelope: unknown;

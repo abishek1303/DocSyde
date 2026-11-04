@@ -158,7 +158,7 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
       return [change.section.content.map(block => block.markdown).join(" ")];
     }).join(" ");
     return { transformation: { responsePreview: shortResponse(authored), proposalId, status, sha256: documentationHash(proposal), batches, supportAttempted, supportModel,
-      results: proposal.results.map(r => ({ decisionId: r.decisionId, generation: r.generation, support: r.support, reviewReady: r.reviewReady, materialization: r.materialization, approval: r.approval, saveCompatible: r.saveCompatible, issues: r.issues, model: r.model, ...(r.compositionModel ? { compositionModel: r.compositionModel } : {}), candidateId: r.candidateId })) },
+      results: proposal.results.map(r => ({ decisionId: r.decisionId, generation: r.generation, support: r.support, ...(r.reviewOutcome ? { reviewOutcome: r.reviewOutcome } : {}), reviewReady: r.reviewReady, materialization: r.materialization, approval: r.approval, saveCompatible: r.saveCompatible, issues: r.issues, model: r.model, ...(r.compositionModel ? { compositionModel: r.compositionModel } : {}), candidateId: r.candidateId })) },
       models: [...record.models, ...batches.flatMap(b => model("documentation-transformation", b.model ?? {})), ...proposal.results.flatMap(r => model("documentation-transformation", r.compositionModel ?? {})), ...model("documentation-transformation", supportModel ?? {})] };
   });
   if (!proposal!.results.some(r => (r.decision.action === "revise" || r.decision.action === "add") && r.reviewReady)) {

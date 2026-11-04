@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { repositoryCoordinates, repositoryLocation } from "@/integrations/github/repository-identity";
 import { assertAllowedRepository } from "@/features/sources/repository-access";
-import { selectLiveLibrary, selectSavedLibraryVersions, selectHubReviews, findLibraryArchive, selectLatestLibraryDraft, selectLibraryArchive, selectLibraryReviews } from "@/integrations/database/documentation-library";
+import { selectLibrarySnapshot, selectLiveLibrary, selectSavedLibraryVersions, selectHubReviews, findLibraryArchive, selectLatestLibraryDraft, selectLibraryArchive, selectLibraryReviews } from "@/integrations/database/documentation-library";
 import { getPublication } from "../publication/publication-operations";
 import { getDocumentationDraft, listDocumentationDrafts } from "../documents/operations";
 import { validateDocumentationDocument } from "../documents/document-validation";
@@ -97,4 +97,15 @@ export async function currentPublishedDocumentation(raw: unknown, route: string)
 }
 export async function currentPublishedDocument(raw: unknown, route: string) {
   return (await currentPublishedDocumentation(raw, route))?.document ?? null;
+}
+
+export async function archivedDocumentationSnapshot(raw: unknown, rawVersion: unknown) {
+  const id = z.uuid().parse(rawVersion), { repository } = scope(raw);
+  const version = await findLibraryArchive(repository, id);
+  if (!version) return null;
+  const rows = await selectLibrarySnapshot(repository, id);
+  return { publishedAt: version.publication.publishedAt.toISOString(), documents: [...new Map(rows.map(row => {
+    const document = readDocument(row.draft, repository);
+    return [document.id, document] as const;
+  })).values()].sort((a, b) => a.title.localeCompare(b.title)) };
 }

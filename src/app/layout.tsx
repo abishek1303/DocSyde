@@ -1,3 +1,6 @@
+import { Suspense } from "react";
+import { PageMotion } from "@/components/application/page-motion";
+import { PageLoader } from "@/components/application/page-loader";
 import { ScrollPace } from "@/components/application/scroll-pace";
 import { ApplicationHeader } from "@/components/application/application-header";
 import type { Metadata } from "next";
@@ -32,7 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* Apply the saved theme before paint; only the root class is changed. */}
         <script dangerouslySetInnerHTML={{ __html: `try { document.documentElement.classList.toggle("dark", localStorage.getItem("docsyde-theme") === "dark"); } catch {}` }} />
       </head>
-      <body className="flex h-dvh flex-col overflow-hidden"><ScrollPace /><ApplicationHeader /><div data-scroll-viewport className="min-h-0 min-w-0 flex-1 overflow-y-auto motion-safe:scroll-smooth md:pl-20">{children}</div></body>
+      <body className="flex h-dvh flex-col overflow-hidden"><ScrollPace /><ApplicationHeader /><div data-scroll-viewport className="min-h-0 min-w-0 flex-1 overflow-y-auto motion-safe:scroll-smooth md:pl-20"><Suspense fallback={<PageLoader />}><PageMotion>{children}</PageMotion></Suspense></div></body>
     </html>
   );
 }

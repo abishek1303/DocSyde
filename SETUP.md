@@ -13,10 +13,12 @@ Edit the ignored root `.env`:
 | `GITHUB_TOKEN` | Reading selected repositories; use Contents: read permission. |
 | `BASETEN_API_KEY` | New product understanding and change-analysis text calls (Muse Spark Open). |
 | `DOCSYDE_ANALYSIS_REPOSITORIES` | Comma-separated repositories shown in the project picker. The example includes the demo and DocSyde. |
-| `META_API_KEY` | Runtime screenshot analysis via Muse Spark; optional Wonder composition. |
+| `META_API_KEY` | Runtime screenshot analysis via Muse Spark and Wonder finalization. |
 | `DOCSYDE_MCP_ENABLED=1` | Enables the read-only local MCP endpoint. |
 
-Optional provider overrides are commented in `.env.example`. Defaults are Muse Spark Open `meta-models/muse-spark-open-1026` and Meta vision `muse-spark-1.3`. Setting `META_COMPOSITION_MODEL=muse-wonder-1.0` opts into a compact editorial pass between grounded transformation and support verification. It does not bypass grounding or approval. Leave it unset to preserve the existing transformation-only path. Native structured output is selected automatically; compatibility mode is an operator override, not required setup.
+Optional provider overrides are commented in `.env.example`. Defaults are Muse Spark Open `meta-models/muse-spark-open-1026` and Meta vision `muse-spark-1.3`. With `META_API_KEY` configured, Muse Wonder `muse-wonder-1.0` performs a compact editorial pass between grounded transformation and support verification. Each editorial block receives a required-detail checklist; supported behavior, conditions and instructions must survive the rewrite in product-facing language. Final grounding still rejects omissions. It does not bypass grounding or approval. Override the editorial model with `META_COMPOSITION_MODEL`. Missing credentials produce an explicit finalization-skipped limitation; provider or grounding failures block the affected guide. The editorial schema uses Meta-compatible strict `anyOf` unions. A source-citation check rejects unsupported field-trimming claims before and after editing; it supplements the final support verifier. Native structured output is selected automatically; compatibility mode is an operator override, not required setup.
+
+Transformation uses per-guide allowed reference IDs and preserves unknown destinations as unresolved. Invalid references are rejected without substitution; see the [transformation contract](src/features/documentation/README.md#targeted-transformations-and-canonical-v2).
 
 `DOCSYDE_DRAFT_SIGNING_KEY` is only needed to save previews from the standalone legacy initial-draft flow; generate one with `openssl rand -hex 32`. Incremental proposal review does not need it. `DOCSYDE_HOST_ORIGIN` permits one exact browser origin for host SDK delivery; MCP and the main UI do not need it. Reliability/inspection proof scripts manage their own isolation variables; they are not judge setup requirements.
 
@@ -43,7 +45,7 @@ To enable real runtime inspection in DocSyde, uncomment:
 DOCSYDE_RUN_RUNTIME_CONFIG=infra/local/runner/opentodo.example.json
 ```
 
-Also configure `META_API_KEY`, install Chromium, start OpenTodo, and restart DocSyde. The trusted example attaches to the existing process and inspects TASK-1; it never starts or stops the external app. If your issue identifier or port differs, copy the example to an ignored local file, adjust its selectors/URL, and point the variable there. Runtime coverage is explicit and bounded; no autonomous browser exploration is enabled. Missing runtime configuration allows source-only analysis with explicit limitations.
+Also configure `META_API_KEY`, install Chromium, start OpenTodo, and restart DocSyde. The trusted example attaches to the existing process and inspects TASK-1; it never starts or stops the external app. If your issue identifier or port differs, copy the example to an ignored local file, adjust its selectors/URL, and point the variable there. Vision uses strict certainty/bounds variants and independent local validation; uncertain or unlocated elements retain no UI coordinates. Invalid evidence is rejected without repair or retry. Runtime coverage is explicit and bounded; no autonomous browser exploration is enabled. Missing runtime configuration allows source-only analysis with explicit limitations.
 
 Controlled source comparison:
 
@@ -70,7 +72,7 @@ routes still require existing-document continuity, and dynamic route templates a
 work is retained for audit, but only publishable changes appear in Pending Changes and enable
 the run’s Review changes action. Nothing is published until you explicitly publish the batch.
 
-Full Scan reuses saved repository understanding as advisory context, then the existing runtime, planning, transformation, support checking and proposal-retention pipeline. **View or refresh reusable product understanding** opens the existing lightweight onboarding flow separately; reopening its artifact does not invoke inference. Provider credentials are needed to execute new generation, not to render setup.
+Full Scan reuses saved repository understanding as advisory context, then the existing runtime, planning, transformation, support checking and proposal-retention pipeline. **Product understanding** shows the saved analysis by default. **Rescan repository** opens a dedicated branch → context → review screen; cancel returns to the saved understanding; an empty project offers **Analyze repository**. Opening or cancelling setup does not invoke inference; only the final submit starts analysis. Provider credentials are needed to execute new generation, not to render setup.
 
 A fresh database correctly disables **Latest Changes** until an eligible canonical document has been saved. Unsaved generated proposals do not qualify. Published documents and valid saved documents are eligible for candidate selection; MCP only exposes published documents.
 
@@ -93,13 +95,15 @@ previous documents never enter its planning or writing context. After support ch
 selected screen routes match current publication IDs for reviewable replacements.
 Latest Changes remains incremental and documentation-aware.
 
+Full Scan and Latest Changes retain per-guide grounding verdicts. Valid, authorized proposals may be **ready**, **review with warnings** (semantic omissions, ambiguity or terminology), or **blocked** (including invented behavior, incorrect values/instructions, critical omissions or invalid verification). Warnings remain uncertain, cite their fact IDs in review, and require explicit acknowledgment before approval/publication. One blocked guide does not discard independent successful guides; same-route consolidation preserves guide-level verdicts and evidence. Human review and publication conflict checks remain mandatory. The verifier receives the authorized facts’ existing source citations to assess high-impact assertions; summaries are fallible and missing source context must stay uncertain. No extra verification model calls or configuration are required.
+
 Full Scan only creates reviewable proposals: it never deletes or replaces published documentation automatically. Accepted output exposes **Review changes** directly in Pending Changes and highlights its document groups. Unsupported output explains the stopped stage and recovery action; technical details and **AI activity / Logs** retain diagnostics. The legacy standalone draft flow remains available at `/sources/analysis`; see the [documentation guide](src/features/documentation/README.md).
 
 Then choose **Latest Changes**, select the comparison, and optionally add change context. Successful proposals lead to **Documents → Pending Changes**. Read the combined rendered preview, **Reject** unwanted edits (or **Undo**), then explicitly **Publish N changes**. This single action atomically records approval/rejection, saves the included canonical documents, and publishes to retained product destinations. Overlapping updates, expired proposals, stale snapshots, and destination conflicts are blocked. Publishing also finalizes excluded edits, including wholly excluded previously approved proposals, so they leave Pending Changes on refresh. Exclusion receipts preserve the earlier immutable approvals. Future proposals remain independent. Standalone saved documents remain available through **Browse saved documents**; legacy individual review remains accessible from optional evidence details. Latest Docs and MCP reflect the new live version; Archive keeps previous live versions. Historical reference runs and publications are local database state and are not bundled in a fresh clone.
 
 ## MCP: the same knowledge for agents
 
-DocSyde acts as a synchronized product-context layer for both humans and AI agents. With MCP enabled, the ordinary local app serves **http://127.0.0.1:3000/api/mcp**. No separate server or model inference is required. Open **MCP** for status, real query examples, and copyable HTTP client configuration.
+DocSyde acts as a synchronized product-context layer for both humans and AI agents. With MCP enabled, the ordinary local app serves **http://127.0.0.1:3000/api/mcp**. No separate server or model inference is required. Open **MCP** for server status, the connection URL, copyable HTTP client configuration, and an ngrok command. Editing the URL updates the generated configuration; no tunnel is started from the UI.
 
 ```sh
 npm run mcp:query -- get_product_context abishek1303/DockSyde-demo-app-test-subject
@@ -221,3 +225,15 @@ runtime navigation can supply confirmation-only candidates; it does not prove re
 The installed TypeScript compiler is also a runtime dependency for deterministic source parsing;
 no additional provider call or indexing service is used. Historical discovery hints never expand
 an existing published document's delivery routes automatically.
+
+Run setup and Understand product use three steps: select a branch, add optional context, then review and start. Run activity stays in a scrollable desktop panel; stages expand as work progresses, and can also be opened manually. Usage totals use the existing invocation logs.
+
+Documentation navigation includes page-title search. Archive first lists publication versions, then opens the pages live at the selected timestamp using existing publication history (read-only; no migration). The right run column displays all summary and resource content. The desktop activity panel matches that column’s height and scrolls internally. Review changes remains visible and is disabled when no actionable proposal remains.
+
+Running activity titles use a reduced-motion-aware GSAP word wave. Each stage transition returns expansion to the current step and reveals it inside the timeline. Scroll the run page to move its title and revision details out of view; activity and resources retain their own scrolling.
+
+Pending Changes uses fixed-height page cards with title, approved routes, and New/Update status. New pages have one preview; updates compare the saved original with the proposed result. Conflicts offer one version per proposal (or per competing edit where a proposal overlaps itself); choosing a version excludes the alternatives through the existing preview action. Preview panes and the page list scroll independently. Warning acknowledgment and publication checks remain required.
+
+Page navigation uses a shared GSAP fade, with staggered MCP card reveals. Suspense loading states share the animated book SVG. Both respect reduced-motion preferences; navigation adds no artificial delay and preserves page/form state.
+
+For the single-repository demo safeguard, set `DOCSYDE_DEMO_SINGLE_REPO_ONLY=true` and configure exactly one distinct `owner/repository` in `DOCSYDE_ANALYSIS_REPOSITORIES`. Keep `GITHUB_TOKEN` server-side. Run setup verifies GitHub access; the shared client validates the target and blocks REST/GraphQL requests outside it, including CLI calls. An empty, invalid, or multiple-repository configuration fails closed. The setup note asks users to restrict their token manually: this safeguard limits DocSyde, not the token’s full GitHub grants. Leave the flag unset or false to retain normal multi-repository behavior. `npm run github:test` includes mocked safeguard tests and makes no live GitHub/model calls.

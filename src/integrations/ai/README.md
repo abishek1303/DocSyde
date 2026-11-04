@@ -51,8 +51,7 @@ The strict local Zod schema bounds elements to 20, observations/limitations to 1
 each, descriptions to 300 characters, and visible text/statements to 500. Visible
 text and bounds can be null. Bounds use finite normalized coordinates in `[0,1]`
 from the top-left, with strictly increasing edges. Uncertain elements require null
-bounds; empty evidence is valid. JSON-Schema prompting describes the shape; local
-refinements enforce box ordering and uncertainty. Validation proves neither factual
+bounds; clear but unlocated elements also retain null bounds and cannot supply a UI location. Empty evidence is valid. The production Meta request uses strict JSON Schema with nested `anyOf` variants to constrain certainty and bounds together. Local Zod independently rechecks that relationship and enforces edge ordering, which the provider schema cannot express. Contradictions are rejected without normalization or retry; safe diagnostics identify the invariant without retaining rejected UI values. Validation proves neither factual
 accuracy nor localization quality. Results are returned only, not persisted.
 
 Set `META_API_KEY` in ignored `.env` or process environment; it is required lazily

@@ -77,3 +77,17 @@ export async function selectHubReviews(repository: string, offset: number, inclu
     )`))
     .orderBy(desc(reviews.registeredAt), desc(reviews.id)).limit(21).offset(offset);
 }
+
+/** Reconstruct the published library at an archived publication's exact timestamp. */
+export async function selectLibrarySnapshot(repository: string, versionId: string) {
+  const { documentationPublications: live } = await import("./schema");
+  const at = sql`(SELECT published_at FROM ${history} WHERE repository = ${repository} AND id = ${versionId})`;
+  const database = getDatabase();
+  const archived = database.select({ draft: drafts, route: history.route }).from(history)
+    .innerJoin(drafts, eq(history.draftId, drafts.id))
+    .where(and(eq(history.repository, repository), sql`${history.publishedAt} <= ${at}`, sql`${history.archivedAt} > ${at}`));
+  const current = database.select({ draft: drafts, route: live.route }).from(live)
+    .innerJoin(drafts, eq(live.draftId, drafts.id))
+    .where(and(eq(live.repository, repository), sql`${live.publishedAt} <= ${at}`));
+  return archived.unionAll(current);
+}

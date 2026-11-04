@@ -11,27 +11,44 @@ export function authoredSections(change: TransformationChange): AuthoredSection[
   return [];
 }
 
-function rejectEntry(code: ValidationDiagnostic["code"], message: string): never {
-  throw withValidationDiagnostic(new Error(message), { validator: "documentation-transformation", code });
+function rejectEntry(code: ValidationDiagnostic["code"], message: string, reference?: ValidationDiagnostic["reference"]): never {
+  throw withValidationDiagnostic(new Error(message), { validator: "documentation-transformation", code, ...(reference ? { reference } : {}) });
 }
 
 export function validateTransformationEntry(raw: unknown, auth: TransformationAuthorization, baseline?: DocumentationDocument) {
-  const entry = transformationEntrySchema.parse(raw);
-  if (entry.decisionId !== auth.decisionId || !isDeepStrictEqual(entry.target, auth.target)) rejectEntry("unauthorized-decision-target", "Unauthorized decision target or snapshot.");
+  const parsed = transformationEntrySchema.safeParse(raw);
+  if (!parsed.success) {
+    // Diagnose only fixed schema fields and counts, never rejected identifiers.
+    for (const issue of parsed.error.issues) {
+      const fieldIndex = issue.path.findIndex(part => ["factRefs", "claimRefs", "associations"].includes(String(part)));
+      if (fieldIndex < 0) continue;
+      const field = issue.path[fieldIndex];
+      const category = field === "factRefs" ? "factRefs" : field === "claimRefs" ? "claimRefs"
+        : issue.path.includes("sections") || issue.path.includes("section") ? "section-associations" : "document-associations";
+      let value: unknown = raw;
+      for (const part of issue.path.slice(0, fieldIndex + 1)) value = value && typeof value === "object" && Object.hasOwn(value, part) ? Reflect.get(value, part) : undefined;
+      rejectEntry("unauthorized-reference", "Malformed reference array.", { category, reason: value === undefined || Array.isArray(value) && value.length === 0 ? "missing" : "malformed" });
+    }
+    throw parsed.error;
+  }
+  const entry = parsed.data;
+  if (entry.decisionId !== auth.decisionId || !isDeepStrictEqual(entry.target, auth.target)) rejectEntry("unauthorized-decision-target", "Unauthorized decision target or snapshot.", { category: "identity", reason: "mismatched" });
   const change = entry.change;
   if (change.kind === "incomplete") return change;
   if (change.kind !== auth.shape) rejectEntry("unauthorized-transformation-shape", "Unauthorized transformation shape.");
   const sections = authoredSections(change), claims = new Set(auth.claims.map(claim => claim.id)), facts = new Map(auth.facts.map(fact => [fact.id, fact]));
   const associations = new Set(auth.associations.map(choice => choice.id)), usedClaims = new Set<string>();
-  function refs(ids: string[], allowed: Set<string>) {
-    if (new Set(ids).size !== ids.length || ids.some(id => !allowed.has(id))) rejectEntry("unauthorized-reference", "Unauthorized or duplicate reference.");
+  function refs(ids: string[], allowed: Set<string>, category: NonNullable<ValidationDiagnostic["reference"]>["category"]) {
+    const diagnostic = { category, allowedCount: allowed.size, receivedCount: ids.length };
+    if (new Set(ids).size !== ids.length) rejectEntry("unauthorized-reference", "Duplicate reference within one array.", { ...diagnostic, reason: "duplicate-in-array" });
+    if (ids.some(id => !allowed.has(id))) rejectEntry("unauthorized-reference", "Reference is not authorized for this guide.", { ...diagnostic, reason: "unknown-in-guide" });
   }
   for (const section of sections) {
-    refs(section.associations, associations);
+    refs(section.associations, associations, "section-associations");
     for (const block of section.content) {
-      refs(block.factRefs, new Set(facts.keys())); refs(block.claimRefs, claims);
+      refs(block.factRefs, new Set(facts.keys()), "factRefs"); refs(block.claimRefs, claims, "claimRefs");
       if (block.factRefs.some(ref => !facts.get(ref)!.claimRefs.some(id => block.claimRefs.includes(id)))
-        || block.claimRefs.some(id => !block.factRefs.some(ref => facts.get(ref)!.claimRefs.includes(id)))) rejectEntry("fact-claim-mismatch", "Fact/claim authorization mismatch.");
+        || block.claimRefs.some(id => !block.factRefs.some(ref => facts.get(ref)!.claimRefs.includes(id)))) rejectEntry("fact-claim-mismatch", "Fact/claim authorization mismatch.", { category: "factRefs", reason: "fact-claim-mismatch" });
       block.claimRefs.forEach(id => usedClaims.add(id));
       if (/<[^>]*>|!\[|^\s*#|(?:javascript|data|vbscript):/im.test(block.markdown)) rejectEntry("unsupported-markup", "Unsupported generated markup.");
       const allowedText = [...auth.facts.map(fact => fact.value), ...auth.claims.flatMap(entry => [entry.claim.description, entry.claim.after ?? ""]), ...auth.associations.map(choice => choice.value)].join("\n");
@@ -40,8 +57,8 @@ export function validateTransformationEntry(raw: unknown, auth: TransformationAu
       }
     }
   }
-  if (auth.claims.some(claim => !usedClaims.has(claim.id))) rejectEntry("unaddressed-claims", "Authorized claims left unaddressed.");
-  if (change.kind === "add-document" || change.kind === "replace-document") refs(change.associations, associations);
+  if (auth.claims.some(claim => !usedClaims.has(claim.id))) rejectEntry("unaddressed-claims", "Authorized claims left unaddressed.", { category: "claimRefs", reason: "missing", allowedCount: claims.size, receivedCount: usedClaims.size });
+  if (change.kind === "add-document" || change.kind === "replace-document") refs(change.associations, associations, "document-associations");
   if (change.kind === "add-section") {
     const placement = change.placement;
     if ((placement.position === "undetermined") !== (placement.sectionId === null)
@@ -55,7 +72,7 @@ export function validateTransformationEntry(raw: unknown, auth: TransformationAu
   return change;
 }
 
-export type SupportUnit = { id: string; decisionId: string; text: string; claimRefs: string[]; factRefs: string[]; structural: boolean };
+export type SupportUnit = { id: string; decisionId: string; text: string; originalText?: string; claimRefs: string[]; factRefs: string[]; structural: boolean };
 export function transformationSupportUnits(auth: TransformationAuthorization, change: TransformationChange, baseline?: DocumentationDocument): SupportUnit[] {
   const units: SupportUnit[] = [];
   const add = (text: string, claimRefs: string[], factRefs: string[], structural = false) => units.push({ id: `${auth.decisionId}-unit-${units.length + 1}`, decisionId: auth.decisionId, text, claimRefs: [...new Set(claimRefs)], factRefs: [...new Set(factRefs)], structural });

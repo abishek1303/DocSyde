@@ -38,6 +38,9 @@ test("consolidated pending publication preserves grounding, atomicity and curren
  assert.equal(combined.schemaVersion,2);
  await retainDocumentationProposal(first); await retainDocumentationProposal(second);
  let view = await getPendingWorkspace({repository}); assert.equal(view.count,2); assert.equal(view.blocked,false); assert.equal(view.groups.length,1); assert.equal(view.groups[0].highlighted.length,2);
+ assert.equal(view.groups[0].baseline?.id, baseline.id);
+ assert.ok(view.groups[0].routes.includes("/requests/new"));
+ assert.equal(view.groups[0].conflictKey, null, "compatible section updates do not require a version choice");
  const rejected=view.groups[0].changes[1].key;
  const subset=await getPendingWorkspace({repository,excluded:[rejected]}); assert.equal(subset.count,1); assert.equal(subset.groups[0].highlighted.length,1);
  const undone=await getPendingWorkspace({repository}); assert.equal(undone.count,2); assert.deepEqual(undone.groups[0].document,view.groups[0].document);
@@ -55,6 +58,16 @@ test("consolidated pending publication preserves grounding, atomicity and curren
  const overlap=reviewProposalFixture(baseline,false); await retainDocumentationProposal(overlap);
  view=await getPendingWorkspace({repository}); assert.equal(view.blocked,true);
  assert.equal((await publishPendingWorkspace({repository,expectedHash:view.hash})).status,"blocked");
+ const conflict = view.groups[0]; assert.ok(conflict.conflictKey);
+ assert.equal(conflict.versions.length, 3);
+ assert.ok(conflict.versions.every(version => version.document && version.changeKeys.length === 1));
+ const choice = conflict.versions[0];
+ const excludedVersions = conflict.changes.filter(change => !choice.changeKeys.includes(change.key)).map(change => change.key);
+ const chosenView = await getPendingWorkspace({ repository, excluded: excludedVersions });
+ assert.equal(chosenView.blocked, false);
+ assert.equal(chosenView.count, 1);
+ assert.equal(chosenView.groups[0].conflictKey, conflict.conflictKey, "alternatives remain selectable after resolving a conflict");
+ assert.deepEqual(chosenView.groups[0].document, choice.document, "the selected version matches the publication preview");
  const overlapKey=view.groups[0].changes.find(change=>change.proposalId===overlap.proposalId)!.key;
  view=await getPendingWorkspace({repository,excluded:[overlapKey]}); assert.equal(view.blocked,false);
  const result=await publishPendingWorkspace({repository,excluded:[overlapKey],expectedHash:view.hash}); assert.equal(result.status,"published"); assert.equal(result.count,2);

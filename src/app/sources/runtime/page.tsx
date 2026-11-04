@@ -1,3 +1,4 @@
+import { PageLoader } from "@/components/application/page-loader";
 import { Suspense } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/application/shell";
@@ -18,4 +19,4 @@ async function Settings({ searchParams }: { searchParams: Promise<{ repository?:
     <Link className="text-sm text-primary underline" href={`/runs/new?${new URLSearchParams({ repository: repository.name })}`}>Return to run setup</Link>
   </div></AppShell>;
 }
-export default function Page(props: { searchParams: Promise<{ repository?: string }> }) { return <Suspense fallback={<p>Loading runtime settings…</p>}><Settings {...props} /></Suspense>; }
+export default function Page(props: { searchParams: Promise<{ repository?: string }> }) { return <Suspense fallback={<PageLoader />}><Settings {...props} /></Suspense>; }

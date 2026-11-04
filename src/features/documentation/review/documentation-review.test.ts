@@ -60,3 +60,23 @@ test("review dependency graph loads no inference capabilities", () => {
   const loaded = Object.keys(require.cache);
   assert.equal(loaded.some(path => /integrations\/ai\/(?:generate-structured|analyze-screenshot|meta\/invoke-vision|baseten\/invoke)/.test(path)), false);
 });
+
+test("warning review requires explicit acknowledgment and keeps authorization gates", async () => {
+  const { validateReviewSelection } = await import("./apply-documentation-review");
+  const { requireWarningAcknowledgment } = await import("./documentation-review");
+  const p = reviewProposalFixture(); const result = p.results[0];
+  const checks = p.supportChecks.filter(check => check.decisionId === result.decisionId);
+  for (const check of checks) { check.verdict = "uncertain"; check.category = "omission"; check.factRefs = p.authorizations[0].facts.map(fact => fact.id); }
+  result.support = "uncertain"; result.reviewOutcome = "warnings";
+  assert.equal(intrinsicReviewReady(p, result), true);
+  const selection = normalizeReviewSelection({ proposalId: p.proposalId, expectedProposalHash: documentationHash(p), decisions: [{ decisionId: result.decisionId, choice: "approve" }], publications: [] });
+  assert.throws(() => validateReviewSelection(p, [], selection), /acknowledgment/);
+  selection.decisions[0].acknowledgeWarnings = true;
+  assert.doesNotThrow(() => validateReviewSelection(p, [], selection));
+  assert.throws(() => validateReviewSelection(p, [], { ...selection, publications: [{ targetId: randomUUID(), intent: "publish" }] }), /Unauthorized publication target/);
+  assert.throws(() => requireWarningAcknowledgment(checks, false), /acknowledgment/);
+  assert.doesNotThrow(() => requireWarningAcknowledgment(checks, true));
+  checks[0].category = "unsupported-feature"; result.reviewOutcome = "blocked";
+  assert.throws(() => validateReviewSelection(p, [], selection), /cannot be approved/);
+  assert.throws(() => normalizeReviewSelection({ ...selection, decisions: [{ ...selection.decisions[0], acknowledgeWarnings: false }] }));
+});

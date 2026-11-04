@@ -9,6 +9,7 @@ export function discoveredAssociations(impact: ProductImpact, plan: Documentatio
   const refs = plan.claimCatalog.filter(claim => decision.claimRefs.includes(claim.id)).flatMap(claim => claim.claim.references);
   const evidenceIds = impact.provenance.sourceReferences.filter(source => refs.includes(source.id)).flatMap(source => source.finding.citations.map(citation => citation.evidenceId));
   const paths = impact.provenance.sourceEvidence.filter(evidence => evidenceIds.includes(evidence.id)).map(evidence => evidence.path);
+  routes = routes.filter(route => !/^\/ds-draft(?:\/|$)/.test(route.pathname));
   const matched = routes.filter(route => paths.some(path => route.sourcePaths.includes(path)));
   const unique = new Set(matched.map(route => route.pathname));
   return routes.filter(route => publicationRoute.safeParse(route.pathname).success && route.evidence.commitId === impact.provenance.source.head).map(route => ({

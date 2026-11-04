@@ -1,3 +1,4 @@
+import { guideWarnings } from "../transformation/grounding-risk";
 import "server-only";
 import { assertReliabilitySideEffect } from "@/integrations/reliability/execution-context";
 import { assertDocumentImages } from "../images/document-image-operations";
@@ -7,14 +8,15 @@ import { documentationHash } from "../documents/document-identity";
 import { validateDocumentationDocument } from "../documents/document-validation";
 import { readRetainedReview, reviewRepository } from "./review-proposal-operations";
 import { intrinsicReviewReady, approvedDocumentUnits, materializeApprovedUnit } from "./materialize-approved-changes";
-import { normalizeReviewSelection, type ReviewSelection, type AcceptedReview, type ReviewOutcome, type SaveReceipt, type PublicationReceipt } from "./documentation-review";
+import { normalizeReviewSelection, requireWarningAcknowledgment, type ReviewSelection, type AcceptedReview, type ReviewOutcome, type SaveReceipt, type PublicationReceipt } from "./documentation-review";
 import type { DocumentationChangeProposal } from "../transformation/documentation-change-proposal";
 import type { PublicationDescriptor } from "./documentation-review";
 
-function validateSelection(proposal: DocumentationChangeProposal, targets: PublicationDescriptor[], selection: ReviewSelection) {
+export function validateReviewSelection(proposal: DocumentationChangeProposal, targets: PublicationDescriptor[], selection: ReviewSelection) {
   for (const choice of selection.decisions) {
     const result = proposal.results.find(r => r.decisionId === choice.decisionId);
     if (!result) throw new Error("Unknown decision.");
+    if (choice.choice === "approve") requireWarningAcknowledgment(guideWarnings(proposal, result.decisionId), choice.acknowledgeWarnings);
     const actionable = result.decision.action === "revise" || result.decision.action === "add";
     if (choice.choice === "acknowledge" && actionable) throw new Error("Actionable decisions require approve or reject.");
     if (choice.choice === "approve" && (!actionable || !intrinsicReviewReady(proposal, result))) throw new Error("Decision cannot be approved.");
@@ -114,7 +116,7 @@ export async function applyDocumentationReview(raw: unknown, { signal }: { signa
         return { state, review: state.review };
       }
       if (Date.now() >= scope.row.expiresAt.getTime()) return { error: "expired" as const, hash: state.proposalHash, reason: "Initial review acceptance has expired." };
-      try { validateSelection(state.proposal, state.targets, selection); }
+      try { validateReviewSelection(state.proposal, state.targets, selection); }
       catch (error) { return { error: "invalid-selection" as const, hash: state.proposalHash, reason: error instanceof Error ? error.message : "Invalid selection." }; }
       if (signal?.aborted) return { error: "cancelled" as const };
       const review: AcceptedReview = { operationId: randomUUID(), selectionHash: documentationHash(selection), selection,

@@ -6,14 +6,13 @@ The demo follows a source change through grounded analysis, optional Playwright 
 
 ## Run locally
 
-Prerequisites: **Node.js 22.13+ LTS**, npm, Git, and Docker Desktop (running). You need GitHub repository read access and a Baseten API key for new analyses. Meta API credentials enable screenshot understanding and optional Muse Wonder composition. Browsing saved content and MCP make no model calls.
+Prerequisites: **Node.js 22.13+ LTS**, npm, Git, and Docker Desktop (running). You need GitHub repository read access and a Baseten API key for new analyses. Meta API credentials enable screenshot understanding and Muse Wonder composition. Browsing saved content and MCP make no model calls.
 
 ```sh
 git clone https://github.com/abishek1303/DocSyde.git
 cd DocSyde
 cp .env.example .env
-# Add GITHUB_TOKEN and BASETEN_API_KEY to .env.
-# Add META_API_KEY if using runtime vision.
+# Add GITHUB_TOKEN, META_API_KEY and BASETEN_API_KEY to .env.
 npm ci
 npm run db:setup
 npx playwright install chromium

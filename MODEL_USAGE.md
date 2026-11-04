@@ -170,9 +170,9 @@ Human approval/save/publication remain separate model-free operations. Local ver
 and historical proof descriptions below do not imply those capabilities are still
 absent from new-run orchestration.
 
-## Optional composition
+## Documentation finalization
 
-`META_COMPOSITION_MODEL` opts into Meta Muse Wonder through the existing provider boundary. It receives only bounded grounded candidate copy, supported facts, and relevant document context. Its validated presentation blocks are mapped into the canonical document model, then the existing support verifier checks the composed wording before retention. No new fact authority, retries, automatic approval, or publication is introduced. Invocation logs retain safe input and accepted validated output only. Leaving the variable unset preserves the original flow.
+`META_API_KEY` enables Meta Muse Wonder (default `muse-wonder-1.0`, overridden by `META_COMPOSITION_MODEL`) through the existing provider boundary. It receives only bounded grounded candidate copy, supported facts, and relevant document context. Its validated presentation blocks are mapped into the canonical document model, then the existing support verifier checks the composed wording before retention. No new fact authority, retries, automatic approval, or publication is introduced. Invocation logs retain safe input and accepted validated output only. Missing credentials are explicitly reported in proposal limitations. Failed editorial output blocks the affected guide. The support check also compares the original copy to reject lost details. Both Full Scan and Latest Changes use this pass.
 
 ## Intentionally not used
 

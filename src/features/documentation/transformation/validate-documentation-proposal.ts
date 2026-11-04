@@ -1,3 +1,5 @@
+import { groundingRisk } from "./grounding-risk";
+import { documentUnitId, selectedDocumentRoute } from "./document-units";
 import "server-only";
 import { isDeepStrictEqual } from "node:util";
 import { validateProductImpact } from "@/features/sources/product-evidence";
@@ -62,19 +64,27 @@ export function validateDocumentationProposal(raw: unknown) {
         }
       }
     }
-    assert(result.reviewReady === (result.generation === "generated" && result.support === "supported"));
-    assert(!result.reviewReady || (result.generation === "generated" && result.support === "supported" && !!result.change && !!result.model));
+    const checks = p.supportChecks.filter(check => check.decisionId === result.decisionId);
+    const risk = groundingRisk(checks);
+    if (result.reviewOutcome) assert(result.reviewOutcome === risk);
+    assert(result.reviewReady === (result.generation === "generated" && (result.reviewOutcome ? risk !== "blocked" : result.support === "supported")));
+    assert(!result.reviewReady || (result.generation === "generated" && (result.support === "supported" || result.reviewOutcome === "warnings") && !!result.change && !!result.model));
     assert(!result.saveCompatible || (result.reviewReady && result.materialization === "ready" && !!result.candidateId));
     assert((result.materialization === "ready") === !!result.candidateId);
   }
   assert(new Set(p.supportChecks.map(c => c.unitId)).size === p.supportChecks.length);
-  assert(p.supportChecks.every(c => allUnits.some(u => u.id === c.unitId && u.decisionId === c.decisionId)));
+  assert(p.supportChecks.every(c => allUnits.some(u => u.id === c.unitId && u.decisionId === c.decisionId && (!c.factRefs || (new Set(c.factRefs).size === c.factRefs.length && c.factRefs.every(ref => u.factRefs.includes(ref)))))));
   const candidateDecisions = new Set<string>();
   for (const candidate of p.candidates) {
     const results = candidate.decisionIds.map(id => p.results.find(r => r.decisionId === id)!);
     assert(results.every(Boolean) && new Set(candidate.decisionIds).size === candidate.decisionIds.length);
     for (const r of results) { assert(!candidateDecisions.has(r.decisionId) && r.candidateId === candidate.document.id && r.saveCompatible); candidateDecisions.add(r.decisionId); }
     assert(results.every(r => r.decision.documentId === results[0].decision.documentId));
+    assert(results.every(r => documentUnitId(p, r) === documentUnitId(p, results[0])));
+    if (results.length > 1 && !results[0].decision.documentId) {
+      const route = selectedDocumentRoute(p, results[0]);
+      assert(route !== null && results.every(result => selectedDocumentRoute(p, result) === route));
+    }
     assert(isDeepStrictEqual(candidate.decisionIds, p.results.filter(r => candidate.decisionIds.includes(r.decisionId)).map(r => r.decisionId)));
     const baseline = p.targets.find(t => t.document.id === results[0].decision.documentId)?.document;
     const rebuilt = assembleDocumentationChange({ proposalId: p.proposalId, createdAt: p.createdAt, planSha256: p.planSha256,

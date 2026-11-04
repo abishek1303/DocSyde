@@ -132,3 +132,35 @@ test("Latest Changes eligibility matches the saved candidate corpus, not unsaved
   }
   await assert.rejects(() => hasExistingDocumentation({ owner: "unauthorized", repo: "product" }), /not allowed/);
 });
+
+test("archived snapshots authorize the version and read historical intervals alongside still-live pages", async t => {
+  const { archivedDocumentationSnapshot } = await import("@/features/documentation/library/library-operations");
+  const previous = { DATABASE_URL: process.env.DATABASE_URL, DOCSYDE_ANALYSIS_REPOSITORIES: process.env.DOCSYDE_ANALYSIS_REPOSITORIES };
+  process.env.DATABASE_URL = "postgres://fixture:fixture@localhost/fixture";
+  process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "example/product";
+  t.after(async () => { await closeDatabase(); for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
+  const draft = draftFixture(); draft.provenance.repository = "https://github.com/example/product";
+  const date = "2026-10-30T12:00:00.000Z", version = randomUUID();
+  let queries = 0, missing = false;
+  t.mock.method(Pool.prototype, "query", async (query: { text: string }, params: unknown[]) => {
+    queries++;
+    assert.ok(params.includes(draft.provenance.repository));
+    assert.ok(params.includes(version));
+    if (query.text.includes("union all")) {
+      assert.match(query.text, /"published_at" <=/);
+      assert.match(query.text, /"archived_at" >/);
+      assert.match(query.text, /documentation_publications/);
+      return { rows: [[draft.id, draft, date, "/page"], [draft.id, draft, date, "/other"]] };
+    }
+    return { rows: missing ? [] : [[version, draft.provenance.repository, "/page", draft.id, date, date, draft.id, draft, date]] };
+  });
+  await assert.rejects(() => archivedDocumentationSnapshot({ owner: "other", repo: "product" }, version), /not allowed/);
+  await assert.rejects(() => archivedDocumentationSnapshot({ owner: "example", repo: "product" }, "invalid"));
+  assert.equal(queries, 0);
+  const snapshot = await archivedDocumentationSnapshot({ owner: "example", repo: "product" }, version);
+  assert.equal(snapshot?.publishedAt, date);
+  assert.deepEqual(snapshot?.documents.map(document => document.id), [draft.id]);
+  missing = true; queries = 0;
+  assert.equal(await archivedDocumentationSnapshot({ owner: "example", repo: "product" }, version), null);
+  assert.equal(queries, 1);
+});

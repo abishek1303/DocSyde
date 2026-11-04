@@ -1,4 +1,5 @@
 import "server-only";
+import { branchSelectionQuery } from "./branch-query";
 import { cache } from "react";
 import { z } from "zod";
 import { createGithubClient, withGithubErrors } from "./client";
@@ -11,15 +12,7 @@ const branchPage = z.object({
     refs: z.object({ nodes: z.array(z.object({ name: z.string(), target: z.object({ committedDate: z.string().datetime(), messageHeadline: z.string() }) })), pageInfo: z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() }) }),
   }).nullable()
 });
-const query = `query RunBranches($owner: String!, $repo: String!, $after: String) {
-  repository(owner: $owner, name: $repo) {
-    defaultBranchRef { name }
-    refs(refPrefix: "refs/heads/", first: 100, after: $after) {
-      nodes { name target { ... on Commit { committedDate messageHeadline } } }
-      pageInfo { hasNextPage endCursor }
-    }
-  }
-}`;
+
 /** One request per 100 branches avoids a separate commit request for every head. */
 export const readRecentBranchSelection = cache(async (owner: string, repo: string) => withGithubErrors(async () => {
   const coordinates = repositoryCoordinates.parse({ owner, repo });
@@ -28,7 +21,7 @@ export const readRecentBranchSelection = cache(async (owner: string, repo: strin
   const cursors = new Set<string>();
   let after: string | null = null, defaultBranch: string | null = null;
   for (let page = 0; page < 10; page++) {
-    const raw: unknown = await client.graphql(query, { ...coordinates, after });
+    const raw: unknown = await client.graphql(branchSelectionQuery, { ...coordinates, after });
     const { repository } = branchPage.parse(raw);
     if (!repository) throw new SourceReadError("not-found", "Repository is unavailable.");
     defaultBranch = repository.defaultBranchRef?.name ?? null;

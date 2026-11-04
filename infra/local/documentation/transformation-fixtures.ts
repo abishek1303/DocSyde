@@ -42,7 +42,7 @@ export function transformationEntryFixture(auth: TransformationAuthorization, do
   else if (auth.shape === "add-section") change = { kind: auth.shape, section, placement: { position: ambiguous ? "undetermined" : "after",
     sectionId: ambiguous ? null : documents.find(doc => doc.documentId === auth.target.documentId)!.outline[0].id,
     reason: ambiguous ? "The outline does not establish an insertion point." : "The new requirement follows the existing first section." } };
-  else if (auth.shape === "add-document") change = { kind: auth.shape, title: "Request requirements", associations: [], sections: [section] };
+  else if (auth.shape === "add-document") change = { kind: auth.shape, title: "Request requirements", associations: auth.associations.filter(choice => choice.origin === "discovery").map(choice => choice.id), sections: [section] };
   else change = { kind: auth.shape, title: "Request requirements", associations: [], sections: documents.find(doc => doc.documentId === auth.target.documentId)!.sections.map((existing, index) =>
     index === 0 ? { kind: "write" as const, sectionId: existing.id, section } : { kind: "retain" as const, sectionId: existing.id }) };
   return { decisionId: auth.decisionId, target: auth.target, change };

@@ -1,12 +1,16 @@
 import Link from "next/link";
+import { BookOpen, Play } from "lucide-react";
+import { IllustratedEmptyState } from "@/components/application/illustrated-empty-state";
+import { buttonVariants } from "@/components/ui/button";
 import { Suspense } from "react";
 import { AppShell } from "@/components/application/shell";
 import { Breadcrumbs } from "@/components/application/breadcrumbs";
 import { ArticleSkeleton } from "@/features/documentation/components/reader/article-skeleton";
 import { selectedRepository, type RepositorySearch } from "@/features/sources/repository/repository-overview";
-import { documentationHub, archivedDocumentationDraft, currentPublishedDocument } from "@/features/documentation/library/library-operations";
+import { documentationHub, archivedDocumentationSnapshot, documentSourceHead } from "@/features/documentation/library/library-operations";
 import { DocumentationTabs, type DocumentationTab } from "@/features/documentation/components/reader/documentation-tabs";
 import { DocumentationReader } from "@/features/documentation/components/reader/documentation-reader";
+import { PageNavigation } from "@/features/documentation/components/reader/page-navigation";
 import { DraftInspector } from "@/features/documentation/components/reader/draft-inspector";
 import { getPendingWorkspace } from "@/features/documentation/review/pending-workspace";
 import { PendingPublishWorkspace } from "@/features/documentation/components/review/pending-publish-workspace";
@@ -22,42 +26,37 @@ async function DocsContent({ searchParams }: { searchParams: Promise<Search> }) 
   const tabs = <DocumentationTabs repository={repository.name} selected={tab} />;
   if (tab === "pending") {
     const workspace = await getPendingWorkspace({ repository: repository.name }).catch(() => null);
-    return <AppShell repository={repository.name} showBranch={false} active="Documentation" headerContent={tabs}>
-      <Breadcrumbs items={[{ label: "Documents", href: rootHref }, { label: "Pending Changes" }]} />
-      <header className="mx-auto w-full max-w-4xl space-y-3"><h1 className="text-3xl font-semibold tracking-tight">Pending Changes</h1><p className="text-sm leading-7 text-muted-foreground">All documentation updates, ready to publish together.</p></header>
-      {workspace ? <PendingPublishWorkspace key={workspace.hash} initial={workspace} focusProposal={search.proposal} /> : <p role="alert">Pending documentation could not be loaded. Please reload.</p>}
+    return <AppShell repository={repository.name} showBranch={false} active="Documentation" contentLayout="workspace" headerContent={tabs}>
+      <div className="mx-auto flex h-full min-h-0 max-w-screen-2xl flex-col gap-4 px-5 py-5 sm:px-8">
+        <Breadcrumbs items={[{ label: "Documents", href: rootHref }, { label: "Pending changes" }]} />
+        {workspace ? <PendingPublishWorkspace key={workspace.hash} initial={workspace} focusProposal={search.proposal} /> : <p role="alert">Pending documentation could not be loaded. Please reload.</p>}
+      </div>
     </AppShell>;
   }
-  const href = (params: Record<string, string>) => `/docs?${new URLSearchParams({ repository: repository.name, tab, ...params })}`;
+  const href = (params: Record<string, string>) => `/docs?${new URLSearchParams({ repository: repository.name, tab, ...(search.page ? { page: String(search.page) } : {}), ...params })}`;
   const hub = await documentationHub({ owner: repository.owner, repo: repository.repo, page: search.page ?? 1 }, tab).catch(() => null);
-  const live = hub?.kind === "live" ? (search.document ? hub.entries.find(entry => entry.document.id === search.document) : hub.entries[0]) : null;
-  const archived = tab === "history" && search.version ? await archivedDocumentationDraft(repository, search.version).catch(() => null) : null;
+
+  const snapshot = tab === "history" && search.version ? await archivedDocumentationSnapshot(repository, search.version).catch(() => null) : null;
   const history = hub?.kind === "history" ? hub.entries : [];
-  const previous = archived ?? (!search.version ? history[0] : null);
-  const comparison = previous ? await currentPublishedDocument(repository, previous.route).catch(() => null) : null;
-  const document = tab === "live" ? live?.document : previous?.document;
-  const name = tab === "live" ? "Latest Docs" : "Archive";
-  const sidebar = hub && <div className="min-w-0 space-y-6">
-    {hub.kind === "live" && hub.entries.length > 0 && <nav aria-label="Documents" className="space-y-2"><h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Documentation</h2>{[...new Map(hub.entries.map(entry => [entry.document.id, entry])).values()].map(entry => <Link key={entry.document.id} href={href({ document: entry.document.id })} aria-current={entry.document.id === document?.id ? "page" : undefined} className="block break-words rounded-lg px-3 py-3 text-sm hover:bg-muted aria-[current=page]:bg-accent aria-[current=page]:text-primary">{entry.document.title}</Link>)}</nav>}
-    {hub.kind === "history" && history.length > 0 && <nav aria-label="Archived document versions" className="space-y-6">{[...new Set(history.map(entry => entry.route))].map(route => <div key={route} className="space-y-2"><h2 className="break-words text-sm font-semibold">{history.find(entry => entry.route === route)?.document.title}</h2>{history.filter(entry => entry.route === route).map(entry => <Link key={entry.id} href={href({ version: entry.id })} aria-current={(search.version ?? history[0]?.id) === entry.id ? "page" : undefined} className="block rounded-lg px-3 py-3 text-sm hover:bg-muted aria-[current=page]:bg-accent"><span className="block">{date(entry.publishedAt)}</span><span className="mt-1 block text-xs text-muted-foreground">Replaced {date(entry.archivedAt)}</span></Link>)}</div>)}</nav>}
-  </div>;
+  const pages = tab === "live" ? hub?.kind === "live" ? [...new Map(hub.entries.map(entry => [entry.document.id, entry.document])).values()] : [] : snapshot?.documents ?? [];
+  const document = search.document ? pages.find(entry => entry.id === search.document) : pages[0];
+  const name = tab === "live" ? "Latest docs" : "Archive";
+  const sidebar = <PageNavigation entries={pages.map(entry => ({ id: entry.id, title: entry.title, href: href({ document: entry.id, ...(search.version ? { version: search.version } : {}) }) }))} currentId={document?.id} backHref={tab === "history" ? href({}) : undefined} />;
   const breadcrumb = <Breadcrumbs items={[{ label: "Documents", ...(document ? { href: rootHref } : {}) }, ...(tab === "history" ? [{ label: "Archive", ...(document ? { href: href({}) } : {}) }] : []), ...(document ? [{ label: document.title }] : []), ...(document && tab === "history" ? [{ label: "Previous version" }] : [])]} />;
   const pagination = <nav aria-label="Document pagination" className="mt-8 flex gap-5 text-sm underline">{Number(search.page ?? 1) > 1 && <Link href={href({ page: String(Number(search.page) - 1) })}>Newer items</Link>}{hub?.hasMore && <Link href={href({ page: String(Number(search.page ?? 1) + 1) })}>Older items</Link>}</nav>;
   if (hub && document) return <AppShell repository={repository.name} showBranch={false} active="Documentation" contentLayout="workspace" headerContent={tabs}>
     <DocumentationReader key={`${tab}:${document.id}:${search.version ?? ""}`} title={document.title} sections={document.sections.map(({ id, title }) => ({ id, title }))} backHref={href({})} view={tab === "history" ? "Archive" : "Latest"} navigation={sidebar} breadcrumb={breadcrumb}>
-      {search.published === "1" && tab === "live" && <p role="status" className="mb-6 rounded-lg border border-primary/20 bg-accent/30 px-5 py-4 text-sm">Your documentation changes are live. Previous live versions are available in Archive.</p>}
       <div className="mx-auto w-full max-w-3xl space-y-6">
-        <p className="text-sm font-medium text-primary">{tab === "live" ? "Current live documentation" : `Archived version · ${previous ? date(previous.publishedAt) : ""}`}</p>
-        {tab === "history" && <Link className="text-sm text-primary underline" href={rootHref}>View Latest Docs →</Link>}
+        {tab === "history" && snapshot && <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-4 text-xs text-muted-foreground"><span>Version · {date(snapshot.publishedAt)}</span><Link className="text-primary hover:underline" href={rootHref}>Latest docs →</Link></div>}
         <DraftInspector document={document} published={tab === "live"} showMetadata={false} showContents={false} appearance="help" />
-        {tab === "history" && comparison && <details className="rounded-lg border p-5"><summary className="cursor-pointer text-sm font-medium">Compare with current live documentation</summary><div className="mt-8"><p className="mb-5 text-xs font-medium uppercase tracking-wide text-primary">Current live version</p><DraftInspector document={comparison} headingLevel="h2" anchorPrefix="current-section" published showMetadata={false} appearance="help" /></div></details>}
-      </div>{pagination}
+
+      </div>{tab === "live" && pagination}
     </DocumentationReader>
   </AppShell>;
   return <AppShell repository={repository.name} showBranch={false} active="Documentation" headerContent={tabs}>
     {breadcrumb}<h1 className="text-3xl font-semibold tracking-tight">{name}</h1>
-    {!hub ? <p role="alert">Documentation could not be loaded. Please reload.</p> : document === undefined && ((tab === "live" && hub.entries.length) || history.length) ? <p role="alert">Choose an available document or version.</p> : <section className="space-y-2 rounded-xl border border-dashed p-8"><h2 className="font-medium">{tab === "live" ? "No live documentation yet" : "No previous versions yet."}</h2><p className="text-sm leading-7 text-muted-foreground">{tab === "live" ? "Approved documentation will appear here once you publish it." : "Previous live versions will appear here after you publish an update."}</p></section>}
-    {sidebar}{pagination}
+    {!hub ? <p role="alert">Documentation could not be loaded. Please reload.</p> : tab === "history" && !search.version && history.length > 0 ? <div className="max-w-3xl space-y-5"><p className="text-sm text-muted-foreground">Select a version to browse the documentation published at that time.</p><nav aria-label="Documentation versions" className="divide-y rounded-xl border bg-card">{[...new Map(history.map(entry => [entry.publishedAt, entry])).values()].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)).map(entry => <Link key={entry.id} href={href({ version: entry.id })} className="flex items-center justify-between gap-4 p-5 hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"><span><span className="block text-sm font-semibold">{date(entry.publishedAt)}</span><span className="mt-1 block text-xs text-muted-foreground">Revision {documentSourceHead(entry.document)?.slice(0, 7) ?? "saved"}</span></span><span className="text-sm text-primary">Browse pages →</span></Link>)}</nav></div> : search.document || search.version ? <p role="alert">This document or version is unavailable. Choose another version.</p> : <IllustratedEmptyState kind={tab === "live" ? "documents" : "archive"} title={tab === "live" ? "No documentation yet" : "No archived docs yet"} action={tab === "live" ? <Link href={`/runs/new?${new URLSearchParams({ repository: repository.name, mode: "full" })}`} className={buttonVariants({ size: "lg" })}><Play aria-hidden="true" />Generate documentation</Link> : <Link href={rootHref} className={buttonVariants({ size: "lg" })}><BookOpen aria-hidden="true" />View latest docs</Link>} />}
+    {pagination}
   </AppShell>;
 }
 export default function DocsPage(props: { searchParams: Promise<Search> }) { return <Suspense fallback={<ArticleSkeleton />}><DocsContent {...props} /></Suspense>; }

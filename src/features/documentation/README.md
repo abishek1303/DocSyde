@@ -24,6 +24,22 @@ absent source bodies. The feature loads each exact repository-scoped immutable
 target once, validates ownership, freezes normalized SHA-256 identities and returns
 a strict `DocumentationChangeProposal`. It never saves, signs, approves or publishes.
 
+Wonder receives a per-block sentence checklist derived from validated preliminary
+copy, alongside the existing facts, claims and qualifications. The checklist is a
+coverage reminder, not new evidence. Editorial instructions require preservation of
+supported actions/conditions and product-facing terminology where an evidenced
+equivalent exists. Section/block identity, references, routes and strict post-edit
+support/omission checks remain unchanged. Retained run summaries explicitly report
+reviewable updates out of planned updates; partial work still uses `awaiting-review`.
+
+Generation receives explicit per-guide `allowedReferences` lists. Fact IDs and their
+claim pairings remain exact; upstream source, finding and evidence IDs stay in the
+trusted server authorization instead of appearing as selectable model references.
+Decision and claim numbering are independent. Reference arrays must be unique within
+each array, while evidence reuse across blocks/sections is permitted. Rejections log
+only category, reason and bounded counts, never rejected identifiers. Discovery route
+choices disclose confirmation status; unresolved routes are not assigned a default.
+
 Every planner decision survives in original order, with a server-owned decision ID,
 original reasoning/references, authorization catalog, generation/support status,
 limitations, review readiness and materialization readiness. No-change/unresolved

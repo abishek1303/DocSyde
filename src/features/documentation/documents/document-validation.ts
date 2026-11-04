@@ -29,7 +29,9 @@ export function validateDocumentationDocument(raw: unknown): DocumentationDocume
   requireIntegrity(typeof serialized === "string");
   assertDocumentBytes(serialized);
   const document = documentSchema.parse(raw);
-  requireIntegrity(document.sections.length >= 1 && document.sections.length <= 4);
+  // Up to eight independently bounded guides (four sections each) may share a
+  // verified publication route. Keep legacy documents and generation limits intact.
+  requireIntegrity(document.sections.length >= 1 && document.sections.length <= (document.schemaVersion === 2 ? 32 : 4));
   requireIntegrity(document.associations.length <= 20);
   byId(document.sections);
   requireIntegrity(document.sections.every(section => section.id !== document.id));

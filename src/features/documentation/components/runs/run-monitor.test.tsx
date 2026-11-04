@@ -13,9 +13,9 @@ test("activity renders output inline beneath its own stage and exposes logs near
   const run = fixture(); run.stages[1].status = "completed";
   run.responses = [{ stage: "source-analysis", kind: "ai", status: "available", preview: "Current source finding", message: "View source" }];
   const html = renderToStaticMarkup(<RunMonitor initial={run} />);
-  assert.ok(html.indexOf("Understanding the code change") < html.indexOf("Current source finding"));
-  assert.ok(html.indexOf("Current source finding") < html.indexOf("Deciding what to inspect"));
-  assert.ok(html.indexOf("AI activity / Logs") < html.indexOf("Execution timeline"));
+  assert.ok(html.indexOf("Understanding the code change") < html.indexOf("Analyzing source facts"));
+  assert.ok(html.indexOf("Analyzing source facts") < html.indexOf("Deciding what to inspect"));
+  assert.ok(html.indexOf("Usage logs") < html.indexOf("Execution timeline"));
   assert.ok(!html.includes("stage-output"));
 });
 test("skipped runtime has an explanation and no screenshot placeholder", () => {
@@ -34,7 +34,7 @@ test("support rejection explains the outcome and cannot show a successful stage 
   assert.match(html, /Stopped at: Preparing documentation updates/);
   assert.match(html, /Not accepted/);
   assert.match(html, /No review-ready proposal is available/);
-  assert.ok(!html.includes(">Review changes<"));
+  assert.ok(!/href="[^"]*tab=pending[^"]*"[^>]*><svg[^]*?Review changes/.test(html));
 });
 test("successful runs open the originating proposal in Pending Changes", () => {
   const run = fixture(); run.status = "awaiting-review";
@@ -52,7 +52,7 @@ test("single-batch verification stop explains the limit without exposing interna
   assert.match(html, /verification limit stopped documentation generation/);
   assert.match(html, /before any replacement copy was requested/);
   assert.match(html, /before authorizing another attempt/);
-  assert.ok(!html.includes(">Review changes<"));
+  assert.ok(!/href="[^"]*tab=pending[^"]*"[^>]*><svg[^]*?Review changes/.test(html));
   // Diagnostic outcome codes remain behind the existing disclosure.
   assert.ok(!html.slice(0, html.indexOf("Run context and model usage")).includes("outside-single-batch-baseline-scope"));
 });
@@ -65,7 +65,7 @@ test("batch progress and partial acceptance never imply all planned work passed 
   run.retainedProposal = { proposalId: "partial", proposalHash: "a".repeat(64), registeredAt: "2026-11-01T00:00:00Z", expiresAt: "2026-11-02T00:00:00Z" };
   run.outputs = { models: [], transformation: { status: "partial", reviewReadyActions: 1, plannedActions: 3, coverageGaps: ["Update 2 was not fully prepared: the run resource budget was reached."] } };
   const html = renderToStaticMarkup(<RunMonitor initial={run} />);
-  assert.match(html, /Some documentation updates are ready/); assert.match(html, /Only 1 of 3 updates passed/);
+  assert.match(html, /Some documentation updates are ready/); assert.match(html, /Only 1 of 3 updates are available for review/);
   assert.match(html, /Coverage gaps/); assert.match(html, /resource budget was reached/);
 });
 
@@ -88,7 +88,7 @@ test("run layout keeps collapsible stage output with real duration and secondary
   assert.match(html, /Run summary and resources/);
   assert.match(html, /User context/);
   assert.match(html, /Explain issue browsing/);
-  assert.match(html, /<details open="" class="group\/stage">/);
+  assert.match(html, /aria-expanded="true" aria-controls="stage-body-prepare-context"/);
   assert.match(html, /3\.0s/);
   assert.match(html, /Source evidence and product analysis/);
   assert.ok(!html.includes("Proposal ready"));
@@ -102,5 +102,23 @@ test("zero publishable updates explain the missing destination without a review 
   const html = renderToStaticMarkup(<RunMonitor initial={run} />);
   assert.match(html, /No publishable documentation updates are available/);
   assert.match(html, /valid publication destination/);
-  assert.ok(!html.includes(">Review changes<"));
+  assert.ok(!/href="[^"]*tab=pending[^"]*"[^>]*><svg[^]*?Review changes/.test(html));
+});
+
+test("partial coverage reports ready, warning and blocked counts distinctly", () => {
+  const run = fixture(); run.status = "awaiting-review";
+  run.outputs = { models: [], transformation: { status: "partial", reviewReadyActions: 2, plannedActions: 3, riskCounts: { ready: 1, warnings: 1, blocked: 1 } } };
+  const html = renderToStaticMarkup(<RunMonitor initial={run} />);
+  assert.match(html, /1 ready/); assert.match(html, /1 with warnings/); assert.match(html, /1 blocked/);
+  assert.match(html, /Human review required/);
+});
+
+test("review action stays visible but disabled for unfinished and resolved runs", () => {
+  for (const status of ["running", "incomplete", "no-change"]) {
+    const run = fixture(); run.status = status;
+    if (status === "no-change") run.reason = "proposal-review-resolved";
+    const html = renderToStaticMarkup(<RunMonitor initial={run} />);
+    assert.match(html, /<button[^>]*disabled[^>]*>[^]*?Review changes/);
+    assert.ok(!html.includes('href="/docs?repository=example%2Fproduct&amp;tab=pending'));
+  }
 });

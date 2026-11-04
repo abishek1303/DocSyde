@@ -165,6 +165,10 @@ const invalidOutputs: unknown[] = [
   { ...valid, elements: [{ ...element, certainty: "uncertain" }] },
   { ...valid, elements: [{ ...element, certainty: "certain" }] },
   { ...empty, elements: null },
+  { ...empty, elements: [null] }, { ...empty, elements: [{}] },
+  { ...empty, elements: [{ description: "Missing required fields" }] },
+  { ...empty, elements: [{ ...element, bounds: "PRIVATE_MALFORMED" }] },
+  { ...empty, elements: [{ ...element, bounds: { xMin: 0 } }] },
 ];
 for (const coordinate of [-0.01, 1.01, NaN, Infinity, -Infinity]) {
   invalidOutputs.push({ ...valid, elements: [{ ...element, bounds: { ...element.bounds, xMin: coordinate } }] });
@@ -210,4 +214,45 @@ test("vision retains maximum evidence capacity; character bounds are not a token
   assert.ok(visualEvidenceSchema.safeParse(output).success);
   assert.ok(Buffer.byteLength(JSON.stringify(output)) > 26000);
   assert.equal(visualEvidenceSchema.safeParse({...output,elements:[...output.elements,output.elements[0]]}).success,false);
+});
+
+
+test("vision parser identifies certainty and edge-order invariants without rejected UI content", async t => {
+  configure(t);
+  for (const [output, invariant] of [
+    [{ ...empty, elements: [{ ...element, description: "PRIVATE_UI_TEXT", certainty: "uncertain" }] }, "uncertain-element-must-have-null-bounds"],
+    [{ ...empty, elements: [{ ...element, visibleText: "PRIVATE_UI_TEXT", bounds: { xMin: 0.5, xMax: 0.1, yMin: 0.2, yMax: 0.8 } }] }, "bounds-edges-must-increase"],
+  ] as const) {
+    const fetch = t.mock.method(globalThis, "fetch", async () => Response.json(envelope(output)));
+    await assert.rejects(generateStructuredVision({ png, context: "Inspect visible controls" }), error => {
+      assert.ok(error instanceof ModelError);
+      assert.equal(error.code, "schema-mismatch");
+      assert.equal(error.diagnostic?.issues?.[0].category, "cross-field");
+      assert.equal(error.diagnostic?.issues?.[0].invariant, invariant);
+      assert.ok(!JSON.stringify(error.diagnostic).includes("PRIVATE_UI_TEXT"));
+      return true;
+    });
+    assert.equal(fetch.mock.callCount(), 1, "invalid evidence is neither repaired nor retried");
+    fetch.mock.restore();
+  }
+});
+
+test("uncertain and clear-but-unlocated evidence retains no downstream UI coordinates", async t => {
+  configure(t);
+  const output = { ...empty, elements: [{ ...element, certainty: "uncertain", bounds: null }, { ...element, certainty: "clear", bounds: null }] };
+  const fetch = t.mock.method(globalThis, "fetch", async (_url: unknown, init: RequestInit) => {
+    const instructions = JSON.parse(String(init.body)).messages[0].content;
+    assert.match(instructions, /Never invent coordinates/);
+    assert.match(instructions, /not a located UI anchor/);
+    return Response.json(envelope(output));
+  });
+  const result = await generateStructuredVision({ png, context: "Inspect visible controls" });
+  const { runtimeVisualEvidenceSchema, projectVisualReferences } = await import("@/features/sources/runtime/runtime-visual-evidence");
+  const capture = runtimeVisualEvidenceSchema.parse({ captureId: "11111111-1111-4111-8111-111111111111", requestedPathname: "/", finalPathname: "/", capturedAt: "2026-11-04T00:00:00.000Z", screenshotSha256: "a".repeat(64), vision: result });
+  assert.deepEqual(capture.vision.data, output);
+  assert.ok(capture.vision.data.elements.every(element => element.bounds === null));
+  const references = projectVisualReferences([capture]);
+  assert.equal(references.length, 2);
+  assert.ok(references.every(reference => !("bounds" in reference)));
+  assert.equal(fetch.mock.callCount(), 1);
 });

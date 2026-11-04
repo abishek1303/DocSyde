@@ -1,3 +1,4 @@
+import { PageLoader } from "@/components/application/page-loader";
 import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
@@ -20,4 +21,4 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
     {!!run.record.reviewReadiness?.actionableDecisionIds.length && <Link className="text-sm text-primary underline" href={`/docs?${new URLSearchParams({ repository, tab: "pending", proposal: run.record.retainedProposal.proposalId })}`}>Review pending changes</Link>}
   </div></AppShell>;
 }
-export default function Page(props: { params: Promise<{ id: string }> }) { return <Suspense fallback={<p>Loading destinations…</p>}><Content {...props} /></Suspense>; }
+export default function Page(props: { params: Promise<{ id: string }> }) { return <Suspense fallback={<PageLoader />}><Content {...props} /></Suspense>; }

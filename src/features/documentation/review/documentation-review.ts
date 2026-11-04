@@ -7,7 +7,7 @@ export const REVIEW_MAX_PUBLICATION_TARGETS = 64;
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 export const reviewSelectionSchema = z.object({
   proposalId: z.uuid(), expectedProposalHash: hash,
-  decisions: z.array(z.object({ decisionId: decisionIdSchema, choice: z.enum(["approve", "reject", "acknowledge"]) }).strict()).max(8),
+  decisions: z.array(z.object({ decisionId: decisionIdSchema, choice: z.enum(["approve", "reject", "acknowledge"]), acknowledgeWarnings: z.literal(true).optional() }).strict()).max(8),
   publications: z.array(z.discriminatedUnion("intent", [
     z.object({ targetId: z.uuid(), intent: z.literal("replace"), observedPublicationId: z.uuid() }).strict(),
     z.object({ targetId: z.uuid(), intent: z.literal("publish") }).strict(),
@@ -57,4 +57,8 @@ export function normalizeReviewSelection(raw: unknown): ReviewSelection {
   }
   return { ...input, decisions: [...input.decisions].sort((a, b) => a.decisionId.localeCompare(b.decisionId)),
     publications: [...input.publications].sort((a, b) => a.targetId.localeCompare(b.targetId)) };
+}
+
+export function requireWarningAcknowledgment(warnings: unknown[], acknowledged?: boolean) {
+  if (warnings.length && acknowledged !== true) throw new Error("Explicit warning acknowledgment required.");
 }

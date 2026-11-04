@@ -79,9 +79,10 @@ export function assembleDocumentationChange({ proposalId, createdAt, planSha256,
         return section(entry.section, entry.sectionId ?? documentationId(`${proposalId}:${result.decisionId}:section:${index}`));
       });
     } else {
-      if (baseline || results.length !== 1) throw new Error("Conflicting new-document changes.");
-      title = change.title; associations = [...change.associations];
-      sections = change.sections.map((body, index) => section(body, documentationId(`${proposalId}:${result.decisionId}:section:${index}`)));
+      if (baseline) throw new Error("Conflicting new-document changes.");
+      if (!title) title = change.title;
+      associations = [...new Set([...associations, ...change.associations])];
+      sections.push(...change.sections.map((body, index) => section(body, documentationId(`${proposalId}:${result.decisionId}:section:${index}`))));
     }
   }
   const usedFacts = new Set(sections.flatMap(section => section.content.flatMap(block => block.factRefs)));

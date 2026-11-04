@@ -1,3 +1,5 @@
+import { demoSingleRepoOnly } from "@/integrations/github/demo-repository";
+import { SourceReadError } from "@/integrations/github/errors";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { FreshFullScanForm } from "@/features/documentation/components/runs/fresh-full-scan-form";
@@ -13,7 +15,7 @@ import { BranchRunForm } from "@/features/documentation/components/runs/branch-r
 import { RetryRunForm } from "@/features/documentation/components/runs/retry-run-form";
 import { RunBreadcrumbs } from "@/features/documentation/components/runs/run-breadcrumbs";
 import { prepareDocumentationRun } from "@/features/documentation/runs/prepare-run";
-import { configuredRepositories, selectedRepository, runBranchSelection, type RepositorySearch } from "@/features/sources/repository/repository-overview";
+import { configuredRepositories, selectedRepository, defaultBranch, runBranchSelection, type RepositorySearch } from "@/features/sources/repository/repository-overview";
 
 type SetupSearch = RepositorySearch & { rerun?: string; mode?: string };
 async function RerunSetup({ search }: { search: SetupSearch }) {
@@ -35,11 +37,17 @@ async function RerunSetup({ search }: { search: SetupSearch }) {
 async function Setup({ searchParams }: { searchParams: Promise<SetupSearch> }) {
   const search = await searchParams;
   let repository;
-  try { repository = selectedRepository(search); } catch {
+  try { repository = selectedRepository(search); } catch (error) {
     return <main className="space-y-5 p-8">
       <RunBreadcrumbs current="Start a run" />
-      <p role="alert">Invalid repository or branch selection.</p>
+      <p role="alert">{error instanceof SourceReadError ? error.message : "Invalid repository or branch selection."}</p>
     </main>;
+  }
+  if (demoSingleRepoOnly()) {
+    try { await defaultBranch(repository); }
+    catch (error) {
+      return <AppShell repository={repository.name} active="Runs"><RunBreadcrumbs current="Start a run" /><h1 className="text-2xl font-semibold">Start a new run</h1><p className="text-sm text-muted-foreground">For this demo, configure your GitHub token to access only the repository you want DocSyde to analyze.</p><p role="alert" className="text-sm text-destructive">{error instanceof SourceReadError ? error.message : "GitHub access could not be validated. Check GITHUB_TOKEN and try again."}</p></AppShell>;
+    }
   }
   const pendingReview = await hasActionablePendingChanges(repository.name).catch(() => null);
   const pendingBatch = pendingReview === true ? await getPendingWorkspace({ repository: repository.name }).catch(() => null) : null;
@@ -51,11 +59,11 @@ async function Setup({ searchParams }: { searchParams: Promise<SetupSearch> }) {
   const unavailableReason = available === null ? "We couldn’t check this project’s documentation. Please try again." : "No documentation is available to update yet.";
   return <AppShell repository={repository.name} branchContext={<span>{search.rerun ? "Rerun" : "New run"}</span>} active="Runs">
     <RunBreadcrumbs repository={repository.name} current={search.rerun ? "Rerun" : latest ? "Latest Changes" : fullScan ? "Full Scan" : "New run"} />
-    <header className="space-y-3"><h1 className="text-3xl font-semibold tracking-tight">{search.rerun ? "Rerun" : latest ? "Latest Changes" : fullScan ? "Full Scan / Regenerate" : "Start a new run"}</h1>
-      {!search.rerun && <p className="max-w-2xl text-sm leading-7 text-muted-foreground">{latest ? "Compare the latest change on a branch, reuse product understanding, and prepare documentation updates for review." : "Choose a project, then decide how DocSyde should explore it."}</p>}
+    <header className="space-y-3"><h1 className="text-3xl font-semibold tracking-tight">{search.rerun ? "Rerun" : latest ? "Latest Changes" : fullScan ? "Generate documentation" : "Start a new run"}</h1>
+      {!search.rerun && <p className="max-w-2xl text-sm leading-7 text-muted-foreground">{latest ? "Compare the latest change on a branch, reuse product understanding, and prepare documentation updates for review." : fullScan ? "Explore a branch and prepare documentation for review." : "Choose how you’d like to update your documentation."}</p>}
     </header>
     {!search.rerun && <RepositoryPicker selected={repository.name} repositories={configuredRepositories()} />}
-    <Link href={`/sources/runtime?${new URLSearchParams({ repository: repository.name })}`} className="block text-sm text-primary underline">Application runtime settings</Link>
+    {demoSingleRepoOnly() && <p className="max-w-2xl text-xs leading-6 text-muted-foreground">For this demo, configure your GitHub token to access only the repository you want DocSyde to analyze.</p>}
     {pendingReview !== false ? <section className="max-w-2xl space-y-5">
       <p role="status" className="text-sm leading-7">{pendingReview ? PENDING_REVIEW_MESSAGE : "Run availability could not be checked. Reload after checking the database connection."}</p>
       <Link href={`/docs?${new URLSearchParams({ repository: repository.name, tab: "pending" })}`} className={buttonVariants()}>Review pending changes</Link>
@@ -63,7 +71,6 @@ async function Setup({ searchParams }: { searchParams: Promise<SetupSearch> }) {
       {pendingBatch && pendingBatch.count > 0 && <FreshFullScanForm key={`${repository.name}:${pendingBatch.hash}`} repository={repository.name} branch={repository.branch} expectedHash={pendingBatch.hash} />}
     </section> : search.rerun ? <Suspense fallback={<LoadingList />}><RerunSetup search={search} /></Suspense> : latest || fullScan ? <>
       <Link href={`/runs/new?${query}`} className="text-sm text-primary underline">← Run options</Link>
-      {fullScan && <Link href={`/sources/understanding?${query}`} className="block text-sm text-primary underline">View or refresh reusable product understanding</Link>}
       <BranchRunForm fullScan={fullScan} key={repository.name} repository={repository.name} branches={branches?.names ?? []} latestChanges={branches?.changes ?? []} selected={branches?.selected ?? repository.branch} selectionUnavailable={!branches} />
     </> : <>
       {search.mode === "changes" && <p role="status" className="text-sm text-muted-foreground">{unavailableReason}</p>}

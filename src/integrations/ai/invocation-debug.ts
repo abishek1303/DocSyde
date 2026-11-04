@@ -66,10 +66,15 @@ export function debugOutput(operation: string, data: unknown) {
     limit = Math.floor(limit / 2);
   }
 }
-const codes = ["unqualified-inference", "unknown-checkpoint", "duplicate-checkpoint", "excessive-selection-count", "unknown-source-reference", "duplicate-source-reference", "limited-evidence-not-needed", "unsupported-capability", "unsupported-route", "unknown-evidence", "unavailable-evidence", "invalid-line-range", "citation-range-mismatch", "citation-excerpt-size", "validator-rejected", "unknown-claim-reference", "mismatched-document-target", "missing-document-target", "illegal-add-target", "uncertain-impact-requires-unresolved", "missing-source-support", "missing-update-intent", "duplicate-reference", "unknown-reference", "invalid-visual-claim", "unsupported-temporal-values", "invalid-contradiction", "unresolved-contradiction-assessment", "product-change-without-change-claim", "unsupported-internal-only", "invalid-reference-graph", "unknown-generation-entry", "missing-or-duplicate-generation-entry", "invalid-generation-entry", "unsupported-change-claim", "unauthorized-decision-target", "unauthorized-transformation-shape", "unauthorized-reference", "fact-claim-mismatch", "unsupported-markup", "unauthorized-generated-route", "unaddressed-claims", "invalid-section-placement", "incomplete-section-accounting"] as const;
+const codes = ["unqualified-inference", "unknown-checkpoint", "duplicate-checkpoint", "excessive-selection-count", "unknown-source-reference", "duplicate-source-reference", "limited-evidence-not-needed", "unsupported-capability", "unsupported-route", "unknown-evidence", "unavailable-evidence", "invalid-line-range", "citation-range-mismatch", "citation-excerpt-size", "validator-rejected", "unknown-claim-reference", "mismatched-document-target", "missing-document-target", "illegal-add-target", "uncertain-impact-requires-unresolved", "missing-source-support", "missing-update-intent", "duplicate-reference", "unknown-reference", "invalid-visual-claim", "unsupported-temporal-values", "invalid-contradiction", "unresolved-contradiction-assessment", "product-change-without-change-claim", "unsupported-internal-only", "invalid-reference-graph", "unknown-generation-entry", "missing-or-duplicate-generation-entry", "invalid-generation-entry", "unsupported-change-claim", "unauthorized-decision-target", "unauthorized-transformation-shape", "unauthorized-reference", "fact-claim-mismatch", "unsupported-markup", "unauthorized-generated-route", "unaddressed-claims", "invalid-section-placement", "incomplete-section-accounting", "source-normalization-mismatch"] as const;
 export const validationDiagnosticSchema = z.object({ boundary: boundaryTraceSchema.optional(), kind: z.enum(["correspondence-rejection", "grounding-rejection"]),
   validator: z.enum(["visual-selection", "runtime-decision", "source-analysis", "post-validation", "documentation-planning", "product-impact", "documentation-transformation"]), code: z.enum(codes),
   path: z.string().regex(/^(?:findings\[\d{1,2}\](?:\.citations\[\d{1,2}\])?|selected(?:\[\d{1,2}\]\.(?:checkpointId|sourceRefs\[\d{1,2}\]))?|targets\[\d{1,2}\](?:\.citations\[\d{1,2}\])?(?:\.(?:capabilityId|pathname|findingRef|targetRef))?|status|claims\.\d{1,2}\.references|decisions\[\d{1,2}\]\.(?:claimRefs|documentId|sectionId|action|updateIntent))$/).optional(),
+  reference: z.object({
+    category: z.enum(["factRefs", "claimRefs", "section-associations", "document-associations", "identity"]),
+    reason: z.enum(["unknown-in-guide", "duplicate-in-array", "missing", "malformed", "mismatched", "fact-claim-mismatch"]),
+    allowedCount: z.number().int().min(0).max(40).optional(), receivedCount: z.number().int().min(0).max(40).optional(),
+  }).strict().optional(),
   citation: debugSectionSchema.optional(),
   expectedSha256: z.string().regex(/^[a-f0-9]{64}$/).optional(), rejectedSha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
 }).strict();
@@ -89,6 +94,7 @@ export function rejectionDiagnostic(error: unknown, kind: ValidationDiagnostic["
 
 export function validationMessage(code: ValidationDiagnostic["code"]) {
   const runtimeMessages: Partial<Record<ValidationDiagnostic["code"], string>> = {
+    "source-normalization-mismatch": "Field trimming is not supported by the cited source payload.",
     "unqualified-inference": "An inferred finding must disclose its assumptions or uncertainties.",
     "limited-evidence-not-needed": "Limited source coverage forbids a not-needed decision.",
     "unsupported-capability": "The capability ID and exact pathname must match one supplied operator capability.",

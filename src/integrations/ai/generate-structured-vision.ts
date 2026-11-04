@@ -21,7 +21,11 @@ xMin < xMax and yMin < yMax. Only provide confidently identifiable bounds;
 left edge = 0.0, midpoint = 0.5, right edge = 1.0 (similarly top to bottom).
 Pixel coordinates, percentages, values above 1, and inferred coordinate conversions
 are invalid. Report normalized coordinates directly or use null; never guess a scale.
-use null when localization is uncertain. An uncertain element must have bounds null.
+An uncertain element must have certainty "uncertain" and bounds null. Never provide
+coordinates for it or mark uncertain evidence as clear/verified to satisfy the schema.
+A clearly recognized but unlocated element may have certainty "clear" and bounds null;
+it is not a located UI anchor. Use a box only with certainty "clear" when its location
+is confidently identifiable. Never invent coordinates. Empty/unknown evidence is safe.
 Empty evidence arrays are valid. Return only JSON matching this schema:`;
 
 export async function generateStructuredVision(options: { invocation?: InvocationContext; png: Uint8Array; context: string; signal?: AbortSignal }) {
