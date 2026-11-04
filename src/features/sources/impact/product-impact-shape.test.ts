@@ -10,8 +10,8 @@ import { runtimeInspectionContextSchema } from "../runtime/runtime-inspection-co
 import { runtimeVisualEvidenceList, RUNTIME_REVISION_WARNING } from "../runtime/runtime-visual-evidence";
 
 const valid = productImpactOutputSchema.parse({ assessment: "product-change", summary: "Issues can now be marked Blocked and appear in a dedicated group.",
-  claims: [{ description: "Issue Detail now offers Blocked status.", kind: "ui-change", confidence: "high", confidenceReason: "Explicit source selector change.",
-    before: null, after: null, uncertainties: [], references: ["source-2"] }], contradictions: [], uncertainties: [] });
+  claims: [{ description: "Blocked status is supported across issue creation, editing, visuals and grouping.", kind: "ui-change", confidence: "high", confidenceReason: "Explicit source selector change.",
+    before: null, after: null, uncertainties: [], references: ["source-1", "source-2", "source-3", "source-4"] }], sourceCoverage: [1, 2, 3, 4].map(i => ({ findingId: `source-${i}`, status: "incorporated" })), contradictions: [], uncertainties: [] });
 const schema = productImpactOutputSchema;
 const invalid = [
   { impact: valid }, { result: valid }, { analysis: valid },
@@ -22,7 +22,7 @@ const invalid = [
   { ...valid, claims: [{ ...valid.claims[0], analysis: {} }] },
 ];
 test("product-impact exact root is strict at every object level; summary is a required semantic field", () => {
-  assert.deepEqual(Object.keys(schema.shape), ["assessment", "summary", "claims", "contradictions", "uncertainties"]);
+  assert.deepEqual(Object.keys(schema.shape), ["assessment", "summary", "sourceCoverage", "claims", "contradictions", "uncertainties"]);
   assert.deepEqual(parseStructuredOutput(JSON.stringify(valid), schema), valid);
   for (const output of invalid) assert.throws(() => parseStructuredOutput(JSON.stringify(output), schema, true), /schema-mismatch/);
 });
@@ -51,7 +51,7 @@ test("Blocked synthesis uses common schema-bearing dispatch; canonical provenanc
     assert.equal(url, "https://inference.baseten.co/v1/chat/completions"); calls++;
     const body = JSON.parse(String(init?.body)); assert.equal(body.max_tokens, 8192); assert.equal(body.stream, false);
     assert.equal(body.response_format, undefined);
-    assert.match(body.messages[0].content, /exactly these five keys: assessment, summary, claims, contradictions, uncertainties/);
+    assert.match(body.messages[0].content, /exactly these six keys: assessment, summary, sourceCoverage, claims, contradictions, uncertainties/);
     assert.match(body.messages[0].content, /Do not wrap/);
     const format = JSON.parse(body.messages[0].content.split("Return only JSON matching this schema: ")[1]);
     assert.equal(format.additionalProperties, false); assert.equal(format.properties.claims.items.additionalProperties, false);

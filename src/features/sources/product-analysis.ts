@@ -36,3 +36,5 @@ export { readInspectionContext } from "./runtime/read-inspection-context";
 export { selectedRepository } from "./repository/repository-overview";
 
 export { discoverProductRoutes } from "./runtime/discover-product-routes";
+
+export { isProductImpactCoverageError } from "./impact/source-coverage";

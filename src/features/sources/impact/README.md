@@ -12,6 +12,7 @@ The strict model root is exactly:
 ```text
 assessment: product-change | internal-only | insufficient-evidence
 summary: nonblank semantic summary <=500 characters
+sourceCoverage: <=4 entries accounting for every supplied source finding
 claims: <=6 strict semantic claim objects
 contradictions: <=4 strict unresolved-contradiction objects
 uncertainties: <=6 nonblank strings <=300 characters (<=5 with runtime)
@@ -78,3 +79,28 @@ Blocked run, not a recovered model answer. Deterministic mocked tests exercise v
 semantic content, wrappers, extra metadata, summary-only incomplete output, nested
 unknown keys and metadata attachment. A required valid summary is accepted: calling
 all summary fields unexpected would contradict the actual schema.
+
+## Source coverage
+
+Source and runtime observations are independent evidence. An empty/redacted screen or an
+unexercised interaction does not contradict cited source behavior. New synthesis must
+retain narrowly supported behavior or account for its uncertainty without inventing facts.
+
+The ledger reuses snapshot-scoped `source-1` … `source-4` IDs from the existing ordered,
+immutable source-reference catalog. Each finding appears exactly once: `incorporated`,
+`excluded` (internal-only/unsupported), or `uncertain` (partial-source/contradiction).
+Excluded/uncertain entries require a bounded explanation. Incorporation must match an
+actual compatible claim reference; several findings can support the same claim.
+Contradiction uncertainty must reference an emitted source/visual contradiction. All
+eligible directly supported user-facing findings disappearing without such contradictions
+is a coverage failure, never an instruction to fabricate claims.
+
+Coverage is checked at synthesis and when revalidating a retained ledger. Historical
+impacts without a ledger remain readable; no records are rewritten. Citation and claim-kind
+checks are unchanged. Deterministic checks establish accounting/reference consistency,
+not the semantic truth of a model's explanation or claim.
+
+The existing structured-output retry handles JSON boundary failures only, not semantic
+repair. Coverage failures make no additional model call: they produce a safe
+`source-coverage-incomplete` diagnostic and finish documentation runs incomplete at
+impact synthesis, before planning. Provider/model selection and budgets are unchanged.

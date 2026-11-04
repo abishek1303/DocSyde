@@ -2,10 +2,12 @@ import type { RunView } from "./run-record";
 import { runFailureDescription, runFailureForView } from "./run-failure";
 
 export function runOutcome(run: RunView) {
+  if (run.reason === "impact-source-coverage-incomplete") return { title: "Source evidence was not fully accounted for", message: "Product-impact synthesis omitted or inconsistently accounted for supported source findings. Documentation planning was not started.", nextStep: "Review the impact-synthesis coverage diagnostic and source evidence before retrying." };
   const failure = runFailureForView(run);
   const description = failure ? runFailureDescription(failure.code) : null;
   if (run.reason === "proposal-no-publishable-updates") return { title: "No publishable documentation updates are available", message: "Validated work was retained, but no update has both accepted evidence support and a valid publication destination.", nextStep: "Check the coverage gaps. Use Documentation destinations to confirm a discovered screen, or review the current live document association. If no screen was verified, improve routing evidence before another scan." };
   if (run.reason === "proposal-review-resolved") return { title: "No pending changes remain", message: "This run no longer has actionable changes waiting for review.", nextStep: "Check Latest Docs for the current published documentation." };
+  if (run.reason === "documentation-plan-unresolved-or-empty" && run.input.mode === "current-state" && run.outputs?.impactAssessment === "insufficient-evidence") return { title: "Product evidence was insufficient for documentation", message: "The planner received insufficient supported product claims and could not prepare a documentation update.", nextStep: "Review source and runtime coverage in the product-impact details before retrying." };
   if (run.status === "no-change") return { title: "No documentation update is needed", message: "The recorded analysis found no update to prepare.", nextStep: "Use Full Scan to reassess documentation against the current repository." };
   if (run.status === "cancelled") return { title: "This run was cancelled", message: "No proposal was retained for review.", nextStep: "Start a new run when you are ready." };
   if (run.outputs?.supportRejected && !run.retainedProposal) return {

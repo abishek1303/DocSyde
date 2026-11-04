@@ -2,7 +2,7 @@ import "server-only";
 import { ManagedRuntimeUnavailable } from "@/runner/runtime/managed-configuration";
 import { observe, type RuntimeObserver } from "@/integrations/browser/runtime-observation";
 import { createHash } from "node:crypto";
-import { readInspectionContext, discoverProductRoutes, analyzeProductChanges, captureGenerationContext, decideRuntimeInspection, synthesizeProductImpact, analyzeRuntimeVisuals, validateProductResult, type RuntimeInspectionContext } from "@/features/sources/product-analysis";
+import { isProductImpactCoverageError, readInspectionContext, discoverProductRoutes, analyzeProductChanges, captureGenerationContext, decideRuntimeInspection, synthesizeProductImpact, analyzeRuntimeVisuals, validateProductResult, type RuntimeInspectionContext } from "@/features/sources/product-analysis";
 import { captureWorkflowWithRuntime } from "@/runner/runtime/capture-workflow";
 import { observedProductRoutes } from "../transformation/route-associations";
 import { documentationHash } from "../documents/document-identity";
@@ -127,11 +127,18 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
     });
     if (startupUnavailable) await checkpoint(r => ({ ...r, stages: r.stages.map(stage => stage.key === "runtime-inspection" ? { ...stage, status: "skipped", summary: "Application startup was unavailable. Continuing with source evidence only." } : stage) }));
   } else await skip("runtime-inspection", record!.runtime!.reason);
-  await stage("impact-synthesis", async () => {
-    const result = await synthesizeProductImpact({ source: validatedSource, runtime, runtimeInspection: record.runtime }, { signal, invocation: invocation("impact-synthesis") });
-    return { impact: result.impact, models: [...record.models, ...model("impact-synthesis", result)], warnings: [...(record.runtime?.limitations ?? []), ...result.impact.uncertainties] };
-  });
-  if (!record!.impact!.claims.length) { await finish("incomplete", "impact-has-no-usable-claims"); return; }
+  try {
+    await stage("impact-synthesis", async () => {
+      const result = await synthesizeProductImpact({ source: validatedSource, runtime, runtimeInspection: record.runtime }, { signal, invocation: invocation("impact-synthesis") });
+      return { impact: result.impact, models: [...record.models, ...model("impact-synthesis", result)], warnings: [...(record.runtime?.limitations ?? []), ...result.impact.uncertainties] };
+    });
+    if (!record!.impact!.claims.length) { await finish("incomplete", "impact-has-no-usable-claims"); return; }
+  } catch (error) {
+    if (!(error instanceof RunStageError) || !isProductImpactCoverageError(error.cause)) throw error;
+    await finish("incomplete", "impact-source-coverage-incomplete", { stage: "impact-synthesis", code: "evidence-validation", diagnostic: error.cause.diagnostic });
+    return;
+  }
+
   const routes = record!.input.mode === "current-state" ? discoverProductRoutes(validatedSource.bundle) : [];
   if (record!.input.mode === "current-state") for (const observed of observedProductRoutes(record!.impact!)) if (routes.length < 12 && !routes.some(route => route.pathname === observed.pathname)) routes.push(observed);
   await stage("documentation-planning", async () => {

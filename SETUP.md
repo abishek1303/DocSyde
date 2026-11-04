@@ -249,3 +249,5 @@ The new-run options screen shows its title and the Full Scan / Latest Changes ca
 The run timeline shows an immediate Starting indicator while execution is being admitted, without changing saved stage status. Activity has a 38rem minimum desktop height and can extend the page; the resource column remains uncapped. Automatic stage reveals preserve the active step heading instead of following the bottom of a tall screenshot.
 
 Run Artifacts lists retained checkpoint screenshots from the existing inspection endpoint, including selected status. Thumbnails open the shared image preview overlay; no additional capture or inference is performed.
+
+Product-impact synthesis now requires a compact source-coverage ledger. Missing/inconsistent accounting stops the run incomplete at impact synthesis, before planning; no semantic retry or additional inference is performed. Historical impacts remain readable. See the [coverage contract](src/features/sources/impact/README.md#source-coverage).

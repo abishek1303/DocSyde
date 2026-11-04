@@ -40,7 +40,7 @@ function output(internal = false): Output {
     claims: [{ description: internal ? "Internal tuning does not change supplied user-facing behavior." : "The form submission label changed.",
       kind: internal ? "internal-change" : "ui-change", confidence: "high", confidenceReason: "Direct static finding",
       before: internal ? null : "Submit", after: internal ? null : "Create request", uncertainties: [], references: ["source-1"] }],
-    contradictions: [], uncertainties: [] };
+    contradictions: [], uncertainties: [], sourceCoverage: [{ findingId: "source-1", status: "incorporated" }] };
 }
 function visualOutput(): Output {
   const value = output(); value.assessment = "insufficient-evidence";
@@ -90,8 +90,9 @@ test("missing runtime leaves UI change analyzable without manufacturing visual o
 });
 
 test("visual support establishes current rendered state only", async t => {
-  provider(t, visualOutput());
-  const result = await synthesizeProductImpact({ source: source(), runtime: [runtime()] });
+  const generated = visualOutput(); generated.sourceCoverage = [{ findingId: "source-1", status: "excluded", reason: "internal-only", explanation: "Pool sizing is internal implementation." }];
+  provider(t, generated);
+  const result = await synthesizeProductImpact({ source: source(true), runtime: [runtime()] });
   assert.equal(result.impact.claims[0].kind, "visual-observation"); assert.equal(result.impact.claims[0].before, null);
   assert.deepEqual(result.impact.uncertainties, [RUNTIME_REVISION_WARNING]);
 });

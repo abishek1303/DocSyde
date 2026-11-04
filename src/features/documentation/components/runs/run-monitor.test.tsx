@@ -163,3 +163,12 @@ test("terminal waiting stages do not show a starting indicator", () => {
   const run = fixture(); run.status = "cancelled";
   assert.ok(!renderToStaticMarkup(<RunMonitor initial={run} />).includes("Starting this run…"));
 });
+
+test("source coverage loss reports synthesis as the blocker rather than documentation targets", () => {
+  const run = fixture(); run.status = "incomplete"; run.reason = "impact-source-coverage-incomplete";
+  run.stages[4].status = "incomplete";
+  const html = renderToStaticMarkup(<RunMonitor initial={run} />);
+  assert.match(html, /Source evidence was not fully accounted for/);
+  assert.match(html, /Documentation planning was not started/);
+  assert.ok(!html.includes("Documentation targets could not be resolved"));
+});

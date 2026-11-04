@@ -5,9 +5,17 @@ import { runtimeVisualEvidenceSchema } from "../runtime/runtime-visual-evidence"
 
 const text = (limit: number) => z.string().max(limit).refine(value => value.trim().length > 0);
 const reference = z.string().min(1).max(120);
+export const sourceCoverageSchema = z.array(z.discriminatedUnion("status", [
+  z.object({ findingId: z.string().regex(/^source-[1-4]$/), status: z.literal("incorporated") }).strict(),
+  z.object({ findingId: z.string().regex(/^source-[1-4]$/), status: z.enum(["excluded", "uncertain"]),
+    reason: z.enum(["internal-only", "unsupported", "partial-source", "contradiction"]), explanation: z.string().trim().min(1).max(180) }).strict(),
+])).max(4);
+
 export const productImpactOutputSchema = z.object({
   assessment: z.enum(["product-change", "internal-only", "insufficient-evidence"]),
   summary: text(500),
+  // Optional only for retained historical impacts; new synthesis requires the ledger.
+  sourceCoverage: sourceCoverageSchema.optional(),
   claims: z.array(z.object({
     description: text(500),
     kind: z.enum(["behavior-change", "workflow-change", "ui-change", "visual-observation", "internal-change"]),
