@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { productRouteEvidence } from "@/features/sources/product-routes";
 import { associationChoice, draftProposal, type DocumentationDocument } from "./document";
 import { validateDocumentationDocument } from "./document-validation";
 import { documentationHash } from "./document-identity";
@@ -9,6 +10,7 @@ export const sectionAssociationSchema = z.object({
   scope: z.enum(["document", "section"]),
   provenance: z.discriminatedUnion("origin", [
     z.object({ origin: z.literal("explicit"), associationId: ref }).strict(),
+    z.object({ origin: z.literal("discovery"), routeEvidence: productRouteEvidence }).strict(),
     z.object({ origin: z.literal("inferred"), findingId: ref,
       context: z.discriminatedUnion("version", [
         z.object({ version: z.literal(1), analysisId: z.uuid() }).strict(),
@@ -35,6 +37,9 @@ export function projectSectionContexts(raw: DocumentationDocument): SectionConte
     const associations = document.context.filter(a => ids.has(a.id)).map(a => {
       const common = { id: a.id, kind: a.kind, value: a.value, scope: documentAssociations.has(a.id) ? "document" as const : "section" as const };
       if (a.origin === "operator") return { ...common, provenance: { origin: "explicit" as const, associationId: a.id } };
+      // Canonical validation pins discovery proof to a document context. It is
+      // route provenance, not a finding reference or an operator assertion.
+      if (a.origin === "discovery") return { ...common, provenance: { origin: "discovery" as const, routeEvidence: a.routeEvidence } };
       const finding = document.provenance.findings.find(f => f.id === a.findingRef);
       if (!finding) throw new Error("Section association finding is unavailable.");
       const context = document.schemaVersion === 1 ? { version: 1 as const, analysisId: document.provenance.analysisId }
