@@ -116,7 +116,7 @@ async function prepare(raw: unknown, database: DatabaseExecutor = getDatabase(),
   }
   const imageIds = new Set([...suggestions.values()].flatMap(items => items.map(item => item.image.id)).concat([...groups.values()].flatMap(group => group.baseline?.sections.flatMap(section => (section.images ?? []).map(image => image.id)) ?? [])));
   if (input.removedImages.some(id => !imageIds.has(id))) throw new Error("changed");
-  const hash = documentationHash({ images: [...suggestions], repository, proposals: states.map(state => [state.proposal.proposalId, state.proposalHash, state.review, state.expiresAt]), observations });
+  const hash = documentationHash({ images: [...suggestions], repository, proposals: states.map(state => [state.proposal.proposalId, state.proposalHash, state.review, state.expiresAt, state.destinationCandidates]), observations });
   return { input, repository, states, groups: [...groups.values()], hash };
 }
 function presentation(data: Awaited<ReturnType<typeof prepare>>): PendingWorkspace {
@@ -218,6 +218,11 @@ export async function getProposalPendingReadiness(repository: string, proposalId
   const actionableDecisionIds = data.groups.flatMap(group => group.issue ? [] : group.entries.filter(included).map(entry => entry.result.decisionId));
   const coverageGaps = data.groups.flatMap(group => group.entries.filter(entry => entry.unavailable || group.issue).map(entry => `${entry.result.decisionId}: ${entry.unavailable ?? group.issue}`));
   return { actionableDecisionIds, coverageGaps };
+}
+
+export async function hasOtherPendingProposal(repository: string, proposalId: string, database: DatabaseExecutor) {
+  const data = await prepare({ repository }, database, true);
+  return data.groups.some(group => group.entries.some(entry => included(entry) && entry.state.proposal.proposalId !== proposalId));
 }
 
 /** Same intrinsic readiness, receipts, expiry, frozen baseline and destination checks as Pending Changes. */

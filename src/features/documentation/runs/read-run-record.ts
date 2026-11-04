@@ -21,6 +21,7 @@ export async function readStoredDocumentationRun(rawId: unknown) {
     const readiness = await getProposalPendingReadiness(`${record.input.owner}/${record.input.repo}`, record.retainedProposal.proposalId);
     const noActionable = readiness.actionableDecisionIds.length === 0;
     record = { ...record, reviewReadiness: readiness,
+      ...(!noActionable && record.disposition === "incomplete" && record.reason === "proposal-no-publishable-updates" ? { disposition: "awaiting-review" as const, reason: "proposal-retained-awaiting-human-review", stages: record.stages.map(stage => stage.key === "proposal-retention" ? { ...stage, status: "completed" as const, summary: "A confirmed destination makes supported work available for review." } : stage) } : {}),
       ...(noActionable && record.disposition === "awaiting-review" ? {
         disposition: readiness.coverageGaps.length ? "incomplete" as const : "no-change" as const,
         reason: readiness.coverageGaps.length ? "proposal-no-publishable-updates" : "proposal-review-resolved",

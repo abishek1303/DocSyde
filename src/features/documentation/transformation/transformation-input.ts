@@ -69,5 +69,5 @@ export function authorizeTransformation(impact: ProductImpact, plan: Documentati
     claims: claims.map(({ id, claim }) => ({ id, claim })), facts, evidenceRefs,
     // Finding-origin choices are retained by exact baseline copies. New prose can
     // select operator associations only, rather than relabel historical support.
-    associations: [...new Map([...(baseline?.context ?? []), ...supplied].filter(choice => choice.origin === "operator").map(choice => [choice.id, choice])).values()], limitations: result.limitations };
+    associations: [...new Map([...(baseline?.context ?? []), ...supplied].filter(choice => choice.origin === "operator" || (choice.origin === "discovery" && choice.kind === "route" && choice.routeEvidence?.commitId === impact.provenance.source.head)).map(choice => [choice.id, choice])).values()], limitations: result.limitations };
 }

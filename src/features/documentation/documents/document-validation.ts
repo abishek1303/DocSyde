@@ -81,8 +81,10 @@ export function validateDocumentationDocument(raw: unknown): DocumentationDocume
   }
   requireIntegrity(sameReferences([...findings.keys()], usedFindings));
   for (const choice of context.values()) {
-    requireIntegrity(choice.origin === "operator" ? !choice.findingRef : !!choice.findingRef && usedFindings.has(choice.findingRef));
-    if (choice.kind === "route" && choice.origin === "operator") {
+    requireIntegrity(choice.origin === "finding" ? !!choice.findingRef && usedFindings.has(choice.findingRef) : !choice.findingRef);
+    if (choice.origin === "discovery") requireIntegrity(choice.kind === "route" && !!choice.routeEvidence && document.schemaVersion === 2 && document.provenance.contexts.some(context => context.head === choice.routeEvidence!.commitId));
+    else requireIntegrity(!choice.routeEvidence);
+    if (choice.kind === "route" && choice.origin !== "finding") {
       requireIntegrity(choice.value.startsWith("/") && !choice.value.startsWith("//") && !/[?#\x00-\x20]/.test(choice.value));
     }
   }

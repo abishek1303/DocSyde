@@ -23,7 +23,7 @@ export async function createDocumentationRun(raw: unknown) {
   await prepareReliabilityRun(id, input);
   await initializeRunCoordinator();
   assertAllowedRepository(input.owner, input.repo);
-  if (input.associations.some(choice => choice.origin !== "operator" || choice.findingRef)) throw new Error("Associations must be explicit operator context.");
+  if (input.associations.some(choice => choice.origin !== "operator" || choice.findingRef || choice.routeEvidence)) throw new Error("Associations must be explicit operator context.");
   if (new Set(input.associations.map(choice => choice.id)).size !== input.associations.length || input.associations.some(choice => choice.kind === "route" && (!choice.value.startsWith("/") || choice.value.startsWith("//") || /[?#\x00-\x20]/.test(choice.value)))) throw new Error("Check association IDs and routes.");
   if (input.mode === "current-state" && input.base !== input.head) throw new Error("A current-state scan requires one revision.");
   const pinned = await pinChangeInput({ owner: input.owner, repo: input.repo, base: input.base, head: input.head, paths: input.paths });

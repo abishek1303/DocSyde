@@ -1,5 +1,7 @@
 import { rejectionDiagnostic as entryRejectionDiagnostic, type ValidationDiagnostic } from "@/integrations/ai/invocation-debug";
 import "server-only";
+import { discoveredAssociations } from "./route-associations";
+import type { ProductRoute } from "@/features/sources/product-evidence";
 import { compositionConfigured, generateComposition } from "@/integrations/ai/generate-composition";
 import { compositionInput, applyComposition } from "./compose-documentation";
 import { admitWorkItems, withRunInferenceBudget, InferenceBudgetError } from "@/integrations/ai/inference-budget";
@@ -33,11 +35,11 @@ function fail(result: DecisionResult, issue: string, generation: DecisionResult[
 
 /** Trusted server-only operation. Correspondence checks do not authenticate client
  * artifacts or re-prove upstream citations. No save/sign/publication operations. */
-type TransformationInput = { impact: ProductImpact; plan: DocumentationImpactPlan; context?: AssociationChoice[]; terminology?: string[] };
-async function prepareTransformation({ impact: rawImpact, plan: rawPlan, context = [] }: TransformationInput, signal?: AbortSignal) {
+type TransformationInput = { impact: ProductImpact; plan: DocumentationImpactPlan; context?: AssociationChoice[]; terminology?: string[]; routes?: ProductRoute[] };
+async function prepareTransformation({ impact: rawImpact, plan: rawPlan, context = [], routes = [] }: TransformationInput, signal?: AbortSignal) {
   const impact = validateProductImpact(rawImpact), plan = validateDocumentationImpactPlan(impact, rawPlan);
   const supplied = z.array(associationChoice).max(20).parse(context);
-  if (new Set(supplied.map(choice => choice.id)).size !== supplied.length || supplied.some(choice => choice.origin !== "operator" || choice.findingRef
+  if (new Set(supplied.map(choice => choice.id)).size !== supplied.length || supplied.some(choice => choice.origin !== "operator" || choice.findingRef || choice.routeEvidence
     || (choice.kind === "route" && (!choice.value.startsWith("/") || choice.value.startsWith("//") || /[?#\x00-\x20]/.test(choice.value))))) throw new Error("Invalid operator transformation context.");
   const proposalId = randomUUID(), createdAt = new Date().toISOString();
   const limitations = [...new Set([...(impact.provenance.runtimeInspection?.limitations ?? []), impact.provenance.source.notice, ...impact.provenance.source.uncertainties, ...impact.uncertainties, ...plan.uncertainties,
@@ -72,7 +74,9 @@ async function prepareTransformation({ impact: rawImpact, plan: rawPlan, context
       if (result.generation !== "pending") continue;
       const baseline = result.decision.documentId ? baselines.get(result.decision.documentId) : undefined;
       for (const choice of supplied) if (baseline?.context.some(existing => existing.id === choice.id && !isDeepStrictEqual(existing, choice))) throw new Error("Association collision.");
-      const auth = authorizeTransformation(impact, plan, result, baseline, source, supplied);
+      const associations = [...supplied, ...(!baseline && !supplied.some(choice => choice.kind === "route") ? discoveredAssociations(impact, plan, result.decision, routes) : [])];
+      if (new Set(associations.map(choice => choice.id)).size !== associations.length) throw new Error("Association collision.");
+      const auth = authorizeTransformation(impact, plan, result, baseline, source, associations);
       if (auth.shape === "add-section" && baseline?.sections.length === 4) { fail(result, "canonical-section-limit"); continue; }
       authorizations.push(auth);
     } catch { fail(result, "invalid-target-or-mutation-authorization"); }
@@ -154,6 +158,7 @@ async function executeTransformation(input: TransformationInput,
         if (raw?.length !== 1) { rejected = true; diagnose("missing-or-duplicate-generation-entry"); fail(result, "missing-or-duplicate-generation-entry"); continue; }
         try {
           const change = validateTransformationEntry(raw[0], auth, auth.target.documentId ? baselines.get(auth.target.documentId) : undefined);
+          if (change.kind === "add-document") change.associations = [...new Set([...change.associations, ...auth.associations.filter(choice => choice.origin === "discovery").map(choice => choice.id)])];
           result.change = change;
           if (change.kind === "incomplete") { fail(result, "model-reported-incomplete"); result.issues.push(change.reason); }
           else {
@@ -241,7 +246,7 @@ async function executeTransformation(input: TransformationInput,
     try {
       const document = assembleDocumentationChange({ proposalId: proposal.proposalId, createdAt: proposal.createdAt, planSha256: proposal.planSha256,
         baseline: group[0].decision.documentId ? baselines.get(group[0].decision.documentId) : undefined,
-        results: group, source, suppliedContext: supplied, limitations });
+        results: group, source, suppliedContext: [...new Map([...supplied, ...authorizations.filter(auth => group.some(result => result.decisionId === auth.decisionId)).flatMap(auth => auth.associations)].map(choice => [choice.id, choice])).values()], limitations });
       proposal.candidates.push({ decisionIds: group.map(result => result.decisionId), document });
       group.forEach(result => { result.materialization = "ready"; result.saveCompatible = true; result.candidateId = document.id; });
     } catch { group.forEach(result => { result.materialization = "blocked"; result.issues.push("canonical-materialization-blocked"); }); }

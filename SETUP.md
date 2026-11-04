@@ -56,12 +56,17 @@ The branch may now contain newer changes. Select the intended commits rather tha
 
 ## First understanding and documentation
 
-Choose **New run → project → Full scan** to generate initial documentation or regenerate existing documentation without a new commit or diff. Select a branch and optional product context. For an initial document, supply its product route so a publication destination can be proposed. The scan pins one current SHA, samples up to 16 files (2000 characters per file) across discovered repository areas, and prepares at most four source findings. Unsampled files and remaining file contents are explicit coverage gaps; this is not exhaustive repository analysis.
+Choose **New run → project → Full scan** to generate initial documentation or regenerate existing documentation without a new commit or diff. Select a branch and optional product context. Full Scan discovers supported application screens automatically; ambiguous destinations can be confirmed after generation. The scan pins one current SHA, samples up to 16 files (2000 characters per file) across discovered repository areas, and prepares at most four source findings. Unsampled files and remaining file contents are explicit coverage gaps; this is not exhaustive repository analysis.
 
 Full Scan plans against current published snapshots, excluding unpublished and archived
 snapshots. With no published documentation, source-supported additions use the existing
-canonical document proposal flow. Supply an explicit product route for initial publication;
-an occupied route or an unselected/missing route association remains blocked. Support-checked
+canonical document proposal flow. Verified file-based pages, static client routes, and mounted
+single-page entry screens provide destinations without manual path entry. The existing planner
+associates claims/workflows; bounded source reachability validates automatic screen correspondence.
+When ambiguous, open **Documentation destinations** on the run and choose a discovered screen.
+Confirmation records destination metadata only; publication remains explicit. Backend-only projects
+or unsupported routing patterns can remain incomplete rather than inventing a route. Occupied
+routes still require existing-document continuity, and dynamic route templates are not publishable. Support-checked
 work is retained for audit, but only publishable changes appear in Pending Changes and enable
 the run’s Review changes action. Nothing is published until you explicitly publish the batch.
 
@@ -194,3 +199,10 @@ and Stopping application. Raw stdout/stderr is discarded rather than risking sec
 retention; expandable inspection details contain safe lifecycle events and exit codes.
 Approved code runs with the local user's permissions, not an OS sandbox. The runner
 passes only its small existing environment allowlist, without DocSyde provider keys.
+
+Full Scan retains up to 12 screen candidates from its existing 16-file source budget.
+Route proofs retain the pinned revision and exact routing/entry source locations. Existing
+runtime navigation can supply confirmation-only candidates; it does not prove revision identity.
+The installed TypeScript compiler is also a runtime dependency for deterministic source parsing;
+no additional provider call or indexing service is used. Historical discovery hints never expand
+an existing published document's delivery routes automatically.

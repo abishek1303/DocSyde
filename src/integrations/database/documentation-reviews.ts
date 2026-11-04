@@ -53,6 +53,11 @@ function reviewScope(row: RetainedReviewRow | null, tx: DatabaseExecutor): Revie
     publication: (repository, route) => findPublication(repository, route, tx),
     insertPublication: (repository, route, documentId) => insertPublicationIfAbsent(repository, route, documentId, tx),
     replacePublication: (repository, route, documentId, observedId, baselineId) => replacePublication(repository, route, documentId, observedId, tx, baselineId),
+    async confirmDestination(targetId, at) {
+      if (!row) throw new Error("Retained review is missing.");
+      const targets = row.targets as { id: string; confirmedAt?: string }[];
+      await tx.update(documentationReviews).set({ targets: targets.map(target => target.id === targetId ? { ...target, confirmedAt: at } : target) }).where(and(eq(documentationReviews.id, row.id), eq(documentationReviews.proposalHash, row.proposalHash)));
+    },
     async receipt(review) {
       if (!row) throw new Error("Retained review is missing.");
       await tx.update(documentationReviews).set({ review }).where(and(eq(documentationReviews.id, row.id), eq(documentationReviews.proposalHash, row.proposalHash)));
@@ -67,6 +72,7 @@ export type ReviewTransaction = {
   insertPublication(repository: string, route: string, documentId: string): ReturnType<typeof insertPublicationIfAbsent>;
   replacePublication(repository: string, route: string, documentId: string, observedId: string, baselineId: string): ReturnType<typeof replacePublication>;
   receipt(review: unknown): Promise<void>;
+  confirmDestination(targetId: string, at: string): Promise<void>;
 };
 
 export type RetentionRunLink = {

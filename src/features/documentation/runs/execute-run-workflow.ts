@@ -2,8 +2,9 @@ import "server-only";
 import { ManagedRuntimeUnavailable } from "@/runner/runtime/managed-configuration";
 import { observe, type RuntimeObserver } from "@/integrations/browser/runtime-observation";
 import { createHash } from "node:crypto";
-import { readInspectionContext, analyzeProductChanges, captureGenerationContext, decideRuntimeInspection, synthesizeProductImpact, analyzeRuntimeVisuals, validateProductResult, type RuntimeInspectionContext } from "@/features/sources/product-analysis";
+import { readInspectionContext, discoverProductRoutes, analyzeProductChanges, captureGenerationContext, decideRuntimeInspection, synthesizeProductImpact, analyzeRuntimeVisuals, validateProductResult, type RuntimeInspectionContext } from "@/features/sources/product-analysis";
 import { captureWorkflowWithRuntime } from "@/runner/runtime/capture-workflow";
+import { observedProductRoutes } from "../transformation/route-associations";
 import { documentationHash } from "../documents/document-identity";
 import { loadRunRuntimeConfig } from "./run-runtime-config";
 import { writeRunCheckpoint, finishRun, finishRetainedRun, RunOwnershipLost } from "./run-checkpoints";
@@ -131,8 +132,10 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
     return { impact: result.impact, models: [...record.models, ...model("impact-synthesis", result)], warnings: [...(record.runtime?.limitations ?? []), ...result.impact.uncertainties] };
   });
   if (!record!.impact!.claims.length) { await finish("incomplete", "impact-has-no-usable-claims"); return; }
+  const routes = record!.input.mode === "current-state" ? discoverProductRoutes(validatedSource.bundle) : [];
+  if (record!.input.mode === "current-state") for (const observed of observedProductRoutes(record!.impact!)) if (routes.length < 12 && !routes.some(route => route.pathname === observed.pathname)) routes.push(observed);
   await stage("documentation-planning", async () => {
-    const result = await planDocumentationImpact({ impact: record.impact!, context: record.input.associations, publishedOnly: record.input.mode === "current-state" }, { signal, invocation: invocation("documentation-planning") });
+    const result = await planDocumentationImpact({ impact: record.impact!, context: record.input.associations, publishedOnly: record.input.mode === "current-state", routes }, { signal, invocation: invocation("documentation-planning") });
     return { plan: result.plan, models: [...record.models, ...model("documentation-planning", result)] };
   });
   const plan = record!.plan!;
@@ -142,7 +145,7 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
   }
   let proposal: Awaited<ReturnType<typeof transformDocumentation>>;
   await stage("documentation-transformation", async () => {
-    proposal = await transformDocumentation({ impact: record.impact!, plan, context: record.input.associations, terminology: record.contextSnapshot?.repositoryUnderstandingUsed?.summary.terminology }, { signal, invocation: invocation("documentation-transformation"), onProgress: async progress => {
+    proposal = await transformDocumentation({ impact: record.impact!, plan, context: record.input.associations, routes, terminology: record.contextSnapshot?.repositoryUnderstandingUsed?.summary.terminology }, { signal, invocation: invocation("documentation-transformation"), onProgress: async progress => {
       await checkpoint(r => ({ ...r, stages: r.stages.map(stage => stage.key === "documentation-transformation" ? { ...stage, batchProgress: progress,
         summary: `Preparing documentation updates — ${progress.active ?? progress.processed} of ${progress.total} batches${progress.active ? "" : " processed"}. ${progress.acceptedDecisions} updates passed support checks.` } : stage) }));
     } });

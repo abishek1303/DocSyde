@@ -2,7 +2,8 @@ import type { AnalysisRejection } from "@/features/sources/product-analysis";
 import { z } from "zod";
 import { documentImageSchema } from "../images/document-image";
 const ref = z.string().min(1).max(100);
-export const associationChoice = z.object({ id: ref, kind: z.enum(["route", "feature", "workflow", "ui-surface", "audience"]), value: z.string().min(1).max(300), origin: z.enum(["operator", "finding"]), findingRef: ref.optional() }).strict();
+import { productRouteEvidence } from "@/features/sources/product-routes";
+export const associationChoice = z.object({ id: ref, kind: z.enum(["route", "feature", "workflow", "ui-surface", "audience"]), value: z.string().min(1).max(300), origin: z.enum(["operator", "finding", "discovery"]), findingRef: ref.optional(), routeEvidence: productRouteEvidence.optional() }).strict();
 export const qualifications = z.object({ support: z.enum(["directly-supported", "inferred"]), confidence: z.enum(["low", "medium", "high"]), confidenceReason: z.string(), assumptions: z.array(z.string()), uncertainties: z.array(z.string()) }).strict();
 export const fact = z.object({ id: ref, findingRef: ref, field: z.enum(["description", "before", "after"]), value: z.string().min(1), qualifications }).strict();
 export const draftProposal = z.object({ title: z.string().min(1).max(160), associations: z.array(ref).max(20), sections: z.array(z.object({

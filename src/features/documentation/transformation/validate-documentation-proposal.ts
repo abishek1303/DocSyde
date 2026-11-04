@@ -30,7 +30,7 @@ export function validateDocumentationProposal(raw: unknown) {
     assert(doc.provenance.repository.toLowerCase() === impact.provenance.source.repository.toLowerCase());
     assert(p.plan.decisions.some(d => d.documentId === doc.id));
   }
-  assert(p.authorizations.every(a => a.associations.every(c => c.origin === "operator" && !c.findingRef)));
+  assert(p.authorizations.every(a => a.associations.every(c => !c.findingRef && (c.origin === "operator" && !c.routeEvidence || c.origin === "discovery" && c.kind === "route" && c.routeEvidence?.commitId === impact.provenance.source.head))));
   const source = transformationSource(impact, p.proposalId, p.targets.map(t => t.document));
   for (const auth of p.authorizations) {
     const result = p.results.find(r => r.decisionId === auth.decisionId);

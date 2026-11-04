@@ -11,7 +11,9 @@ export function transformationRequest(authorizations: TransformationAuthorizatio
     return { documentId: doc.id, title: doc.title, outline: doc.sections.map(({ id, title, kind }) => ({ id, title, kind })),
       sections: doc.sections.filter((section, index) => whole || scoped.some(auth => auth.target.sectionId === section.id || (auth.shape === "add-section" && index === 0))) };
   });
-  const input = JSON.stringify({ authorizations, documents, maxAuthoredBlocks: TRANSFORMATION_BATCH_BLOCKS, maxCharactersPerBlock: 800 });
+  // Route proofs remain in trusted authorizations/artifacts; the model only needs reference choices.
+  const choices = authorizations.map(auth => ({ ...auth, associations: auth.associations.map(({ routeEvidence, ...choice }) => ({ ...choice, ...(routeEvidence ? { label: routeEvidence.label } : {}) })) }));
+  const input = JSON.stringify({ authorizations: choices, documents, maxAuthoredBlocks: TRANSFORMATION_BATCH_BLOCKS, maxCharactersPerBlock: 800 });
   const bytes = 1024 + Buffer.byteLength(JSON.stringify({ instructions: `${transformationInstructions}\nReturn only JSON matching this schema: ${JSON.stringify(z.toJSONSchema(transformationEnvelopeSchema))}`, input, maxOutputTokens: TRANSFORMATION_OUTPUT_TOKENS }));
   const blocks = authorizations.reduce((count, auth) => count + (["add-document", "replace-document"].includes(auth.shape) ? 8 : 2), 0);
   const estimatedOutputTokens = Math.ceil(blocks * 800 / 3) + authorizations.length * 300 + 512;

@@ -16,6 +16,7 @@ export const reviewSelectionSchema = z.object({
 }).strict();
 export const publicationDescriptorSchema = z.object({
   id: z.uuid(), unitId: z.string().min(1).max(100), route: z.string().min(1).max(300),
+  requiresConfirmation: z.boolean().optional(), confirmedAt: z.iso.datetime().optional(),
   baselineId: z.uuid().nullable(), observedId: z.uuid().nullable(), associationIds: z.array(z.string().max(100)).max(52),
 }).strict();
 export const saveReceiptSchema = z.object({

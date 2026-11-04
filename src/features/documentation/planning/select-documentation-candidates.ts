@@ -18,7 +18,7 @@ export async function selectDocumentationCandidates(impact: ProductImpact, {
 }: { signal?: AbortSignal; context?: z.infer<typeof associationChoice>[]; publishedOnly?: boolean } = {}) {
   signal?.throwIfAborted();
   const explicit = z.array(associationChoice).max(20).parse(context);
-  if (explicit.some(a => a.origin !== "operator" || a.findingRef)) throw new Error("Candidate query context must be explicit operator associations.");
+  if (explicit.some(a => a.origin !== "operator" || a.findingRef || a.routeEvidence)) throw new Error("Candidate query context must be explicit operator associations.");
   const query = candidateQuery(impact, explicit), repository = impact.provenance.source.repository;
   const hits = z.array(hitSchema).max(CANDIDATE_SECTION_LIMIT + 1).parse(query.tokens.length || query.associations.length ? await searchDocumentationSections(repository, query, CANDIDATE_SECTION_LIMIT + 1, publishedOnly) : []);
   signal?.throwIfAborted();

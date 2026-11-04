@@ -1311,3 +1311,21 @@ masking/evidence, cleanup and cancellation failures are not softened. No process
 when inspection is unnecessary or unavailable (including missing vision/browser/storage).
 Disabling managed launch falls back to a healthy existing server or source-only analysis.
 Abrupt DocSyde termination still cannot guarantee cleanup or resumable execution.
+
+
+## Full Scan route destinations
+
+Full Scan reuses bounded pinned source reads to discover concrete file-based pages,
+static client routes, and mounted SPA entry screens. Its existing planning call sees
+screen metadata; semantic claim references and bounded local import reachability establish
+route correspondence without another inference call or index. Discovery associations use
+an additive `discovery` origin with pinned route proof, separate from operator choices,
+finding-derived hints, and product facts. Canonical byte, evidence and support checks remain.
+
+New canonical document proposals may use verified discovery associations. Ambiguous or
+runtime-only navigation candidates require operator confirmation. Candidate descriptors and
+confirmation timestamps live in the existing review target metadata; immutable proposals and
+support results are preserved. Only selected/verified destinations enter active Pending Changes.
+Confirmation does not publish or alter prose, and is project-locked against competing batches.
+Existing published documents retain observed publication/version destinations; historical
+candidate hints cannot add delivery authority. SDK/MCP authority remains explicit publication.

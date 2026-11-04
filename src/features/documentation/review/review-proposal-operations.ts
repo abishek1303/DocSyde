@@ -32,7 +32,10 @@ export function readRetainedReview(row: RetainedReviewRow) {
     const all = [...(receipt.decisionIds ?? []), ...(receipt.excludedDecisionIds ?? [])];
     if (!receipt.decisionIds || receipt.decisionIds.some(id => !review!.selection.decisions.some(choice => choice.decisionId === id && choice.choice === "approve")) || !target || new Set(all).size !== all.length || all.some(id => !proposal.results.some(result => result.decisionId === id && (result.decision.documentId ?? result.decisionId) === target.unitId))) throw new Error("Publication decision receipt integrity failure.");
   }
-  return { proposal, targets, review, repository, proposalHash: row.proposalHash, registeredAt: row.registeredAt.toISOString(), expiresAt: row.expiresAt.toISOString() };
+  const confirmedUnits = new Set(targets.filter(target => target.confirmedAt).map(target => target.unitId));
+  const destinationCandidates = targets.filter(target => target.requiresConfirmation !== undefined);
+  const activeTargets = targets.filter(target => confirmedUnits.has(target.unitId) ? !!target.confirmedAt : !target.requiresConfirmation);
+  return { proposal, targets: activeTargets, destinationCandidates, review, repository, proposalHash: row.proposalHash, registeredAt: row.registeredAt.toISOString(), expiresAt: row.expiresAt.toISOString() };
 }
 
 /** Trusted producer entry ONLY: call directly with transformDocumentation output.
@@ -56,12 +59,13 @@ export async function retainDocumentationProposal(output: DocumentationChangePro
   for (const r of mutable) { const key = r.decision.documentId ?? r.decisionId; units.set(key, [...(units.get(key) ?? []), r]); }
   for (const [unitId, results] of units) {
     const baseline = proposal.targets.find(t => t.document.id === unitId)?.document;
-    const choices = [...(baseline?.context ?? []), ...proposal.authorizations.filter(a => results.some(r => r.decisionId === a.decisionId)).flatMap(a => a.associations)];
+    // Existing published versions retain their observed destinations; old discovery hints cannot expand authority.
+    const choices = [...(baseline?.context.filter(choice => choice.origin !== "discovery") ?? []), ...proposal.authorizations.filter(a => results.some(r => r.decisionId === a.decisionId)).flatMap(a => a.associations).filter(choice => !baseline || choice.origin !== "discovery")];
     const routes = new Map<string, string[]>();
     for (const choice of choices) if (choice.kind === "route" && publicationRoute.safeParse(choice.value).success) routes.set(choice.value, [...new Set([...(routes.get(choice.value) ?? []), choice.id])]);
     for (const [route, associationIds] of routes) {
       if (await findPublication(repository, route)) continue;
-      targets.push({ id: documentationId(`${proposal.proposalId}:publish:${unitId}:${route}`), unitId, baselineId: baseline?.id ?? null, route, observedId: null, associationIds });
+      targets.push({ id: documentationId(`${proposal.proposalId}:publish:${unitId}:${route}`), unitId, baselineId: baseline?.id ?? null, route, observedId: null, associationIds, ...(choices.some(choice => choice.kind === "route" && choice.value === route && choice.origin === "discovery") ? { requiresConfirmation: choices.filter(choice => choice.kind === "route" && choice.value === route).every(choice => choice.origin === "discovery" && choice.routeEvidence?.requiresConfirmation) } : {}) });
       if (targets.length > REVIEW_MAX_PUBLICATION_TARGETS) throw new Error("Publication context exceeds review bound.");
     }
   }
