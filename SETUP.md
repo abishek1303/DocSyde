@@ -251,3 +251,5 @@ The run timeline shows an immediate Starting indicator while execution is being 
 Run Artifacts lists retained checkpoint screenshots from the existing inspection endpoint, including selected status. Thumbnails open the shared image preview overlay; no additional capture or inference is performed.
 
 Source-coverage bookkeeping is nonblocking and retained as a diagnostic. Full Scan preserves cited current behavior independently of screenshots; valid unresolved planning receives one corrective attempt, then source-grounded draft targets only where verified route evidence matches. Existing transformation, evidence, and human publication checks still apply. Latest Changes planning is unchanged. See the [coverage contract](src/features/sources/impact/README.md#source-coverage).
+
+Full Scan discards individually invalid synthesis claims while retaining valid source-grounded claims and safe rejection diagnostics. If no claims survive, it finishes incomplete at impact synthesis before planning. Contradiction/schema checks and publication approval stay strict; Latest Changes is unchanged.

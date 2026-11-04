@@ -100,3 +100,19 @@ not the semantic truth of a model's explanation or claim.
 
 The existing structured-output retry handles JSON boundary failures only, not semantic
 repair. Coverage inconsistencies make no additional model call and do not stop synthesis. Full Scan planning alone permits one corrective attempt for a valid all-unresolved plan with eligible source-supported claims; if that still has no additions, deterministic draft intents require matching pinned, verified source routes. All targets still pass transformation, support checks, and human review. Global sampling uncertainty alone does not invalidate independently supported fresh claims; contradictions still block additions. Latest Changes retains its existing planning behavior. Provider/model selection and budgets are unchanged.
+
+## Partial claim recovery for Full Scan
+
+Full Scan validates each schema-valid claim's complete reference graph, kind support and
+before/after correspondence independently. Invalid claims are discarded as whole claims;
+references are never guessed, stripped, or relabeled to make a claim pass. Canonical
+`discardedClaims` retains only the original model claim index and fixed rejection code.
+The summary is replaced with neutral bookkeeping text when filtering occurs, so rejected
+claim wording cannot leak back into planning through a summary. Valid cited source claims
+remain usable without screenshot confirmation. Contradiction validation and global schema
+validation remain strict; Latest Changes keeps its previous fail-fast claim behavior.
+
+If every claim is rejected, Full Scan does not reconstruct the rejected output. It retains
+an insufficient-evidence impact and finishes incomplete at impact synthesis with
+`impact-no-grounded-claims`, before planning. Coverage bookkeeping remains nonblocking.
+Documentation transformation, evidence checks, and human publication approval are unchanged.

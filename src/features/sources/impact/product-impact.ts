@@ -31,6 +31,7 @@ export const productImpactOutputSchema = z.object({
 
 export const productImpactSchema = productImpactOutputSchema.extend({
   sourceCoverageDiagnostic: z.string().max(100).optional(),
+  discardedClaims: z.array(z.object({ claimIndex: z.number().int().min(0).max(5), code: z.string().max(100) }).strict()).max(6).optional(),
   provenance: z.object({
     runtimeInspection: runtimeInspectionContextSchema.optional(),
     source: z.object({ repository: z.string().max(2048), base: z.string().length(40), head: z.string().length(40),

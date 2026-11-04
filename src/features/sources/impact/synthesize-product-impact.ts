@@ -98,23 +98,34 @@ export async function synthesizeProductImpact(
           visualRefs: references.flatMap(id => { const entry = visuals.get(id); return entry ? [entry] : []; }) };
       }
       let visualUsed = false;
+      const discardedClaims: NonNullable<ProductImpact["discardedClaims"]> = [];
+      const acceptedClaims: typeof output.claims = [];
       for (const [claimIndex, claim] of output.claims.entries()) {
-        const refs = resolve(claim.references);
-        visualUsed ||= refs.visualRefs.length > 0;
-        const supportsKind = (kind: typeof sourceReferences[number]["finding"]["kind"]) => supportsImpactClaim(claim.kind, kind);
-        if (claim.kind === "visual-observation") {
-          if (!refs.visualRefs.length || claim.before !== null || claim.after !== null) reject("invalid-visual-claim");
-        } else {
-          const appropriate = refs.staticRefs.some(({ finding }) => supportsKind(finding.kind));
-          if (!appropriate) {
-            const error = new ModelError("grounding-rejection", undefined, { kind: "grounding-rejection", issues: [{ code: "unsupported-change-claim", path: `claims.${claimIndex}.references` }] });
-            error.message = "Product impact rejected: unsupported-change-claim";
-            throw error;
+        try {
+          const refs = resolve(claim.references);
+          const supportsKind = (kind: typeof sourceReferences[number]["finding"]["kind"]) => supportsImpactClaim(claim.kind, kind);
+          if (claim.kind === "visual-observation") {
+            if (!refs.visualRefs.length || claim.before !== null || claim.after !== null) reject("invalid-visual-claim");
+          } else {
+            const appropriate = refs.staticRefs.some(({ finding }) => supportsKind(finding.kind));
+            if (!appropriate) {
+              const error = new ModelError("grounding-rejection", undefined, { kind: "grounding-rejection", issues: [{ code: "unsupported-change-claim", path: `claims.${claimIndex}.references` }] });
+              error.message = "Product impact rejected: unsupported-change-claim";
+              throw error;
+            }
           }
+          if ((claim.before !== null || claim.after !== null) && !refs.staticRefs.some(({ finding }) => supportsKind(finding.kind)
+            && (claim.before === null || finding.before === claim.before) && (claim.after === null || finding.after === claim.after))) reject("unsupported-temporal-values");
+          acceptedClaims.push(claim);
+          visualUsed ||= refs.visualRefs.length > 0;
+        } catch (error) {
+          // Drop the entire claim, never repair its references or relabel visual evidence as behavior.
+          if (bundle.mode !== "current-state" || !(error instanceof ModelError) || error.code !== "grounding-rejection") throw error;
+          discardedClaims.push({ claimIndex, code: error.diagnostic?.issues?.[0]?.code ?? "invalid-claim-evidence" });
         }
-        if ((claim.before !== null || claim.after !== null) && !refs.staticRefs.some(({ finding }) => supportsKind(finding.kind)
-          && (claim.before === null || finding.before === claim.before) && (claim.after === null || finding.after === claim.after))) reject("unsupported-temporal-values");
       }
+      output.claims = acceptedClaims;
+      if (discardedClaims.length) output.summary = "Current behavior is described by the retained grounded claims. Some generated claims were excluded after evidence-reference validation.";
       for (const contradiction of output.contradictions) {
         const refs = resolve(contradiction.references);
         if (!refs.staticRefs.length || !refs.visualRefs.length) reject("invalid-contradiction");
@@ -122,7 +133,7 @@ export async function synthesizeProductImpact(
       }
       // Fresh scans can retain cited current behavior without screenshot confirmation.
       // Copy validated source wording and qualifications; transformation still verifies all prose.
-      if (bundle.mode === "current-state" && !output.contradictions.length && output.assessment !== "internal-only") {
+      if (bundle.mode === "current-state" && (!discardedClaims.length || acceptedClaims.length > 0) && !output.contradictions.length && output.assessment !== "internal-only") {
         const additions = sourceReferences.filter(source => source.finding.support === "directly-supported"
           && allowedImpactClaims(source.finding.kind).some(kind => kind !== "internal-change")
           && !output.claims.some(claim => claim.kind !== "visual-observation" && claim.references.includes(source.id))).map(source => ({
@@ -138,12 +149,13 @@ export async function synthesizeProductImpact(
       try { validateSourceCoverage(output, sourceReferences); }
       catch (error) { if (!isProductImpactCoverageError(error)) throw error; sourceCoverageDiagnostic = error.diagnostic?.issues?.[0]?.code ?? "coverage-unavailable"; }
       if (output.contradictions.length && output.assessment !== "insufficient-evidence") reject("unresolved-contradiction-assessment");
+      if (discardedClaims.length && output.assessment === "product-change" && !output.claims.some(claim => ["behavior-change", "workflow-change", "ui-change"].includes(claim.kind))) output.assessment = "insufficient-evidence";
       if (output.assessment === "product-change" && !output.claims.some(claim => ["behavior-change", "workflow-change", "ui-change"].includes(claim.kind))) reject("product-change-without-change-claim");
       if (output.assessment === "internal-only" && (bundle.limited || validated.analysis?.assessment !== "internal-only"
         || !output.claims.some(claim => claim.kind === "internal-change")
         || output.claims.some(claim => ["behavior-change", "workflow-change", "ui-change"].includes(claim.kind)))) reject("unsupported-internal-only");
       const citedIds = new Set(sourceReferences.flatMap(entry => entry.finding.citations.map(citation => citation.evidenceId)));
-      const impact = productImpactSchema.parse({ ...output, ...(sourceCoverageDiagnostic ? { sourceCoverageDiagnostic } : {}),
+      const impact = productImpactSchema.parse({ ...output, ...(discardedClaims.length ? { discardedClaims } : {}), ...(sourceCoverageDiagnostic ? { sourceCoverageDiagnostic } : {}),
         uncertainties: visualUsed ? [...output.uncertainties, RUNTIME_REVISION_WARNING] : output.uncertainties,
         provenance: {
           ...(inspection ? { runtimeInspection: inspection } : {}),

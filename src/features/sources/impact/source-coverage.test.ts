@@ -101,3 +101,49 @@ test("all genuinely contradicted findings may remain uncertain without fabricate
   assert.ok(impact.claims.every(claim => claim.kind === "visual-observation"));
   validateProductImpact(impact);
 });
+
+test("actual rejection claims.4.references: visual-only ui-change is discarded while four source claims survive", async t => {
+  const value = output();
+  value.claims = [0, 1, 2, 3].map(index => ({ ...output().claims[0], references: [`source-${index % 2 + 1}`], description: index % 2 ? "Search updates after 300ms." : "Project creation requires a nonempty trimmed name." }));
+  value.claims.push({ ...value.claims[0], kind: "ui-change", references: [visual], description: "Unsupported visual-only behavior MUST_NOT_SURVIVE" });
+  value.summary = "MUST_NOT_SURVIVE";
+  const fetch = provider(t, value);
+  const { impact } = await synthesizeProductImpact({ source: source(), runtime: [runtime()] });
+  assert.equal(fetch.mock.callCount(), 1);
+  assert.equal(impact.claims.length, 4);
+  assert.deepEqual(impact.discardedClaims, [{ claimIndex: 4, code: "unsupported-change-claim" }]);
+  assert.ok(!JSON.stringify(impact).includes("MUST_NOT_SURVIVE"));
+  assert.ok(impact.claims.every(claim => claim.references.some(ref => ref.startsWith("source-"))));
+  validateProductImpact(impact);
+});
+for (const variant of ["unknown-reference", "duplicate-reference", "unsupported-temporal-values"] as const) test(`a ${variant} claim does not poison valid Full Scan claims`, async t => {
+  const value = output(); const bad = structuredClone(value.claims[0]);
+  if (variant === "unknown-reference") bad.references = ["source-99"];
+  if (variant === "duplicate-reference") bad.references = ["source-1", "source-1"];
+  if (variant === "unsupported-temporal-values") bad.after = "Unproven previous state";
+  value.claims.push(bad); provider(t, value);
+  const { impact } = await synthesizeProductImpact({ source: source() });
+  assert.equal(impact.claims.length, 1); assert.equal(impact.discardedClaims?.[0].code, variant);
+  validateProductImpact(impact);
+});
+test("no surviving claims returns explicit insufficient evidence without rebuilding rejected claims", async t => {
+  const value = output(); value.claims[0].references = ["source-99"]; provider(t, value);
+  const { impact } = await synthesizeProductImpact({ source: source() });
+  assert.deepEqual(impact.claims, []); assert.equal(impact.assessment, "insufficient-evidence");
+  assert.deepEqual(impact.discardedClaims, [{ claimIndex: 0, code: "unknown-reference" }]);
+  validateProductImpact(impact);
+});
+test("invalid contradictions remain fatal even alongside usable source claims", async t => {
+  const value = output(); value.assessment = "insufficient-evidence";
+  value.contradictions = [{ description: "Unresolved purported conflict", status: "unresolved", references: ["source-1", "visual:unknown"] }];
+  provider(t, value);
+  await assert.rejects(synthesizeProductImpact({ source: source(), runtime: [runtime()] }), /unknown-reference/);
+});
+
+test("provider-truncated output stays fatal before claim filtering and is not retried", async t => {
+  const previous = process.env.BASETEN_API_KEY; process.env.BASETEN_API_KEY = "fixture";
+  t.after(() => { if (previous === undefined) delete process.env.BASETEN_API_KEY; else process.env.BASETEN_API_KEY = previous; });
+  const fetch = t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "length", message: { content: JSON.stringify(output()) } }] }));
+  await assert.rejects(synthesizeProductImpact({ source: source(), runtime: [runtime()] }), error => error instanceof ModelError && error.code === "incomplete-output");
+  assert.equal(fetch.mock.callCount(), 1);
+});

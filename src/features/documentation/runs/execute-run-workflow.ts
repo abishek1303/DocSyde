@@ -132,7 +132,11 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
       const result = await synthesizeProductImpact({ source: validatedSource, runtime, runtimeInspection: record.runtime }, { signal, invocation: invocation("impact-synthesis") });
       return { impact: result.impact, models: [...record.models, ...model("impact-synthesis", result)], warnings: [...(record.runtime?.limitations ?? []), ...result.impact.uncertainties] };
     });
-    if (!record!.impact!.claims.length) { await finish("incomplete", "impact-has-no-usable-claims"); return; }
+    if (!record!.impact!.claims.length) {
+      const discarded = Boolean(record!.impact!.discardedClaims?.length);
+      if (discarded) await checkpoint(r => ({ ...r, stages: changeWorkflowStage(r.stages, "impact-synthesis", "incomplete", "No grounded product claims remained after evidence-reference validation.") }));
+      await finish("incomplete", discarded ? "impact-no-grounded-claims" : "impact-has-no-usable-claims"); return;
+    }
   } catch (error) {
     if (!(error instanceof RunStageError) || !isProductImpactCoverageError(error.cause)) throw error;
     await finish("incomplete", "impact-source-coverage-incomplete", { stage: "impact-synthesis", code: "evidence-validation", diagnostic: error.cause.diagnostic });

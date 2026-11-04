@@ -2,6 +2,7 @@ import type { RunView } from "./run-record";
 import { runFailureDescription, runFailureForView } from "./run-failure";
 
 export function runOutcome(run: RunView) {
+  if (run.reason === "impact-no-grounded-claims") return { title: "No grounded product claims remained", message: "Synthesis claims failed evidence-reference checks. Documentation planning was not started.", nextStep: "Review the retained source evidence and discarded-claim diagnostics before retrying." };
   if (run.reason === "impact-source-coverage-incomplete") return { title: "Source evidence was not fully accounted for", message: "Product-impact synthesis omitted or inconsistently accounted for supported source findings. Documentation planning was not started.", nextStep: "Review the impact-synthesis coverage diagnostic and source evidence before retrying." };
   const failure = runFailureForView(run);
   const description = failure ? runFailureDescription(failure.code) : null;

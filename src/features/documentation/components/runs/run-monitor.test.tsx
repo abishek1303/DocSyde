@@ -172,3 +172,12 @@ test("source coverage loss reports synthesis as the blocker rather than document
   assert.match(html, /Documentation planning was not started/);
   assert.ok(!html.includes("Documentation targets could not be resolved"));
 });
+
+test("no surviving grounded claims identifies synthesis rather than planning as the blocker", () => {
+  const run = fixture(); run.status = "incomplete"; run.reason = "impact-no-grounded-claims";
+  run.stages[4].status = "incomplete";
+  const html = renderToStaticMarkup(<RunMonitor initial={run} />);
+  assert.match(html, /No grounded product claims remained/);
+  assert.match(html, /Documentation planning was not started/);
+  assert.ok(!html.includes("Documentation targets could not be resolved"));
+});
