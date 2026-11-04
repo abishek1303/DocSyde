@@ -33,7 +33,7 @@ export function RunStageMotion({ status, children }: { status: string; children:
         const viewport = node?.closest<HTMLOListElement>("[data-run-timeline]");
         if (!node || !viewport) return;
         const top = node.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
-        if (top < 0 || top + node.offsetHeight > viewport.clientHeight) viewport.scrollTo({ top: Math.max(0, viewport.scrollTop + top - 8), behavior: reduced ? "instant" : "smooth" });
+        if (top < 0 || top + Math.min(node.offsetHeight, viewport.clientHeight - 16) > viewport.clientHeight) viewport.scrollTo({ top: Math.max(0, viewport.scrollTop + top - 8), behavior: reduced ? "instant" : "smooth" });
       });
       return () => { reveal.kill(); media.revert(); };
     }

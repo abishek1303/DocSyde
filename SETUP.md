@@ -245,3 +245,7 @@ Full Scan and Latest Changes setup show only the page title and the three-step f
 Skipped runtime inspection distinguishes a missing package-manager executable from missing project dependencies, startup failure, and readiness timeout. The run step shows an actionable explanation and retains startup event details; documentation continues source-only. Only an allowlisted package-manager name is stored for this diagnostic, without paths, commands, environment values, or raw output. Older ambiguous startup records remain ambiguous. Pending page cards display their total and included change counts. Documentation screenshots open in a dismissible preview dialog.
 
 The new-run options screen shows its title and the Full Scan / Latest Changes cards, without a project picker, breadcrumb, or introductory notices. Existing pending-review and eligibility checks still apply.
+
+The run timeline shows an immediate Starting indicator while execution is being admitted, without changing saved stage status. Activity has a 38rem minimum desktop height and can extend the page; the resource column remains uncapped. Automatic stage reveals preserve the active step heading instead of following the bottom of a tall screenshot.
+
+Run Artifacts lists retained checkpoint screenshots from the existing inspection endpoint, including selected status. Thumbnails open the shared image preview overlay; no additional capture or inference is performed.

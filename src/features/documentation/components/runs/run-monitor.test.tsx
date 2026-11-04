@@ -148,3 +148,18 @@ test("unknown runtime reasons never render raw diagnostic contents", () => {
   assert.ok(!explanation.includes("SECRET"));
   assert.ok(!explanation.includes("/private"));
 });
+
+test("pending runs show loading on the first step before a running checkpoint arrives", () => {
+  const run = fixture(); run.status = "pending";
+  const html = renderToStaticMarkup(<RunMonitor initial={run} />);
+  assert.match(html, /Starting this run…/);
+  assert.match(html, /Starting…/);
+  assert.match(html, /aria-current="step"/);
+  assert.match(html, /motion-safe:animate-spin text-primary/);
+  assert.equal(run.stages[0].status, "waiting", "loading is presentational, not a saved stage transition");
+});
+
+test("terminal waiting stages do not show a starting indicator", () => {
+  const run = fixture(); run.status = "cancelled";
+  assert.ok(!renderToStaticMarkup(<RunMonitor initial={run} />).includes("Starting this run…"));
+});

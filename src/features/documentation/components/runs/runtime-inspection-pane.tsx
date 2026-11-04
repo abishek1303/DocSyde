@@ -1,11 +1,12 @@
 "use client";
 import Image from "next/image";
+import { DocumentationImage } from "../reader/documentation-image";
 import { MotionReveal } from "@/components/application/motion-reveal";
 import { ActivityDetails } from "./activity-details";
 import { useEffect, useState } from "react";
 import { inspectionEventLabel, runtimeFailureMessage } from "../../runs/run-inspection-presentation";
 import type { InspectionView } from "../../runs/run-inspection-contract";
-export function RuntimeInspectionPane({ runId, terminal, detailsOnly = false }: { runId: string; terminal: boolean; detailsOnly?: boolean }) {
+export function RuntimeInspectionPane({ runId, terminal, detailsOnly = false, artifactsOnly = false }: { runId: string; terminal: boolean; detailsOnly?: boolean; artifactsOnly?: boolean }) {
   const [selectedCapture, setSelectedCapture] = useState<string | null>(null);
   const [view, setView] = useState<InspectionView | null>(null);
   const [message, setMessage] = useState("Loading runtime inspection…");
@@ -37,7 +38,7 @@ export function RuntimeInspectionPane({ runId, terminal, detailsOnly = false }: 
   const preview = revision !== expiredRevision ? view?.snapshot?.preview : null;
   const retained = view?.captures.find(cp => cp.captureId === preview?.captureId);
   const canonical = view?.captures.at(-1);
-  const framePath = selectedCapture && view?.captures.some(cp => cp.captureId === selectedCapture) ? `/runs/${runId}/inspection/screenshots/${selectedCapture}` : retained ? `/runs/${runId}/inspection/screenshots/${retained.captureId}` : preview ? `/runs/${runId}/inspection/preview/${preview.revision}` : canonical ? `/runs/${runId}/inspection/screenshots/${canonical.captureId}` : "";
+  const framePath = artifactsOnly ? "" : selectedCapture && view?.captures.some(cp => cp.captureId === selectedCapture) ? `/runs/${runId}/inspection/screenshots/${selectedCapture}` : retained ? `/runs/${runId}/inspection/screenshots/${retained.captureId}` : preview ? `/runs/${runId}/inspection/preview/${preview.revision}` : canonical ? `/runs/${runId}/inspection/screenshots/${canonical.captureId}` : "";
   useEffect(() => {
     const controller = new AbortController(); let url = "";
     if (framePath) void fetch(framePath, { cache: "no-store", signal: controller.signal }).then(async response => {
@@ -59,6 +60,9 @@ export function RuntimeInspectionPane({ runId, terminal, detailsOnly = false }: 
     {"exitCode" in e && <p className="text-muted-foreground">Exit status: {e.exitCode ?? "unavailable"}. Raw command output is not retained.</p>}
     {"captureId" in e && <code className="ml-2 break-all text-muted-foreground">{e.captureId}</code>}
   </li>)}</ol>;
+  if (artifactsOnly) return <section aria-label="Captured screenshots" className="space-y-2 border-t pt-3"><h3 className="text-xs font-medium text-muted-foreground">Captured screenshots{view?.captures.length ? ` (${view.captures.length})` : ""}</h3>
+    {message ? <p role="status" className="text-xs text-muted-foreground">{message}</p> : view?.captures.length ? <CapturedScreenshots runId={runId} captures={view.captures} /> : <p className="text-xs text-muted-foreground">{terminal ? "No screenshots were captured." : "Screenshots appear here as checkpoints are captured."}</p>}
+  </section>;
   if (detailsOnly) return <ActivityDetails label="Application startup details">{renderEvents(events)}</ActivityDetails>;
   const milestones = [
     { label: "Starting browser session", start: "browser-launch-started", end: "browser-launched" },
@@ -96,4 +100,9 @@ export function RuntimeInspectionPane({ runId, terminal, detailsOnly = false }: 
       {!!view?.snapshot?.omittedEvents && <p className="text-xs">{view.snapshot.omittedEvents} events omitted by inspection limits.</p>}
     </ActivityDetails>
   </section>;
+}
+
+
+export function CapturedScreenshots({ runId, captures }: { runId: string; captures: InspectionView["captures"] }) {
+  return <div className="grid grid-cols-2 gap-3 [&_figure]:my-0 [&_figcaption]:text-xs">{captures.map((capture, index) => <DocumentationImage key={capture.captureId} src={`/runs/${runId}/inspection/screenshots/${capture.captureId}`} image={{ id: capture.captureId, width: 192, height: 120, alt: `Masked checkpoint ${index + 1}`, caption: `Checkpoint ${index + 1}${capture.selected ? " · selected" : ""}` }} />)}</div>;
 }
