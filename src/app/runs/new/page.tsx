@@ -7,15 +7,12 @@ import { getPendingWorkspace, hasActionablePendingChanges } from "@/features/doc
 import { PENDING_REVIEW_MESSAGE } from "@/features/documentation/review/run-eligibility";
 import { ArrowRight, GitCompareArrows, ScanSearch } from "lucide-react";
 import { hasExistingDocumentation } from "@/features/documentation/library/library-operations";
-import { RepositoryPicker } from "@/features/sources/components/repository-picker";
 import { Suspense } from "react";
-import { AppShell } from "@/components/application/shell";
 import { LoadingList } from "@/components/application/loading-list";
 import { BranchRunForm } from "@/features/documentation/components/runs/branch-run-form";
 import { RetryRunForm } from "@/features/documentation/components/runs/retry-run-form";
-import { RunBreadcrumbs } from "@/features/documentation/components/runs/run-breadcrumbs";
 import { prepareDocumentationRun } from "@/features/documentation/runs/prepare-run";
-import { configuredRepositories, selectedRepository, defaultBranch, runBranchSelection, type RepositorySearch } from "@/features/sources/repository/repository-overview";
+import { selectedRepository, defaultBranch, runBranchSelection, type RepositorySearch } from "@/features/sources/repository/repository-overview";
 
 type SetupSearch = RepositorySearch & { rerun?: string; mode?: string };
 async function RerunSetup({ search }: { search: SetupSearch }) {
@@ -60,20 +57,14 @@ async function Setup({ searchParams }: { searchParams: Promise<SetupSearch> }) {
     </main>;
   }
   const unavailableReason = available === null ? "We couldn’t check this project’s documentation. Please try again." : "No documentation is available to update yet.";
-  return <AppShell repository={repository.name} branchContext={<span>{search.rerun ? "Rerun" : "New run"}</span>} active="Runs">
-    <RunBreadcrumbs repository={repository.name} current={search.rerun ? "Rerun" : latest ? "Latest Changes" : fullScan ? "Full Scan" : "New run"} />
-    <header className="space-y-3"><h1 className="text-3xl font-semibold tracking-tight">{search.rerun ? "Rerun" : latest ? "Latest Changes" : fullScan ? "Generate documentation" : "Start a new run"}</h1>
-      {!search.rerun && <p className="max-w-2xl text-sm leading-7 text-muted-foreground">{latest ? "Compare the latest change on a branch, reuse product understanding, and prepare documentation updates for review." : fullScan ? "Explore a branch and prepare documentation for review." : "Choose how you’d like to update your documentation."}</p>}
-    </header>
-    {!search.rerun && <RepositoryPicker selected={repository.name} repositories={configuredRepositories()} />}
-    <p className="max-w-2xl text-xs leading-6 text-muted-foreground">For this demo, configure your GitHub token to access only the repository you want DocSyde to analyze.</p>
+  return <main id="main-content" className="mx-auto w-full max-w-5xl space-y-7 px-5 py-9 sm:px-8 sm:py-12">
+    <h1 className="text-3xl font-semibold tracking-tight">{search.rerun ? "Rerun" : "Start a new run"}</h1>
     {pendingReview !== false ? <section className="max-w-2xl space-y-5">
       <p role="status" className="text-sm leading-7">{pendingReview ? PENDING_REVIEW_MESSAGE : "Run availability could not be checked. Reload after checking the database connection."}</p>
       <Link href={`/docs?${new URLSearchParams({ repository: repository.name, tab: "pending" })}`} className={buttonVariants()}>Review pending changes</Link>
       <div className="grid gap-4 sm:grid-cols-2">{["Full Scan", "Latest Changes"].map(mode => <div key={mode} role="group" aria-label={mode} aria-disabled="true" className="rounded-xl border bg-muted/25 p-5 text-sm text-muted-foreground">{mode}</div>)}</div>
       {pendingBatch && pendingBatch.count > 0 && <FreshFullScanForm key={`${repository.name}:${pendingBatch.hash}`} repository={repository.name} branch={repository.branch} expectedHash={pendingBatch.hash} />}
     </section> : search.rerun ? <Suspense fallback={<LoadingList />}><RerunSetup search={search} /></Suspense> : <>
-      {search.mode === "changes" && <p role="status" className="text-sm text-muted-foreground">{unavailableReason}</p>}
       <div className="grid max-w-4xl gap-5 md:grid-cols-2">
         <Link href={`/runs/new?${query}&mode=full`} className="group flex min-h-72 flex-col rounded-2xl border bg-card p-6 transition-colors hover:border-primary/50 hover:bg-accent/25 focus-visible:outline-2 focus-visible:outline-ring motion-reduce:transition-none">
           <ScanSearch aria-hidden="true" className="mb-6 size-6 text-primary" /><h2 className="text-xl font-semibold">Full scan</h2>
@@ -94,7 +85,7 @@ async function Setup({ searchParams }: { searchParams: Promise<SetupSearch> }) {
       </div>
     </>}
 
-  </AppShell>;
+  </main>;
 }
 export default function NewRunPage(props: { searchParams: Promise<SetupSearch> }) {
   return <Suspense fallback={<LoadingList />}>
