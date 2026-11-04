@@ -25,36 +25,32 @@ export async function createGithubClient(signal?: AbortSignal) {
     log: { debug() {}, info() {}, warn() {}, error() {} },
   });
   client.hook.before("request", (options) => {
-    if (target) {
-      const request = client.request.endpoint(options);
-      const url = new URL(request.url);
-      const path = url.pathname.match(/^\/repos\/([^/]+)\/([^/]+)(?:\/|$)/);
-      let allowed = false;
-      if (url.origin === "https://api.github.com" && path) {
-        allowed = path[1].toLowerCase() === target.owner && path[2].toLowerCase() === target.repo;
-      } else if (url.origin === "https://api.github.com" && url.pathname === "/graphql" && request.body !== undefined) {
-        // Only DocSyde's fixed branch query is allowed; arbitrary GraphQL can hide other repositories in aliases or literals.
-        try {
-          const body = z.object({ query: z.literal(branchSelectionQuery), variables: repositoryCoordinates.extend({ after: z.string().nullable().optional() }).strict() }).strict().parse(typeof request.body === "string" ? JSON.parse(request.body) : request.body);
-          allowed = body.variables.owner === target.owner && body.variables.repo === target.repo;
-        } catch { /* Unknown requests fail closed without exposing provider/request details. */ }
-      }
-      if (!allowed) throw new SourceReadError("forbidden", "Demo mode only allows GitHub requests for the configured target repository.");
+    const request = client.request.endpoint(options);
+    const url = new URL(request.url);
+    const path = url.pathname.match(/^\/repos\/([^/]+)\/([^/]+)(?:\/|$)/);
+    let allowed = false;
+    if (url.origin === "https://api.github.com" && path) {
+      allowed = path[1].toLowerCase() === target.owner && path[2].toLowerCase() === target.repo;
+    } else if (url.origin === "https://api.github.com" && url.pathname === "/graphql" && request.body !== undefined) {
+      // Only DocSyde's fixed branch query is allowed; arbitrary GraphQL can hide other repositories in aliases or literals.
+      try {
+        const body = z.object({ query: z.literal(branchSelectionQuery), variables: repositoryCoordinates.extend({ after: z.string().nullable().optional() }).strict() }).strict().parse(typeof request.body === "string" ? JSON.parse(request.body) : request.body);
+        allowed = body.variables.owner === target.owner && body.variables.repo === target.repo;
+      } catch { /* Unknown requests fail closed without exposing provider/request details. */ }
     }
+    if (!allowed) throw new SourceReadError("forbidden", "DocSyde only allows GitHub requests for the configured target repository.");
     // Installed Octokit forwards signals but does not implement request.timeout.
     options.request.signal = AbortSignal.any([AbortSignal.timeout(30_000), ...(signal ? [signal] : [])]);
     options.request.redirect = "error";
     options.headers["X-GitHub-Api-Version"] = "2026-03-10";
   });
-  if (target) {
-    // A successful authenticated read establishes access, not exclusive token scope.
-    await withGithubErrors(async () => {
-      const { data } = await client.rest.repos.get(target);
-      if (typeof data.full_name !== "string" || data.full_name.toLowerCase() !== `${target.owner}/${target.repo}`) {
-        throw new SourceReadError("upstream", "GitHub could not confirm access to the configured demo repository.");
-      }
-    });
-  }
+  // A successful authenticated read establishes access, not exclusive token scope.
+  await withGithubErrors(async () => {
+    const { data } = await client.rest.repos.get(target);
+    if (typeof data.full_name !== "string" || data.full_name.toLowerCase() !== `${target.owner}/${target.repo}`) {
+      throw new SourceReadError("upstream", "GitHub could not confirm access to the configured repository.");
+    }
+  });
   return client;
 }
 

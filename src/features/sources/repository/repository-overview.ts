@@ -8,17 +8,7 @@ import { assertAllowedRepository } from "./local-source-access";
 export type RepositorySearch = { repository?: string; branch?: string; before?: string; id?: string; page?: string };
 export function configuredRepositories() {
   const target = demoRepository();
-  if (target) return [`${target.owner}/${target.repo}`];
-  const configured = (process.env.DOCSYDE_ANALYSIS_REPOSITORIES ?? "abishek1303/DocSyde").split(",").map(value => value.trim()).filter(Boolean);
-  const seen = new Set<string>();
-  return configured.filter(value => {
-    if (seen.has(value.toLowerCase())) return false;
-    const [owner, repo, extra] = value.split("/");
-    if (extra !== undefined) throw new Error("Invalid repository configuration.");
-    repositoryCoordinates.parse({ owner, repo });
-    seen.add(value.toLowerCase());
-    return true;
-  });
+  return [`${target.owner}/${target.repo}`];
 }
 export function selectedRepository(search: RepositorySearch) {
   const configured = configuredRepositories();

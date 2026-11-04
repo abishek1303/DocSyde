@@ -1,4 +1,14 @@
-import { test } from "node:test";
+import { afterEach, beforeEach, test } from "node:test";
+
+let previousRepository: string | undefined;
+beforeEach(() => {
+  previousRepository = process.env.DOCSYDE_ANALYSIS_REPOSITORIES;
+  process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "example/product";
+});
+afterEach(() => {
+  if (previousRepository === undefined) delete process.env.DOCSYDE_ANALYSIS_REPOSITORIES;
+  else process.env.DOCSYDE_ANALYSIS_REPOSITORIES = previousRepository;
+});
 import assert from "node:assert/strict";
 import { readRecentCommits } from "./browse";
 
@@ -17,7 +27,7 @@ test("recent commits resolve the default branch, honor selected branches and han
       pages.push(url.searchParams.get("page") ?? "");
       return Response.json([{ sha: "a".repeat(40), html_url: "https://github.com/example/product/commit/a", commit: { message: "Short title\nBody", author: { name: "Author" }, committer: { date: "2026-10-29T00:00:00Z" } } }], { headers: url.searchParams.get("page") === "1" ? { link: '<https://api.github.com/repos/example/product/commits?page=2>; rel="next"' } : {} });
     }
-    return Response.json({ default_branch: "main", size: empty ? 0 : 10 });
+    return Response.json({ full_name: "example/product", default_branch: "main", size: empty ? 0 : 10 });
   });
   const first = await readRecentCommits({ owner: "example", repo: "product" }, undefined, 4);
   assert.equal(first.branch, "main");
@@ -39,6 +49,7 @@ test("commit details retain parents and normalize file evidence and branch names
   t.after(() => { if (old === undefined) delete process.env.GITHUB_TOKEN; else process.env.GITHUB_TOKEN = old; });
   t.mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
     const url = String(input);
+    if (new URL(url).pathname === "/repos/example/product") return Response.json({ full_name: "example/product" });
     if (url.includes("/branches")) return Response.json([{ name: "main" }, { name: "release/v1" }]);
     return Response.json({ sha: "b".repeat(40), html_url: "https://github.com/example/product/commit/b", commit: { message: "Merge feature", author: null, committer: null }, parents: [{ sha: "a".repeat(40) }, { sha: "c".repeat(40) }], files: [{ filename: "form.ts", status: "modified", additions: 1, deletions: 0, patch: "+required" }] });
   });

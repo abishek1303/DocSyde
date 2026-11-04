@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { test, type TestContext } from "node:test";
+import { afterEach, beforeEach, test, type TestContext } from "node:test";
+
+let previousRepository: string | undefined;
+beforeEach(() => {
+  previousRepository = process.env.DOCSYDE_ANALYSIS_REPOSITORIES;
+  process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "example/product";
+});
+afterEach(() => {
+  if (previousRepository === undefined) delete process.env.DOCSYDE_ANALYSIS_REPOSITORIES;
+  else process.env.DOCSYDE_ANALYSIS_REPOSITORIES = previousRepository;
+});
 import { compareCommits, readFileAtCommit } from "@/integrations/github/source-reader";
 import { SourceReadError, type SourceReadErrorCode } from "@/integrations/github/errors";
 
@@ -48,6 +58,7 @@ function mockGithub(t: TestContext, respond: (url: URL) => Reply) {
   const calls: RecordedRequest[] = [];
   t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(typeof input === "string" ? input : input instanceof URL ? input : input.url);
+    if (url.pathname === "/repos/example/product") return Response.json({ full_name: "example/product" });
     calls.push({ url, init });
     assert.equal(url.origin, "https://api.github.com");
     assert.equal(init?.method, "GET");

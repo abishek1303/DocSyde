@@ -12,8 +12,8 @@ import { assertAllowedRepository } from "@/features/sources/repository-access";
 import { configuredRepositories, selectedRepository } from "@/features/sources/repository/repository-overview";
 
 const secret = "fixture-token-never-print";
-function configure(t: TestContext, repositories = "Example/Product", flag = "true") {
-  const values = { GITHUB_TOKEN: secret, DOCSYDE_DEMO_SINGLE_REPO_ONLY: flag, DOCSYDE_ANALYSIS_REPOSITORIES: repositories };
+function configure(t: TestContext, repositories = "Example/Product") {
+  const values = { GITHUB_TOKEN: secret, DOCSYDE_ANALYSIS_REPOSITORIES: repositories };
   const previous = Object.fromEntries(Object.keys(values).map(key => [key, process.env[key]]));
   Object.assign(process.env, values);
   t.after(() => { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
@@ -23,7 +23,7 @@ function sourceError(code: SourceReadError["code"]) {
 }
 const metadata = { full_name: "example/product", default_branch: "main" };
 
-test("demo mode requires one valid configured target before contacting GitHub", async t => {
+test("DocSyde requires one valid configured target before contacting GitHub", async t => {
   configure(t);
   t.mock.method(globalThis, "fetch", () => { throw new Error("No request expected"); });
   for (const configured of ["", " , ", "example/product,example/other", "bad", "example/product/extra", "example/.."] ) {
@@ -40,7 +40,7 @@ test("demo mode requires one valid configured target before contacting GitHub", 
   assert.throws(() => assertAllowedRepository("example", "other"), sourceError("forbidden"));
 });
 
-test("demo client validates target access without enumerating token grants", async t => {
+test("client validates target access without enumerating token grants", async t => {
   configure(t);
   const paths: string[] = [];
   t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
@@ -84,7 +84,7 @@ test("all GitHub entry points reject other repositories, including CLI-style dir
   assert.ok(paths.length > 0);
 });
 
-test("demo GraphQL permits only the existing target-bound branch query", async t => {
+test("GraphQL permits only the existing target-bound branch query", async t => {
   configure(t);
   let queries = 0;
   t.mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
@@ -119,16 +119,17 @@ test("access failures are sanitized and cannot return an unvalidated client", as
   await assert.rejects(createGithubClient, sourceError("missing-credentials"));
 });
 
-test("disabled demo mode preserves multiple repositories and makes no validation requests", async t => {
-  configure(t, "example/product,example/other", "false");
-  let requests = 0;
-  t.mock.method(globalThis, "fetch", async () => { requests++; return Response.json(metadata); });
-  assert.deepEqual(configuredRepositories(), ["example/product", "example/other"]);
-  assert.doesNotThrow(() => assertAllowedRepository("example", "other"));
-  const client = await createGithubClient();
-  assert.equal(requests, 0);
-  await client.rest.repos.get({ owner: "example", repo: "other" });
-  assert.equal(requests, 1);
-  process.env.DOCSYDE_DEMO_SINGLE_REPO_ONLY = "1";
-  assert.equal(demoRepository(), null, "only the explicit true flag enables the safeguard");
+test("the repository boundary applies without a flag and cannot be disabled", async t => {
+  configure(t);
+  const previous = process.env.DOCSYDE_DEMO_SINGLE_REPO_ONLY;
+  t.after(() => { if (previous === undefined) delete process.env.DOCSYDE_DEMO_SINGLE_REPO_ONLY; else process.env.DOCSYDE_DEMO_SINGLE_REPO_ONLY = previous; });
+  for (const value of [undefined, "false", "true", "1"]) {
+    if (value === undefined) delete process.env.DOCSYDE_DEMO_SINGLE_REPO_ONLY;
+    else process.env.DOCSYDE_DEMO_SINGLE_REPO_ONLY = value;
+    assert.deepEqual(demoRepository(), { owner: "example", repo: "product" });
+    assert.throws(() => assertAllowedRepository("example", "other"), sourceError("forbidden"));
+    process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "example/product,example/other";
+    await assert.rejects(createGithubClient, sourceError("invalid-input"));
+    process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "example/product";
+  }
 });

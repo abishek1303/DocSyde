@@ -15,6 +15,7 @@ test("comparison preparation authorizes before provider access and never invokes
   t.mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
     const url = new URL(input instanceof Request ? input.url : input);
     assert.equal(url.origin, "https://api.github.com");
+    if (url.pathname === "/repos/example/product") return Response.json({ full_name: "example/product" });
     calls.push(url);
     const body = url.pathname.endsWith("/commits/main") ? commit(head) : url.pathname.endsWith("/commits/before") ? commit(base) : {
       status: "ahead", merge_base_commit: commit(base), total_commits: 1, commits: [commit(head)],
@@ -22,7 +23,7 @@ test("comparison preparation authorizes before provider access and never invokes
     };
     return Response.json(body);
   });
-  await assert.rejects(() => previewSourceComparison({ owner: "denied", repo: "product", base: "before", head: "main" }), /not allowed/);
+  await assert.rejects(() => previewSourceComparison({ owner: "denied", repo: "product", base: "before", head: "main" }), /only allows/);
   assert.equal(calls.length, 0);
   const result = await previewSourceComparison({ owner: "example", repo: "product", base: "before", head: "main" });
   assert.equal(result.base, base); assert.equal(result.head, head);

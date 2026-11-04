@@ -1,4 +1,3 @@
-import { demoSingleRepoOnly } from "@/integrations/github/demo-repository";
 import { SourceReadError } from "@/integrations/github/errors";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
@@ -43,11 +42,9 @@ async function Setup({ searchParams }: { searchParams: Promise<SetupSearch> }) {
       <p role="alert">{error instanceof SourceReadError ? error.message : "Invalid repository or branch selection."}</p>
     </main>;
   }
-  if (demoSingleRepoOnly()) {
-    try { await defaultBranch(repository); }
-    catch (error) {
-      return <AppShell repository={repository.name} active="Runs"><RunBreadcrumbs current="Start a run" /><h1 className="text-2xl font-semibold">Start a new run</h1><p className="text-sm text-muted-foreground">For this demo, configure your GitHub token to access only the repository you want DocSyde to analyze.</p><p role="alert" className="text-sm text-destructive">{error instanceof SourceReadError ? error.message : "GitHub access could not be validated. Check GITHUB_TOKEN and try again."}</p></AppShell>;
-    }
+  try { await defaultBranch(repository); }
+  catch (error) {
+    return <AppShell repository={repository.name} active="Runs"><RunBreadcrumbs current="Start a run" /><h1 className="text-2xl font-semibold">Start a new run</h1><p className="text-sm text-muted-foreground">For this demo, configure your GitHub token to access only the repository you want DocSyde to analyze.</p><p role="alert" className="text-sm text-destructive">{error instanceof SourceReadError ? error.message : "GitHub access could not be validated. Check GITHUB_TOKEN and try again."}</p></AppShell>;
   }
   const pendingReview = await hasActionablePendingChanges(repository.name).catch(() => null);
   const pendingBatch = pendingReview === true ? await getPendingWorkspace({ repository: repository.name }).catch(() => null) : null;
@@ -63,7 +60,7 @@ async function Setup({ searchParams }: { searchParams: Promise<SetupSearch> }) {
       {!search.rerun && <p className="max-w-2xl text-sm leading-7 text-muted-foreground">{latest ? "Compare the latest change on a branch, reuse product understanding, and prepare documentation updates for review." : fullScan ? "Explore a branch and prepare documentation for review." : "Choose how you’d like to update your documentation."}</p>}
     </header>
     {!search.rerun && <RepositoryPicker selected={repository.name} repositories={configuredRepositories()} />}
-    {demoSingleRepoOnly() && <p className="max-w-2xl text-xs leading-6 text-muted-foreground">For this demo, configure your GitHub token to access only the repository you want DocSyde to analyze.</p>}
+    <p className="max-w-2xl text-xs leading-6 text-muted-foreground">For this demo, configure your GitHub token to access only the repository you want DocSyde to analyze.</p>
     {pendingReview !== false ? <section className="max-w-2xl space-y-5">
       <p role="status" className="text-sm leading-7">{pendingReview ? PENDING_REVIEW_MESSAGE : "Run availability could not be checked. Reload after checking the database connection."}</p>
       <Link href={`/docs?${new URLSearchParams({ repository: repository.name, tab: "pending" })}`} className={buttonVariants()}>Review pending changes</Link>

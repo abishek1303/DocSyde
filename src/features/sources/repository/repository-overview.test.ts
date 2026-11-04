@@ -13,9 +13,11 @@ test("repository context uses the allowlist and validates URL branch selection",
 });
 
 
-test("project picker lists configured repositories once with their display names", t => {
+test("project picker lists one target and rejects multiple repositories", t => {
   const previous = process.env.DOCSYDE_ANALYSIS_REPOSITORIES;
   t.after(() => { if (previous === undefined) delete process.env.DOCSYDE_ANALYSIS_REPOSITORIES; else process.env.DOCSYDE_ANALYSIS_REPOSITORIES = previous; });
   process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "abishek1303/DockSyde-demo-app-test-subject,Example/Product,example/product";
-  assert.deepEqual(configuredRepositories(), ["abishek1303/DockSyde-demo-app-test-subject", "Example/Product"]);
+  assert.throws(() => configuredRepositories(), /exactly one/);
+  process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "Example/Product,example/product";
+  assert.deepEqual(configuredRepositories(), ["example/product"]);
 });

@@ -31,7 +31,7 @@ test("branch changes pin the preview to that branch without database writes or i
         { name: "feature/docs", target: { messageHeadline: "feat: Improve request creation", committedDate: "2026-10-31T12:00:00Z" } },
       ], pageInfo: { hasNextPage: false, endCursor: null } } } } });
     }
-    if (url.pathname === "/repos/example/product") return Response.json({ default_branch: "main" });
+    if (url.pathname === "/repos/example/product") return Response.json({ full_name: "example/product", default_branch: "main" });
     if (url.pathname.endsWith("/commits")) return Response.json([commit(url.searchParams.get("sha") === "feature/docs" ? feature : main)]);
     if (url.pathname.includes("/compare/")) {
       const isFeature = url.pathname.endsWith(feature);
@@ -74,7 +74,7 @@ test("simple submission pins the selected branch and saves context in a pending 
   t.mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
     const url = new URL(input instanceof Request ? input.url : input);
     assert.equal(url.origin, "https://api.github.com", "Starting setup must not invoke inference");
-    if (url.pathname === "/repos/example/product") return Response.json({ default_branch: "main" });
+    if (url.pathname === "/repos/example/product") return Response.json({ full_name: "example/product", default_branch: "main" });
     if (url.pathname.endsWith("/commits")) { assert.equal(url.searchParams.get("sha"), "feature/requests"); return Response.json([commit(head)]); }
     if (url.pathname.includes("/compare/")) return Response.json({ status: "ahead", merge_base_commit: { sha: base }, total_commits: 1, commits: [commit(head)], files: [{ filename: "form.ts", status: "modified", additions: 1, deletions: 1, patch: "@@ -1 +1 @@\n-old\n+new" }] });
     return Response.json(commit(url.pathname.split("/").at(-1)!));
@@ -121,6 +121,7 @@ test("Full Scan pins a current snapshot without a diff, prior documents, inferen
   t.mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
     const url = new URL(input instanceof Request ? input.url : input);
     assert.equal(url.origin, "https://api.github.com");
+    if (url.pathname === "/repos/example/product") return Response.json({ full_name: "example/product" });
     assert.match(url.pathname, /\/commits\//, "No comparison, diff or tree needed to create a run");
     return Response.json({ sha: head, html_url: `https://github.com/example/product/commit/${head}`, parents: [], commit: { message: "Initial commit", author: { name: "Test" }, committer: { date: "2026-11-01T00:00:00Z" } } });
   });

@@ -1,5 +1,15 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { afterEach, beforeEach, test } from "node:test";
+
+let previousRepository: string | undefined;
+beforeEach(() => {
+  previousRepository = process.env.DOCSYDE_ANALYSIS_REPOSITORIES;
+  process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "example/product";
+});
+afterEach(() => {
+  if (previousRepository === undefined) delete process.env.DOCSYDE_ANALYSIS_REPOSITORIES;
+  else process.env.DOCSYDE_ANALYSIS_REPOSITORIES = previousRepository;
+});
 import { readRecentBranchSelection } from "./recent-branch";
 
 test("automatic branch selection checks every page, picks the newest tip and prefers the default on ties", async t => {
@@ -9,6 +19,7 @@ test("automatic branch selection checks every page, picks the newest tip and pre
   let calls = 0, tied = false, broken = false;
   t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(input instanceof Request ? input.url : input);
+    if (url.pathname === "/repos/example/product") return Response.json({ full_name: "example/product" });
     assert.equal(url.href, "https://api.github.com/graphql");
     assert.equal(init?.method, "POST");
     const body = JSON.parse(String(init?.body));

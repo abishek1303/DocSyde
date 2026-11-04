@@ -12,7 +12,7 @@ Edit the ignored root `.env`:
 | `DOCSYDE_STORAGE_DIRECTORY` | Runtime images. The directory is created on first capture; keep it outside `public/`. |
 | `GITHUB_TOKEN` | Reading selected repositories; use Contents: read permission. |
 | `BASETEN_API_KEY` | New product understanding and change-analysis text calls (Muse Spark Open). |
-| `DOCSYDE_ANALYSIS_REPOSITORIES` | Comma-separated repositories shown in the project picker. The example includes the demo and DocSyde. |
+| `DOCSYDE_ANALYSIS_REPOSITORIES` | Exactly one owner/repository that DocSyde may access. The example targets the demo repository. |
 | `META_API_KEY` | Runtime screenshot analysis via Muse Spark and Wonder finalization. |
 | `DOCSYDE_MCP_ENABLED=1` | Enables the read-only local MCP endpoint. |
 
@@ -236,4 +236,4 @@ Pending Changes uses fixed-height page cards with title, approved routes, and Ne
 
 Page navigation uses a shared GSAP fade, with staggered MCP card reveals. Suspense loading states share the animated book SVG. Both respect reduced-motion preferences; navigation adds no artificial delay and preserves page/form state.
 
-For the single-repository demo safeguard, set `DOCSYDE_DEMO_SINGLE_REPO_ONLY=true` and configure exactly one distinct `owner/repository` in `DOCSYDE_ANALYSIS_REPOSITORIES`. Keep `GITHUB_TOKEN` server-side. Run setup verifies GitHub access; the shared client validates the target and blocks REST/GraphQL requests outside it, including CLI calls. An empty, invalid, or multiple-repository configuration fails closed. The setup note asks users to restrict their token manually: this safeguard limits DocSyde, not the token’s full GitHub grants. Leave the flag unset or false to retain normal multi-repository behavior. `npm run github:test` includes mocked safeguard tests and makes no live GitHub/model calls.
+The single-repository safeguard is always enabled; no mode flag is needed. Configure exactly one distinct `owner/repository` in `DOCSYDE_ANALYSIS_REPOSITORIES`. Keep `GITHUB_TOKEN` server-side. Run setup verifies GitHub access; the shared client validates the target and blocks REST/GraphQL requests outside it, including CLI calls. An empty, invalid, or multiple-repository configuration fails closed. The setup note asks users to restrict their token manually: this safeguard limits DocSyde, not the token’s full GitHub grants. `npm run github:test` includes mocked safeguard tests and makes no live GitHub/model calls.
