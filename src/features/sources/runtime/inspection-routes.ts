@@ -1,5 +1,6 @@
 import { type ProductAnalysis, type ProductBundle, type ProductEvidence } from "../analysis/product-change-analysis";
 import { isConcreteInspectionPath } from "./inspection-decision";
+import { PRODUCT_CITATION_EXCERPT_CHARACTERS } from "../analysis/product-change-limits";
 import { discoverProductRoutes } from "./discover-product-routes";
 
 type RouteCandidate = { pathname: string; citation: ProductAnalysis["findings"][number]["citations"][number] };
@@ -26,7 +27,7 @@ export function inspectionRouteCandidates(bundle: ProductBundle): RouteCandidate
   // declaration. These are source candidates, not new executable capabilities;
   // the run still checks the approved workflow's supported paths before capture.
   for (const route of discoverProductRoutes(bundle)) {
-    const proof = route.evidence.sources.find(source => source.excerpt.length <= 600);
+    const proof = route.evidence.sources.find(source => source.excerpt.length <= PRODUCT_CITATION_EXCERPT_CHARACTERS);
     if (!proof) continue;
     const evidence = bundle.evidence.find(file => file.path === proof.path && file.side === "head" && file.commitId === bundle.head);
     if (!evidence) continue;
@@ -63,7 +64,7 @@ export function inspectionRouteCandidates(bundle: ProductBundle): RouteCandidate
       const pathname = patterns.map(pattern => pattern.exec(line)?.[2]).find(value => value !== undefined);
       if (pathname === undefined || !isConcreteInspectionPath(pathname)) return;
       const excerpt = `${source.patch ? "+" : ""}${line}`;
-      if (!excerpt.length || excerpt.length > 600) return;
+      if (!excerpt.length || excerpt.length > PRODUCT_CITATION_EXCERPT_CHARACTERS) return;
       const number = index + source.lineOffset + 1;
       candidates.push({ pathname, citation: { evidenceId: evidence.id, startLine: number, endLine: number, excerpt } });
     });

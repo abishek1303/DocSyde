@@ -1,8 +1,9 @@
 import type { ModelDiagnostic } from "@/integrations/ai/model-diagnostic";
 import { z } from "zod";
+import { PRODUCT_CITATION_EXCERPT_CHARACTERS } from "./product-change-limits";
 import { summaryInput } from "../summary/change-summary";
 export const productChangeInput = summaryInput.extend({ paths: z.array(z.string().min(1).max(1024)).max(10) });
-export const productCitation = z.object({ evidenceId: z.string().min(1).max(30).describe("Copy the enclosing evidenceId exactly."), startLine: z.number().int().min(1).describe("Copy the first number of the selected lines tuple, never a diff hunk coordinate."), endLine: z.number().int().min(1).describe("For a single tuple use the same number as startLine."), excerpt: z.string().min(1).max(600).describe("Copy exact text from the selected tuple, preserving diff prefixes, whitespace and punctuation; do not paraphrase.") }).strict();
+export const productCitation = z.object({ evidenceId: z.string().min(1).max(30).describe("Copy the enclosing evidenceId exactly."), startLine: z.number().int().min(1).describe("Copy the first number of the selected lines tuple, never a diff hunk coordinate."), endLine: z.number().int().min(1).describe("For a single tuple use the same number as startLine."), excerpt: z.string().min(1).max(PRODUCT_CITATION_EXCERPT_CHARACTERS).describe("Copy exact text from the selected tuple, preserving diff prefixes, whitespace and punctuation; do not paraphrase.") }).strict();
 export const productChangeOutput = z.object({
   assessment: z.enum(["product-change", "internal-only", "insufficient-evidence"]),
   findings: z.array(z.object({

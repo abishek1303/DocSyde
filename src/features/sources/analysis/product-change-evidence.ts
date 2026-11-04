@@ -1,6 +1,6 @@
 import { productChangeGenerationOutput } from "./product-change-analysis";
 import type { ProductAnalysis, ProductBundle, AnalysisRejection, GeneratedProductAnalysis } from "./product-change-analysis";
-import { PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES } from "./product-change-limits";
+import { PRODUCT_CITATION_EXCERPT_CHARACTERS, PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES } from "./product-change-limits";
 import { noGenerationContext, type GenerationContextSnapshot } from "../context/generation-context";
 export class ProductEvidenceBudgetError extends Error {
   constructor() { super(`Combined evidence exceeds the ${PRODUCT_CHANGE_EVIDENCE_BUDGET_BYTES}-byte budget. Select fewer context files or a narrower revision range; no model call was made.`); }
@@ -63,20 +63,35 @@ export function deriveProductAssessment(findings: ProductAnalysis["findings"] | 
 export function reconstructProductAnalysis(analysis: unknown, bundle: ProductBundle): ProductAnalysis {
   const references = productChangeGenerationOutput.parse(analysis);
   if (new Set(bundle.evidence.map(entry => entry.id)).size !== bundle.evidence.length) reject("duplicate-reference");
-  const canonical: ProductAnalysis = { ...references, assessment: deriveProductAssessment(references.findings, bundle.limited), findings: references.findings.map((finding, findingIndex) => ({
-    ...finding, reachabilityEvidenceIds: [], citations: finding.citations.map((citation, citationIndex) => {
-      const evidence = bundle.evidence.find(e => e.id === citation.evidenceId);
-      if (!evidence) reject("unknown-evidence", findingIndex, citationIndex);
-      if (evidence.text === null) reject("unavailable-evidence", findingIndex, citationIndex);
-      const lines = evidence.text.split("\n");
-      if (!Number.isInteger(citation.startLine) || !Number.isInteger(citation.endLine) || citation.startLine < 1
-        || citation.endLine < citation.startLine || citation.endLine > lines.length) reject("invalid-line-range", findingIndex, citationIndex);
-      const excerpt = lines.slice(citation.startLine - 1, citation.endLine).join("\n");
-      // Preserve the historical canonical contract; never truncate or normalize evidence.
-      if (!excerpt.length || excerpt.length > 600) reject("citation-excerpt-size", findingIndex, citationIndex);
-      return { evidenceId: citation.evidenceId, startLine: citation.startLine, endLine: citation.endLine, excerpt };
-    }),
-  })) };
+  const omitted: { error: ProductAnalysisValidationError; gap: string }[] = [];
+  const findings = references.findings.flatMap((finding, findingIndex) => {
+    try {
+      return [{
+        ...finding, reachabilityEvidenceIds: [], citations: finding.citations.map((citation, citationIndex) => {
+          const evidence = bundle.evidence.find(e => e.id === citation.evidenceId);
+          if (!evidence) reject("unknown-evidence", findingIndex, citationIndex);
+          if (evidence.text === null) reject("unavailable-evidence", findingIndex, citationIndex);
+          const lines = evidence.text.split("\n");
+          if (!Number.isInteger(citation.startLine) || !Number.isInteger(citation.endLine) || citation.startLine < 1
+            || citation.endLine < citation.startLine || citation.endLine > lines.length) reject("invalid-line-range", findingIndex, citationIndex);
+          const excerpt = lines.slice(citation.startLine - 1, citation.endLine).join("\n");
+          // Never truncate or normalize evidence to fit the canonical contract.
+          if (!excerpt.length || excerpt.length > PRODUCT_CITATION_EXCERPT_CHARACTERS) reject("citation-excerpt-size", findingIndex, citationIndex);
+          return { evidenceId: citation.evidenceId, startLine: citation.startLine, endLine: citation.endLine, excerpt };
+        }),
+      }];
+    } catch (error) {
+      // Size is a context bound, not a grounding verdict. Omit the entire finding,
+      // never just its inconvenient citation; all other validation still fails closed.
+      if (!(error instanceof ProductAnalysisValidationError) || error.rejection.code !== "citation-excerpt-size") throw error;
+      omitted.push({ error, gap: `Finding ${findingIndex + 1} omitted: citation ${(error.rejection.citationIndex ?? 0) + 1} is outside the 1–${PRODUCT_CITATION_EXCERPT_CHARACTERS} character context limit. Its claims remain unverified.` });
+      return [];
+    }
+  });
+  // Keep the existing uncertainty bound and never hide a gap to make output fit.
+  if (omitted.length && (!findings.length || references.uncertainties.length + omitted.length > 4)) throw omitted[0].error;
+  const canonical: ProductAnalysis = { ...references, findings, assessment: deriveProductAssessment(findings, bundle.limited || omitted.length > 0),
+    uncertainties: [...references.uncertainties, ...omitted.map(item => item.gap)] };
   validateProductAnalysis(canonical, bundle);
   return canonical;
 }

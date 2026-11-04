@@ -1,3 +1,4 @@
+import { PRODUCT_CITATION_EXCERPT_CHARACTERS } from "../analysis/product-change-limits";
 import { reconstructProductAnalysis } from "../analysis/product-change-evidence";
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
@@ -300,4 +301,17 @@ test("neutral product findings let ProductImpact interpret UI, behavior and work
     response.claims[0].after = "Invented lifecycle transition";
     await assert.rejects(synthesizeProductImpact({ source: input }), /unsupported-temporal-values/);
   });
+});
+
+
+test("larger valid canonical excerpts cannot expand the aggregate evidence request budget", async t => {
+  const input = source(), excerpt = "+" + "é".repeat(PRODUCT_CITATION_EXCERPT_CHARACTERS - 1);
+  input.bundle.evidence[0].text = "@@ -1 +1 @@\n-old\n" + excerpt;
+  const finding = input.analysis!.findings[0];
+  input.analysis!.findings = Array.from({ length: 4 }, () => ({ ...finding,
+    citations: Array.from({ length: 4 }, () => ({ evidenceId: "p1", startLine: 3, endLine: 3, excerpt })),
+  }));
+  const p = provider(t, output());
+  await assert.rejects(synthesizeProductImpact({ source: input }), /request-over-budget/);
+  assert.equal(p.fetch.mock.callCount(), 0, "aggregate UTF-8 limit still blocks inference before transport");
 });
