@@ -72,7 +72,7 @@ export function RunMonitor({ initial }: { initial: RunView }) {
   const query = new URLSearchParams({ repository: `${run.input.owner}/${run.input.repo}`, ...(run.input.branch ? { branch: run.input.branch } : {}) });
   const failure = runFailureForView(run);
   const failureDescription = failure ? runFailureDescription(failure.code) : null;
-  const modelFailure = failure && (failure.diagnostic || failure.code.startsWith("model-") || ["evidence-validation", "transformation-failed"].includes(failure.code));
+  const modelFailure = failure && (failure.diagnostic || failure.candidateSelection || failure.code.startsWith("model-") || ["evidence-validation", "transformation-failed"].includes(failure.code));
   const labelFor = (key: string) => run.input.mode === "current-state" && key === "source-analysis" ? "Understanding current repository behavior" : activityLabels[key] ?? key.replaceAll("-", " ");
   const summaryFor = (stage: RunView["stages"][number]) => failureDescription && stage.status === "failed" ? failureDescription.message : stage.status === "incomplete" ? runOutcome(run).message : stage.status === "skipped" && ["failed", "incomplete", "interrupted", "cancelled"].includes(run.status) ? "Not run because an earlier stage stopped." : stage.summary;
   const context = run.input.runContext?.trim() ?? "";

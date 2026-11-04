@@ -108,12 +108,13 @@ export async function startDocumentationRun(rawId: unknown) {
       try {
         await writeRunCheckpoint(active.id, active.token, r => {
           const cancelled = Boolean(r.execution?.cancelRequestedAt);
-          const selectionIncomplete = error instanceof RunStageError && error.cause instanceof CandidateSelectionIncompleteError;
+          const selectionError = error instanceof RunStageError && error.cause instanceof CandidateSelectionIncompleteError ? error.cause : null;
+          const selectionIncomplete = Boolean(selectionError);
           const scopeExcluded = error instanceof RunStageError && error.cause instanceof InferenceBudgetError && error.cause.code === "outside-single-batch-scope";
           const budgetStop = error instanceof RunStageError && error.cause instanceof InferenceBudgetError ? error.cause : error instanceof InferenceBudgetError ? error : null;
           const reason = scopeExcluded ? "outside-single-batch-baseline-scope" : budgetStop ? `reliability-${budgetStop.code}` : cancelled ? "user-cancelled" : selectionIncomplete ? "documentation-candidates-incomplete" : active.controller.signal.aborted ? String(active.controller.signal.reason) : `stage-failed:${error instanceof RunStageError ? error.stage : r.activeStage ?? "execution"}`;
           const stage = error instanceof RunStageError ? error.stage : r.activeStage ?? "execution";
-          const failure = cancelled || scopeExcluded ? undefined : selectionIncomplete ? { stage, code: "candidates-incomplete" as const }
+          const failure = cancelled || scopeExcluded ? undefined : selectionIncomplete ? { stage, code: "candidates-incomplete" as const, ...(selectionError?.selection.diagnostics ? { candidateSelection: selectionError.selection.diagnostics } : {}) }
             : active.controller.signal.aborted ? { stage, code: active.controller.signal.reason === "application-deadline" ? "deadline" as const : active.controller.signal.reason === "heartbeat-renewal-failed" ? "heartbeat" as const : "stage-failed" as const }
             : classifyRunFailure(stage, error instanceof RunStageError ? error.cause : error);
           return finishRun(error instanceof RunStageError ? { ...r, activeStage: error.stage } : r, cancelled ? "cancelled" : selectionIncomplete || scopeExcluded ? "incomplete" : "failed", reason, failure);

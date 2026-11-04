@@ -1,3 +1,4 @@
+import type { CandidateSelection } from "../planning/candidate-selection";
 import type { ModelDiagnostic } from "@/integrations/ai/model-diagnostic";
 // Public failure descriptions are fixed application text, never provider messages.
 export const RUN_FAILURE_CODES = [
@@ -6,7 +7,7 @@ export const RUN_FAILURE_CODES = [
   "database-unavailable", "database-schema", "invalid-data", "runtime-failed", "candidates-incomplete", "transformation-failed", "deadline", "heartbeat", "stage-failed", "details-unavailable",
 ] as const;
 export type RunFailureCode = typeof RUN_FAILURE_CODES[number];
-export type RunFailure = { stage: string; code: RunFailureCode; diagnostic?: ModelDiagnostic };
+export type RunFailure = { stage: string; code: RunFailureCode; diagnostic?: ModelDiagnostic; candidateSelection?: CandidateSelection["diagnostics"] };
 const descriptions: Record<RunFailureCode, { message: string; nextStep: string }> = {
   "source-credentials": { message: "GitHub access is not configured.", nextStep: "Configure GITHUB_TOKEN on the server, then rerun this comparison." },
   "source-access": { message: "GitHub denied access to this repository.", nextStep: "Check the token’s repository permissions and organization access, then rerun." },
@@ -31,7 +32,7 @@ const descriptions: Record<RunFailureCode, { message: string; nextStep: string }
   "database-schema": { message: "The database schema required by this stage is unavailable.", nextStep: "Apply the documented database migrations, then rerun." },
   "invalid-data": { message: "This stage received data that failed validation.", nextStep: "Check the run’s configuration and saved inputs before starting a new attempt." },
   "runtime-failed": { message: "The runtime inspection could not complete.", nextStep: "Check the local app’s readiness, configured workflow and browser availability, then rerun." },
-  "candidates-incomplete": { message: "Too many possible documentation targets matched this change.", nextStep: "Use a narrower comparison or more specific product context before rerunning." },
+  "candidates-incomplete": { message: "Documentation targets could not be narrowed safely.", nextStep: "Review candidate-selection details for overlapping supported targets or retrieval limits. Add specific source or feature context, or narrow the comparison before rerunning." },
   "transformation-failed": { message: "Documentation generation or its support check did not complete.", nextStep: "Check the model provider and review the retained evidence before retrying." },
   "deadline": { message: "The run reached its execution time limit.", nextStep: "Choose a smaller comparison before starting a new attempt." },
   "heartbeat": { message: "The run could not renew its execution heartbeat.", nextStep: "Check database connectivity and the application process before retrying." },

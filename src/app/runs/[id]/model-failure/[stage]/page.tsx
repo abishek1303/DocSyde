@@ -20,7 +20,7 @@ async function FailureContent({ params }: { params: Promise<{ id: string; stage:
     <h1 className="text-3xl font-semibold tracking-tight">Model failure details</h1>
     <section className="space-y-4 rounded-xl border bg-card p-6"><h2 className="font-semibold">{details.stage}</h2><p className="text-sm text-muted-foreground">{details.logsUnavailable ? "Invocation logs are unavailable. Saved failure details are shown below." : "No invocation log was retained for this failure."}</p>
       {description && <><p>{description.message}</p><p className="text-sm text-muted-foreground">{description.nextStep}</p></>}
-      {details.failure?.diagnostic && <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs leading-6">{JSON.stringify(details.failure.diagnostic, null, 2)}</pre>}
+      {(details.failure?.diagnostic || details.failure?.candidateSelection) && <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs leading-6">{JSON.stringify(details.failure.diagnostic ?? details.failure.candidateSelection, null, 2)}</pre>}
     </section>
     <div className="flex flex-wrap gap-4 text-sm"><Link href={`/ai-model-usage?${query}&runId=${id}&stage=${encodeURIComponent(stage)}`} className="text-primary underline underline-offset-4">AI model usage log</Link><Link href={`/runs/${id}?${query}`} className="underline underline-offset-4">Back to run</Link></div>
   </AppShell>;

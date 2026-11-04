@@ -66,3 +66,13 @@ test("finishing a failed stage retains safe detail through persistence validatio
   assert.equal(runFailureForView(oldView)?.code, "details-unavailable");
   assert.equal(runFailureForView({ status: "running", stages: [] }), undefined);
 });
+
+test("candidate ambiguity remains incomplete with bounded diagnostics in the saved run",()=>{
+ const id=randomUUID(),now=new Date().toISOString();
+ const running=runRecordV2.parse({schemaVersion:2,input:{owner:"example",repo:"product",base:"a".repeat(40),head:"b".repeat(40),paths:[]},title:"Change",status:"running",disposition:null,reason:null,activeStage:"documentation-planning",summary:"Planning",startedAt:now,finishedAt:null,stages:initialWorkflowStages(),execution:{token:randomUUID(),heartbeatAt:now,cancelRequestedAt:null}});
+ const diagnostics={outcome:"ambiguous" as const,scannedSections:44,scannedDocuments:11,retainedSections:0,retainedDocuments:0,supportedDocuments:11};
+ const finished=finishRun(running,"incomplete","documentation-candidates-incomplete",{stage:"documentation-planning",code:"candidates-incomplete",candidateSelection:diagnostics});
+ assert.equal(finished.disposition,"incomplete");assert.deepEqual(finished.failure?.candidateSelection,diagnostics);
+ assert.deepEqual(runView({id,record:finished,createdAt:now,savedAt:null}).failure?.candidateSelection,diagnostics);
+ assert.ok(!runRecordV2.safeParse({...finished,failure:{...finished.failure,candidateSelection:{...diagnostics,rawSource:"PRIVATE"}}}).success);
+});

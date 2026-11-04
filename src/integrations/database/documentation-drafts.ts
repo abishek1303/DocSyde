@@ -31,11 +31,11 @@ export async function selectDocumentationDrafts(limit: number, before?: { savedA
   ) : undefined)).orderBy(desc(documentationDrafts.savedAt), desc(documentationDrafts.id)).limit(limit);
 }
 
-/** Derived search projection over immutable snapshots. Publication/current state is
- * does not change snapshot identity or relevance. Full Scan can restrict the corpus
- * to current publications before applying bounds. Only bounded hit IDs leave SQL. */
+/** Derived search projection over immutable snapshots. Publication/current state
+ * does not change snapshot identity or relevance. Latest Changes can restrict the
+ * corpus to current publications; isolated Full Scan does not query this corpus. Only bounded hit IDs leave SQL. */
 export async function searchDocumentationSections(repository: string, query: {
-  tokens: string[]; associations: { kind: string; value: string }[];
+  tokens: string[]; associations: { kind: string; value: string }[]; sourcePaths?: string[]; priorTexts?: string[];
 }, limit: number, publishedOnly = false): Promise<unknown[]> {
   const result = await getDatabase().execute(sql`
     WITH input AS (SELECT ${JSON.stringify(query)}::jsonb AS q), sections AS (
@@ -53,6 +53,15 @@ export async function searchDocumentationSections(repository: string, query: {
         ARRAY(SELECT t.value FROM jsonb_array_elements_text(q->'tokens') t(value)
           WHERE t.value = ANY(regexp_split_to_array(lower((SELECT string_agg(b.block->>'markdown', E'\n') FROM jsonb_array_elements(
             CASE WHEN jsonb_typeof(section->'content') = 'array' THEN section->'content' ELSE '[]'::jsonb END) b(block))), '[^a-z0-9]+'))) AS body_words,
+        EXISTS(SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(document->'provenance'->'findings') = 'array' THEN document->'provenance'->'findings' ELSE '[]'::jsonb END) f(finding)
+          CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(f.finding->'citations') = 'array' THEN f.finding->'citations' ELSE '[]'::jsonb END) c(citation)
+          CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(document->'provenance'->'evidence') = 'array' THEN document->'provenance'->'evidence' ELSE '[]'::jsonb END) e(evidence)
+          WHERE section->'findingRefs' @> jsonb_build_array(f.finding->>'id') AND c.citation->>'evidenceId' = e.evidence->>'id'
+          AND (f.finding->>'contextId' IS NULL OR f.finding->>'contextId' = e.evidence->>'contextId')
+          AND e.evidence->>'path' IN (SELECT jsonb_array_elements_text(coalesce(q->'sourcePaths', '[]'::jsonb)))) AS source_match,
+        EXISTS(SELECT 1 FROM jsonb_array_elements_text(coalesce(q->'priorTexts', '[]'::jsonb)) p(value)
+          WHERE strpos(lower((SELECT string_agg(b.block->>'markdown', E'\n') FROM jsonb_array_elements(
+            CASE WHEN jsonb_typeof(section->'content') = 'array' THEN section->'content' ELSE '[]'::jsonb END) b(block))), lower(p.value)) > 0) AS prior_match,
         EXISTS(SELECT 1 FROM jsonb_array_elements(q->'associations') a(association)
           CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(document->'context') = 'array' THEN document->'context' ELSE '[]'::jsonb END) c(context)
           WHERE a.association->>'kind' = c.context->>'kind' AND a.association->>'value' = c.context->>'value'
@@ -60,8 +69,9 @@ export async function searchDocumentationSections(repository: string, query: {
       FROM sections
     )
     SELECT id AS "documentId", section_id AS "sectionId" FROM signals
-    WHERE association_match OR (SELECT count(DISTINCT word) FROM unnest(document_words || section_words) AS words(word)) >= 2 OR cardinality(body_words) >= 3
-    ORDER BY id, section_id LIMIT ${limit}
+    WHERE source_match OR prior_match OR association_match OR (SELECT count(DISTINCT word) FROM unnest(document_words || section_words) AS words(word)) >= 2 OR cardinality(body_words) >= 3
+    ORDER BY source_match DESC, prior_match DESC, association_match DESC,
+      (cardinality(section_words) * 3 + cardinality(document_words) * 2 + cardinality(body_words)) DESC, id, section_id LIMIT ${limit}
   `);
   return result.rows;
 }

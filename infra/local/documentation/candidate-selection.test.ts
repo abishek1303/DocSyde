@@ -9,6 +9,7 @@ import { matchSection, type CandidateQuery } from "@/features/documentation/plan
 import { documentationDrafts } from "@/integrations/database/schema";
 import { draftFixture } from "./draft-fixture";
 import { transformationImpactFixture, transformationDecisionFixture } from "./transformation-fixtures";
+import { sectionSourcePaths } from "@/features/documentation/planning/narrow-documentation-candidates";
 import { selectDocumentationCandidates } from "@/features/documentation/planning/select-documentation-candidates";
 import { transformDocumentation } from "@/features/documentation/transformation/transform-documentation";
 import { planDocumentationImpact } from "@/features/documentation/planning/plan-documentation-impact";
@@ -75,12 +76,16 @@ test("PostgreSQL section selector narrows candidates before one grounded planner
     const fallback = await selectDocumentationCandidates(unrelated);
     assert.equal(fallback.selection.broadFallbackUsed, true); assert.equal(fallback.selection.coverage, "complete"); assert.deepEqual(fallback.selection.selectedDocumentIds, [document.id]);
   });
-  await t.test("v2 inferred labels retain the exact historical evidence context", () => {
-    const baseline = structuredClone(target); baseline.associations.push("surface-form");
+  await t.test("v2 inferred labels retain the exact historical evidence context", async () => {
+    const baseline = structuredClone(target); baseline.provenance.repository = `https://github.com/selector-test/${randomUUID()}`; baseline.associations.push("surface-form");
     const candidate = reviewProposalFixture(baseline, false).candidates[0].document;
     const contexts = projectSectionContexts(candidate), inferred = contexts.flatMap(c => c.associations).find(a => a.provenance.origin === "inferred");
     assert.notEqual(candidate.id, target.id); assert.equal(contexts[0].sectionId, target.sections[0].id);
     assert.ok(inferred); if (inferred.provenance.origin === "inferred") assert.equal(inferred.provenance.context.version, 2);
+    await getDatabase().insert(documentationDrafts).values({ id: candidate.id, document: candidate }); ids.push(candidate.id);
+    const sourcePaths = sectionSourcePaths(candidate, candidate.sections[0].id); assert.ok(sourcePaths.length);
+    const hits = await searchDocumentationSections(baseline.provenance.repository, { tokens: [], associations: [], sourcePaths }, 41);
+    assert.ok(hits.some(hit => (hit as {documentId: string; sectionId: string}).documentId === candidate.id && (hit as {sectionId: string}).sectionId === candidate.sections[0].id));
   });
   await t.test("SQL eligibility exactly matches local explanation rules for metadata and text", async () => {
     await add("Unassociated guide", "Details", "Request, TITLE / validation; request title.");
@@ -89,12 +94,19 @@ test("PostgreSQL section selector narrows candidates before one grounded planner
       { tokens: ["invoice", "payment", "details"], associations: [] },
       { tokens: [], associations: [{ kind: "route", value: "/fixture" }] },
       { tokens: [], associations: [{ kind: "route", value: "/Fixture" }] },
+      { tokens: [], associations: [], sourcePaths: ["fixture.ts"] },
+      { tokens: [], associations: [], priorTexts: ["A request title is required."] },
     ] satisfies CandidateQuery[]) {
-      const expected = corpus.flatMap(projectSectionContexts).filter(c => matchSection(c, query)).map(c => ({ documentId: c.documentId, sectionId: c.sectionId }));
+      const expected = corpus.flatMap(document => projectSectionContexts(document)
+        .filter(context => matchSection(context, query, sectionSourcePaths(document, context.sectionId)))
+        .map(context => ({ documentId: context.documentId, sectionId: context.sectionId })));
       const actual = await searchDocumentationSections(repository, query, 41);
       const sort = (rows: unknown[]) => rows.map(row => JSON.stringify(row)).sort();
       assert.deepEqual(sort(actual), sort(expected));
     }
+  });
+  await t.test("source retrieval still excludes unpublished snapshots when publications are required", async () => {
+    assert.deepEqual(await searchDocumentationSections(repository, { tokens: [], associations: [], sourcePaths: ["fixture.ts"] }, 41, true), []);
   });
   await t.test("overflow reports typed incomplete selection and never invokes another model", async () => {
     for (let i = 0; i < 9; i++) await add(`Request guide ${i}`, "Title validation", "A request title is required.");

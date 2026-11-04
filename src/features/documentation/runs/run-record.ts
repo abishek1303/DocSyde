@@ -1,5 +1,6 @@
 import "server-only";
 import { inspectionSupportSchema } from "@/features/sources/product-evidence";
+import { candidateNarrowingDiagnosticSchema } from "../planning/candidate-selection";
 import { modelDiagnosticSchema } from "@/integrations/ai/model-diagnostic";
 import { z } from "zod";
 import { productChangeInput, storedProductResult, generationContextSnapshot } from "@/features/sources/product-evidence";
@@ -35,7 +36,7 @@ export type LegacyRunRecord = z.infer<typeof legacyRunRecord>;
 export const runRecordV2 = z.object({
   schemaVersion: z.literal(2), input: runInput, title: z.string().max(500),
   status: z.enum(["pending", "running", "finished"]), disposition: runDisposition.nullable(),
-  failure: z.object({ stage: z.enum([...WORKFLOW_STEPS, "execution"]), code: z.enum(RUN_FAILURE_CODES), diagnostic: modelDiagnosticSchema.optional() }).strict().optional(),
+  failure: z.object({ stage: z.enum([...WORKFLOW_STEPS, "execution"]), code: z.enum(RUN_FAILURE_CODES), diagnostic: modelDiagnosticSchema.optional(), candidateSelection: candidateNarrowingDiagnosticSchema.optional() }).strict().optional(),
   activeStage: z.enum(WORKFLOW_STEPS).nullable(), reason: z.string().max(500).nullable(), summary: z.string().max(2000),
   startedAt: z.iso.datetime().nullable(), finishedAt: z.iso.datetime().nullable(),
   stages: z.array(workflowStage).length(WORKFLOW_STEPS.length),
