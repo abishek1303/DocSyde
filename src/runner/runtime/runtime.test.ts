@@ -51,3 +51,28 @@ test("health readiness emits safe ordered metadata without altering timeout erro
   assert.ok(events[1].kind === "failure" && events[1].code === "application-readiness-failed");
   assert.ok(!JSON.stringify(events).includes("private health details"));
 });
+
+for (const absent of [true, false]) test(`owned shutdown signal race ${absent ? "continues after verified group disappearance" : "fails when descendants remain"}`, async t => {
+  const { EventEmitter } = await import("node:events");
+  const child = new EventEmitter();
+  Object.assign(child, { pid: 987654 });
+  t.mock.method(childProcess, "spawn", () => child as ReturnType<typeof childProcess.spawn>);
+  let requests = 0;
+  t.mock.method(globalThis, "fetch", async () => {
+    if (++requests === 1) throw new TypeError("offline");
+    return new Response("ready");
+  });
+  const signals: (NodeJS.Signals | number | undefined)[] = [];
+  t.mock.method(process, "kill", (pid: number, signal?: NodeJS.Signals | number) => {
+    assert.equal(pid, -987654);
+    signals.push(signal);
+    if (signal === "SIGTERM") { child.emit("exit", null); return true; }
+    if (signal === 0 && absent) throw Object.assign(new Error("gone"), { code: "ESRCH" });
+    if (signal === 0) return true;
+    throw Object.assign(new Error("signal failed"), { code: "EPERM" });
+  });
+  const session = await launchRuntime({ cwd: process.cwd(), command: "fixture", args: [], baseUrl: "http://127.0.0.1:5173", ownedProcessGroup: true });
+  if (absent) { await session.stop(); await session.stop(); }
+  else await assert.rejects(session.stop(), /Owned runtime cleanup did not complete/);
+  assert.deepEqual(signals, ["SIGTERM", "SIGKILL", 0]);
+});

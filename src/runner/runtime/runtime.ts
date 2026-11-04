@@ -91,7 +91,18 @@ export async function launchRuntime(options: Options & { cwd: string; command: s
     if (context) return stopOwned(context, child);
     const signal = (kind: NodeJS.Signals) => {
       if (group && child.pid) {
-        try { process.kill(-child.pid, kind); } catch (error) { if (!(error && typeof error === "object" && "code" in error && error.code === "ESRCH")) throw new RuntimeCleanupError(); }
+        try { process.kill(-child.pid, kind); } catch (error) {
+          if (error && typeof error === "object" && "code" in error && error.code === "ESRCH") return;
+          // The package manager may exit while its process group disappears.
+          // A failed signal is harmless only when absence is independently verified;
+          // a parent's exit alone does not establish that grandchildren stopped.
+          if (failed) {
+            try { process.kill(-child.pid, 0); } catch (probe) {
+              if (probe && typeof probe === "object" && "code" in probe && probe.code === "ESRCH") return;
+            }
+          }
+          throw new RuntimeCleanupError();
+        }
       } else if (!failed) child.kill(kind);
     };
     signal("SIGTERM");
