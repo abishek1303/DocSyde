@@ -25,7 +25,8 @@ const metadata = { full_name: "example/product", default_branch: "main" };
 
 test("DocSyde requires one valid configured target before contacting GitHub", async t => {
   configure(t);
-  t.mock.method(globalThis, "fetch", () => { throw new Error("No request expected"); });
+  let requests = 0;
+  t.mock.method(globalThis, "fetch", () => { requests++; throw new Error("No request expected"); });
   for (const configured of ["", " , ", "example/product,example/other", "bad", "example/product/extra", "example/.."] ) {
     process.env.DOCSYDE_ANALYSIS_REPOSITORIES = configured;
     assert.throws(() => configuredRepositories(), sourceError("invalid-input"));
@@ -38,6 +39,7 @@ test("DocSyde requires one valid configured target before contacting GitHub", as
   assert.equal(selectedRepository({}).name, "example/product");
   assert.throws(() => selectedRepository({ repository: "example/other" }), sourceError("forbidden"));
   assert.throws(() => assertAllowedRepository("example", "other"), sourceError("forbidden"));
+  assert.equal(requests, 0, "invalid configuration and selection never contact GitHub");
 });
 
 test("client validates target access without enumerating token grants", async t => {

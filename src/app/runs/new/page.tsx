@@ -1,10 +1,11 @@
+import { RepositorySetupAlert } from "@/features/sources/components/repository-setup-alert";
 import { SourceReadError } from "@/integrations/github/errors";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { FreshFullScanForm } from "@/features/documentation/components/runs/fresh-full-scan-form";
 import { getPendingWorkspace, hasActionablePendingChanges } from "@/features/documentation/review/pending-workspace";
 import { PENDING_REVIEW_MESSAGE } from "@/features/documentation/review/run-eligibility";
-import { ArrowRight, CircleAlert, GitCompareArrows, ScanSearch } from "lucide-react";
+import { ArrowRight, GitCompareArrows, ScanSearch } from "lucide-react";
 import { hasExistingDocumentation } from "@/features/documentation/library/library-operations";
 import { RepositoryPicker } from "@/features/sources/components/repository-picker";
 import { Suspense } from "react";
@@ -17,13 +18,6 @@ import { prepareDocumentationRun } from "@/features/documentation/runs/prepare-r
 import { configuredRepositories, selectedRepository, defaultBranch, runBranchSelection, type RepositorySearch } from "@/features/sources/repository/repository-overview";
 
 type SetupSearch = RepositorySearch & { rerun?: string; mode?: string };
-function SetupAlert({ title, message }: { title: string; message: string }) {
-  return <div role="alert" className="flex max-w-4xl items-start gap-4 rounded-2xl border border-destructive/40 bg-destructive/10 p-5 sm:gap-5 sm:p-7">
-    <CircleAlert aria-hidden="true" className="mt-0.5 size-9 shrink-0 fill-destructive text-background sm:size-11" />
-    <div className="min-w-0 space-y-2"><h2 className="text-lg font-semibold tracking-tight sm:text-xl">{title}</h2><p className="break-words text-sm leading-7 text-muted-foreground">{message}</p></div>
-  </div>;
-}
-
 async function RerunSetup({ search }: { search: SetupSearch }) {
   const run = await prepareDocumentationRun(search).catch(() => null);
   if (!run || !run.rerun) return <p role="alert">This run is unavailable. Return to your runs and try again.</p>;
@@ -44,15 +38,13 @@ async function Setup({ searchParams }: { searchParams: Promise<SetupSearch> }) {
   const search = await searchParams;
   let repository;
   try { repository = selectedRepository(search); } catch (error) {
-    return <main className="space-y-5 p-8">
-      <RunBreadcrumbs current="Start a run" />
-      <h1 className="text-2xl font-semibold">Start a new run</h1>
-      <SetupAlert title={error instanceof SourceReadError && error.code === "invalid-input" ? "Only one repository is supported for this demo." : "Check your repository selection"} message={error instanceof SourceReadError && error.code === "invalid-input" ? "Please update your configuration to include only the repository you want DocSyde to analyze." : error instanceof SourceReadError ? error.message : "Invalid repository or branch selection. Select your configured repository and try again."} />
+    return <main className="flex min-h-full items-center justify-center p-6 sm:p-12">
+      <RepositorySetupAlert title={error instanceof SourceReadError && error.code === "invalid-input" ? "Only one repository is supported for this demo." : "Check your repository selection"} message={error instanceof SourceReadError && error.code === "invalid-input" ? "Please update your configuration to include only the repository you want DocSyde to analyze." : error instanceof SourceReadError ? error.message : "Invalid repository or branch selection. Select your configured repository and try again."} />
     </main>;
   }
   try { await defaultBranch(repository); }
   catch (error) {
-    return <AppShell repository={repository.name} active="Runs"><RunBreadcrumbs current="Start a run" /><h1 className="text-2xl font-semibold">Start a new run</h1><SetupAlert title="Unable to access your GitHub repository" message={`${error instanceof SourceReadError ? error.message : "GitHub access could not be validated. Check GITHUB_TOKEN and try again."} For this demo, configure your GitHub token to access only the repository you want DocSyde to analyze.`} /></AppShell>;
+    return <main className="flex min-h-full items-center justify-center p-6 sm:p-12"><RepositorySetupAlert title="Unable to access your GitHub repository" message={`${error instanceof SourceReadError ? error.message : "GitHub access could not be validated. Check GITHUB_TOKEN and try again."} For this demo, configure your GitHub token to access only the repository you want DocSyde to analyze.`} /></main>;
   }
   const pendingReview = await hasActionablePendingChanges(repository.name).catch(() => null);
   const pendingBatch = pendingReview === true ? await getPendingWorkspace({ repository: repository.name }).catch(() => null) : null;
