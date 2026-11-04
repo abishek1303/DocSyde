@@ -1,9 +1,11 @@
+import { semanticCorrectionSchema } from "./semantic-correction-policy";
 import { z } from "zod";
+import { proseLengthIssueSchema } from "./prose-length-feedback";
 
 // Fixed public structural vocabulary only; never arbitrary provider-authored key names.
 export const diagnosticShapeKey = z.enum(["purpose", "audience", "terminology", "workflows", "surfaces", "gaps", "impact", "result", "analysis", "summary", "title", "metadata", "rationale", "provenance", "source", "runtime", "captures", "sourceReferences", "visualReferences", "repository", "claims", "assessment", "contradictions", "uncertainties", "$schema", "type", "properties"]);
 export const boundaryTraceSchema = z.object({
-  attempt: z.number().int().min(1).max(2), strictParse: z.boolean(),
+  attempt: z.number().int().min(1).max(5), strictParse: z.boolean(),
   extraction: z.enum(["none", "bom", "fence", "surrounded", "failed", "ambiguous"]),
   boundary: z.enum(["pending", "accepted", "rejected"]), normalization: z.enum(["pending", "accepted", "rejected"]),
   canonical: z.enum(["pending", "accepted", "rejected"]),
@@ -13,7 +15,8 @@ export const boundaryTraceSchema = z.object({
     withheldKeyCount: z.number().int().nonnegative(), shape: z.enum(["object", "array", "scalar"]),
   }).strict().optional(),
   wrapper: z.enum(["result", "analysis", "impact"]).optional(),
-  retryReason: z.enum(["invalid-json", "boundary-shape"]).optional(),
+  retryReason: z.enum(["invalid-json", "boundary-shape", "prose-length", "output-truncated", "semantic-correction", "source-shape"]).optional(),
+  proseLengthIssues: z.array(proseLengthIssueSchema).min(1).max(8).optional(),
   outputSha256: z.string().regex(/^[a-f0-9]{64}$/), outputBytes: z.number().int().nonnegative(),
 }).strict();
 export type BoundaryTrace = z.infer<typeof boundaryTraceSchema>;
@@ -28,15 +31,20 @@ export const providerErrorSchema = z.object({
 export const diagnosticInvariant = z.enum(["uncertain-element-must-have-null-bounds", "bounds-edges-must-increase"]);
 export const modelDiagnosticSchema = z.object({
   kind: z.enum(["invalid-json", "schema-mismatch", "incomplete-output", "invalid-response", "refused", "grounding-rejection", "timeout", "cancelled", "provider-failure", "structured-output"]),
-  attempt: z.number().int().min(1).max(2).optional(),
+  attempt: z.number().int().min(1).max(5).optional(),
+  retryReason: z.enum(["invalid-json", "boundary-shape", "prose-length", "output-truncated", "semantic-correction", "source-shape"]).optional(),
+  retryCount: z.number().int().min(0).max(4).optional(),
+  semanticCorrection: semanticCorrectionSchema.optional(),
+  semanticCorrectionCount: z.number().int().min(0).max(2).optional(),
+  proseNormalized: z.boolean().optional(),
   boundary: boundaryTraceSchema.optional(),
   providerError: providerErrorSchema.optional(),
   model: z.string().max(300).optional(), elapsedMs: z.number().nonnegative().optional(),
   completionReason: z.enum(["stop", "length", "content_filter", "tool_calls", "other"]).optional(),
   usage: z.object({ prompt_tokens: z.number().int().nonnegative().optional(), completion_tokens: z.number().int().nonnegative().optional(), completion_tokens_details: z.object({ reasoning_tokens: z.number().int().nonnegative().optional() }).strip().optional().catch(undefined), total_tokens: z.number().int().nonnegative().optional() }).strict().optional(),
-  visibleResponse: z.object({ bytes: z.number().int().nonnegative(), characters: z.number().int().nonnegative() }).strict().optional(),
+  visibleResponse: z.object({ bytes: z.number().int().nonnegative(), characters: z.number().int().nonnegative(), jsonWhitespaceCharacters: z.number().int().nonnegative().optional(), longestJsonWhitespaceRun: z.number().int().nonnegative().optional() }).strict().optional(),
   reasoningEffort: z.enum(["low", "medium", "high", "xhigh"]).nullable().optional(),
-  issues: z.array(z.object({ code: z.string().max(60), path: z.string().max(300), category: z.literal("cross-field").optional(), invariant: diagnosticInvariant.optional(), unexpectedKeys: z.array(diagnosticShapeKey).max(8).optional(), extraKeyCount: z.number().int().nonnegative().optional(), withheldKeyCount: z.number().int().nonnegative().optional() }).strict()).max(8).optional(),
+  issues: z.array(z.object({ code: z.string().max(60), path: z.string().max(300), category: z.literal("cross-field").optional(), invariant: diagnosticInvariant.optional(), unexpectedKeys: z.array(diagnosticShapeKey).max(8).optional(), extraKeyCount: z.number().int().nonnegative().optional(), withheldKeyCount: z.number().int().nonnegative().optional(), maximum: z.number().int().nonnegative().optional(), actual: z.number().int().nonnegative().optional() }).strict()).max(8).optional(),
   schemaFailure: z.object({ schemaSha256: z.string().regex(/^[a-f0-9]{64}$/), outputSha256: z.string().regex(/^[a-f0-9]{64}$/), outputBytes: z.number().int().nonnegative() }).strict().optional(),
 }).strict();
 export type ModelDiagnostic = z.infer<typeof modelDiagnosticSchema>;

@@ -1,3 +1,4 @@
+import { compactImpactReply } from "./fixtures/compact-impact-reply";
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { synthesizeProductImpact } from "./synthesize-product-impact";
@@ -31,7 +32,7 @@ function provider(t: TestContext, result: unknown) {
     assert.equal(url, "https://inference.baseten.co/v1/chat/completions");
     const request = JSON.parse(String(options?.body));
     assert.match(request.messages[0].content, /Lack of visual confirmation.*NOT contradictory/);
-    return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(result) } }] });
+    return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(compactImpactReply(result, JSON.parse(request.messages[1].content).source.findings)) } }] });
   });
 }
 for (const withRuntime of [true, false]) test(`source requirements and debounce survive ${withRuntime ? "an empty Projects screen" : "no visual confirmation"}`, async t => {

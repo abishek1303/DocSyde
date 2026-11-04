@@ -1,3 +1,4 @@
+import { reliabilityBudget } from "@/integrations/ai/demo-reliability";
 import { z } from "zod";
 
 export const MAX_SELECTED_SCREENSHOTS = 3;
@@ -29,3 +30,5 @@ export type VisualSelectionOutput = z.infer<ReturnType<typeof visualSelectionOut
 export const visualSelectionV3Schema = z.object({ version: z.literal(3), selected: z.array(compactSelectionItem).max(MAX_SELECTED_SCREENSHOTS) }).strict();
 export const visualSelectionSchema = z.union([legacyVisualSelectionSchema, visualSelectionV3Schema]);
 export type VisualSelection = z.infer<typeof visualSelectionSchema>;
+
+export function selectionRequestBytes() { return reliabilityBudget(SELECTION_REQUEST_BYTES, 96 * 1024); }

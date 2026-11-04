@@ -293,7 +293,7 @@ test("product-impact invalid-root diagnostics survive logging without retaining 
   const diagnostic = modelDiagnosticSchema.parse(row.diagnostic);
   assert.equal(diagnostic.boundary?.normalization, "rejected");
   assert.equal(diagnostic.boundary?.outputBytes, Buffer.byteLength(payload));
-  assert.equal(s.rows.size, 2);
+  assert.equal(s.rows.size, 3);
   assert.ok(!JSON.stringify(row.diagnostic).includes("PRIVATE_VALUE"));
   assert.ok(!JSON.stringify(row.diagnostic).includes("SECRET_KEY_NAME"));
 });
@@ -328,9 +328,9 @@ test("format retry has identical input/model/settings/schema and only one correc
   const first=requests[0],second=requests[1];
   assert.equal(first.model,second.model);assert.equal(first.max_tokens,second.max_tokens);
   const a=first.messages as {content:string}[],b=second.messages as {content:string}[];
-  assert.deepEqual(a[1],b[1]);assert.equal(b[0].content,a[0].content+'\nReturn only one valid JSON object matching the requested structure. No prose or wrapper.');
+  assert.deepEqual(a[1],b[1]);assert.equal(b[0].content,a[0].content+'\nReturn only one complete valid JSON object matching the requested schema. No prose or wrapper. Preserve the original evidence and exact references.');
 });
-for(const [content,reason,calls] of [["broken","stop",2],['{"value":3}',"stop",1],['{"value":"yes"}',"length",1]] as const) test(`bounded retry ${reason} ${content}`,async t=>{
+for(const [content,reason,calls] of [["broken","stop",3],['{"value":3}',"stop",1],['{"value":"yes"}',"length",3]] as const) test(`bounded retry ${reason} ${content}`,async t=>{
   const s=setup(t);
   const fetch=t.mock.method(globalThis,"fetch",async()=>Response.json({choices:[{finish_reason:reason,message:{content}}]}));
   await assert.rejects(s.generateStructured(options));assert.equal(fetch.mock.callCount(),calls);
@@ -362,17 +362,17 @@ test("format retry is suppressed when first attempt cannot be logged",async t=>{
   await assert.rejects(s.generateStructured(options),/invalid-json/);assert.equal(fetch.mock.callCount(),1);
 });
 
-test("native mode/schema metadata is safely logged while feature reference validation remains authoritative",async t=>{
+test("prompt mode/schema metadata is safely logged while feature reference validation remains authoritative",async t=>{
  const s=setup(t,undefined,"auto");
  t.mock.method(globalThis,"fetch",async(_url:unknown,init?:RequestInit)=>{
-  const body=JSON.parse(String(init?.body));assert.equal(body.response_format.json_schema.strict,true);
-  assert.equal(body.messages[0].content,"Extract product meaning");
+  const body=JSON.parse(String(init?.body));assert.equal(body.response_format,undefined);
+  assert.ok(body.messages[0].content.startsWith("Extract product meaning\nReturn only JSON matching this schema:"));
   return Response.json({choices:[{finish_reason:"stop",message:{content:'{"claimRef":"claim-9"}'}}],usage:{prompt_tokens:20,completion_tokens:6}});
  });
  const generated=await s.generateStructured({instructions:"Extract product meaning",input:"PRIVATE_SOURCE_PATCH",schema:z.object({claimRef:z.string()}).strict(),invocation,postValidation:true});
  const row=s.rows.get(generated.invocationId!)!;
  const config=row.inferenceConfig as {structuredOutput:{mode:string;schemaName:string;schemaVersion:string;schemaSha256:string}};
- assert.equal(config.structuredOutput.mode,"native");assert.equal(config.structuredOutput.schemaName,"source-analysis-v5");assert.equal(config.structuredOutput.schemaVersion,"source-analysis-v5");assert.match(config.structuredOutput.schemaSha256,/^[a-f0-9]{64}$/);
+ assert.equal(config.structuredOutput.mode,"prompt");assert.equal(config.structuredOutput.schemaName,"source-analysis-v5");assert.equal(config.structuredOutput.schemaVersion,"source-analysis-v5");assert.match(config.structuredOutput.schemaSha256,/^[a-f0-9]{64}$/);
  assert.ok(!JSON.stringify(config).includes("PRIVATE_SOURCE_PATCH"));assert.equal(row.completionReason,"stop");assert.equal(row.inputTokens,20);
  await assert.rejects(s.validateInvocation(generated.invocationId,()=>{if(!["claim-1"].includes(generated.data.claimRef))throw new Error("Unknown claim reference");},"grounding-rejection"),/Unknown claim reference/);
  assert.equal(s.rows.get(generated.invocationId!)!.failureKind,"grounding-rejection");
@@ -389,7 +389,7 @@ test("safe success and truncation logs retain reasoning counts and visible sizes
     const row = [...s.rows.values()].at(-1)!;
     const diagnostic = row.diagnostic as import("./model-diagnostic").ModelDiagnostic;
     assert.deepEqual(diagnostic.usage?.completion_tokens_details, { reasoning_tokens: 94 });
-    assert.deepEqual(diagnostic.visibleResponse, { bytes: Buffer.byteLength(content), characters: content.length });
+    assert.deepEqual(diagnostic.visibleResponse, { bytes: Buffer.byteLength(content), characters: content.length, jsonWhitespaceCharacters: 0, longestJsonWhitespaceRun: 0 });
     assert.equal(diagnostic.reasoningEffort, effort); assert.equal(diagnostic.completionReason, finish);
     assert.equal((row.inferenceConfig as { reasoningEffort: string }).reasoningEffort, effort);
     assert.ok(!JSON.stringify(row).includes("PRIVATE_REASONING"));
@@ -427,7 +427,7 @@ test("Wonder logs native request, metrics and only grounding-approved output; re
   assert.equal(s.rows.get(rejected.invocationId!)?.responsePayload, null);
   content = "PRIVATE_MALFORMED";
   await assert.rejects(generateComposition('{}', options));
-  assert.equal(calls, 3, "no retries"); assert.ok(!JSON.stringify([...s.rows.values()]).includes("PRIVATE_MALFORMED"));
+  assert.equal(calls, 5, "malformed JSON retries, schema/evidence failures do not"); assert.ok(!JSON.stringify([...s.rows.values()]).includes("PRIVATE_MALFORMED"));
 });
 
 test("Wonder HTTP validation diagnostics reach usage logs without rejected values or raw responses", async t => {
@@ -488,4 +488,325 @@ test("transformation reference diagnostics survive logging without rejected iden
   assert.deepEqual(diagnostic.reference, { category: "factRefs", reason: "unknown-in-guide", allowedCount: auth.facts.length, receivedCount: 1 });
   assert.equal(row.responsePayload, null);
   assert.ok(!JSON.stringify([...s.rows.values()]).includes("PRIVATE_REJECTED_REFERENCE"));
+});
+
+const proseSchema = z.object({ findings: z.array(z.object({ description: z.string().min(1).max(500), kind: z.enum(["product-behavior"]) }).strict()).max(4) }).strict();
+const longProse = { findings: [{ description: "PRIVATE_OVERLONG_TEXT".repeat(30), kind: "product-behavior" }] };
+const conciseProse = { findings: [{ description: "Users can search issue descriptions.", kind: "product-behavior" }] };
+
+test("pure description overflow is logged and regenerated once with exact counts and unchanged evidence/settings", async t => {
+  const s = setup(t);
+  const requests: { model: string; max_tokens: number; messages: { content: string }[] }[] = [];
+  const fetch = t.mock.method(globalThis, "fetch", async (_url: unknown, init?: RequestInit) => {
+    requests.push(JSON.parse(String(init?.body)));
+    return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(requests.length === 1 ? longProse : conciseProse) } }] });
+  });
+  const result = await s.generateStructured({ ...options, schema: proseSchema, postValidation: true });
+  assert.deepEqual(result.data, conciseProse); assert.equal(fetch.mock.callCount(), 2);
+  assert.deepEqual(requests[0].messages[1], requests[1].messages[1]);
+  assert.equal(requests[0].model, requests[1].model); assert.equal(requests[0].max_tokens, requests[1].max_tokens);
+  assert.ok(requests[1].messages[0].content.includes('"path":"findings.0.description","maximum":500,"actual":630'));
+  assert.ok(!requests[1].messages[0].content.includes("PRIVATE_OVERLONG_TEXT"));
+  const rows = [...s.rows.values()]; assert.equal(rows.length, 2);
+  const { modelDiagnosticSchema } = await import("./model-diagnostic");
+  const first = modelDiagnosticSchema.parse(rows[0].diagnostic);
+  assert.equal(first.boundary?.retryReason, "prose-length");
+  assert.deepEqual(first.boundary?.proseLengthIssues, [{ path: "findings.0.description", maximum: 500, actual: 630 }]);
+  assert.equal(first.issues?.[0].actual, 630); assert.equal(first.issues?.[0].maximum, 500);
+  assert.equal(rows[0].responsePayload, null); assert.equal(rows[1].status, "structured-success");
+  const { invocationDebugView } = await import("@/features/documentation/runs/invocation-debug-view");
+  assert.match(invocationDebugView({ ...rows[1], failureKind: null }).boundaryMessage!, /prose-length retry/);
+  await assert.rejects(s.validateInvocation(result.invocationId, () => { throw new Error("Unsupported claim"); }, "grounding-rejection"));
+  assert.equal(fetch.mock.callCount(), 2, "Feature grounding never regenerates.");
+});
+
+test("length recovery shares the three-call cap and never retries mixed errors", async t => {
+  for (const [label, content, finish, expected] of [
+    ["persistent length", longProse, "stop", 3],
+    ["mixed enum", { findings: [{ ...longProse.findings[0], kind: "invented" }] }, "stop", 1],
+    ["truncation", longProse, "length", 3],
+  ] as const) await t.test(label, async t => {
+    const s = setup(t);
+    const fetch = t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: finish, message: { content: JSON.stringify(content) } }] }));
+    await assert.rejects(s.generateStructured({ ...options, schema: proseSchema }));
+    assert.equal(fetch.mock.callCount(), expected);
+  });
+});
+
+for (const failure of ["insert", "update"] as const) test(`length recovery requires a retained failed attempt (${failure})`, async t => {
+  const s = setup(t, failure);
+  const fetch = t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(longProse) } }] }));
+  await assert.rejects(s.generateStructured({ ...options, schema: proseSchema })); assert.equal(fetch.mock.callCount(), 1);
+});
+
+test("explicit single-attempt budgets suppress length recovery", async t => {
+  const s = setup(t);
+  const { withInferenceBudget } = await import("./inference-budget");
+  const { resolveInference, inferenceSnapshot } = await import("./operation-policy");
+  const settings = resolveInference("baseten", "source-analysis");
+  const expected = { "source-analysis": { provider: "baseten" as const, model: settings.model, config: inferenceSnapshot("source-analysis", settings) } };
+  const fetch = t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(longProse) } }] }));
+  await withInferenceBudget(invocation.runId, expected, async () => {
+    await assert.rejects(s.generateStructured({ ...options, schema: proseSchema }));
+  });
+  assert.equal(fetch.mock.callCount(), 1);
+});
+
+test("inspection reason regression: 85/80 gets targeted recovery; realistic schema accepts 85 unchanged", async t => {
+ const s = setup(t);
+ const { inspectionDecisionIRSchema } = await import("@/features/sources/runtime/inspection-decision-ir");
+ const reason = "Inspect the new workload overview and bulk triage controls using the source evidence.";
+ assert.equal(reason.length, 85);
+ const output = { status: "not-needed", reason, staticEvidence: "sufficient", targets: [], uncertainties: [] };
+ const requests: {messages:{content:string}[]}[] = [];
+ t.mock.method(globalThis, "fetch", async (_url: unknown, init?: RequestInit) => {
+  requests.push(JSON.parse(String(init?.body)));
+  return Response.json({choices:[{finish_reason:"stop",message:{content:JSON.stringify(requests.length === 1 ? output : {...output,reason:"Inspect the workload overview and bulk triage controls."})}}]});
+ });
+ const legacy = inspectionDecisionIRSchema.safeExtend({reason:z.string().min(1).max(80)});
+ const context = {...options, schema:legacy, invocation:{...invocation,operation:"runtime-decision"}};
+ const result = await s.generateStructured(context);
+ assert.equal(requests.length, 2); assert.ok(result.data.reason.length <=80);
+ assert.match(requests[1].messages[0].content, /"path":"reason","maximum":80,"actual":85/);
+ assert.deepEqual(requests[0].messages[1],requests[1].messages[1]);
+ assert.ok(inspectionDecisionIRSchema.safeParse(output).success);
+});
+
+test("minor prose whitespace overflow preserves every word and exact references without a call retry", async t => {
+ const s = setup(t);
+ const schema=z.object({reason:z.string().max(20),targetRef:z.string()}).strict();
+ const output={reason:"   Check   workload   ",targetRef:"target-000001"};
+ const fetch=t.mock.method(globalThis,"fetch",async()=>Response.json({choices:[{finish_reason:"stop",message:{content:JSON.stringify(output)}}]}));
+ const result=await s.generateStructured({...options,schema,invocation:{...invocation,operation:"runtime-decision"}});
+ assert.deepEqual(result.data,{reason:"Check workload",targetRef:output.targetRef});
+ assert.equal(fetch.mock.callCount(),1);assert.equal(result.metadata?.proseNormalized,true);
+});
+
+test("formatting, prose and truncation share three attempts; ceilings grow only after length", async t => {
+ const s=setup(t);const requests:{max_tokens:number;messages:{content:string}[]}[]=[];
+ t.mock.method(globalThis,"fetch",async(_url:unknown,init?:RequestInit)=>{
+  requests.push(JSON.parse(String(init?.body)));
+  const n=requests.length;
+  return Response.json({choices:[{finish_reason:n===2?"length":"stop",message:{content:n===1?"broken":JSON.stringify(n===3?conciseProse:longProse)}}]});
+ });
+ const result=await s.generateStructured({...options,schema:proseSchema});
+ assert.deepEqual(result.data,conciseProse);assert.equal(result.metadata?.retryCount,2);
+ assert.deepEqual(requests.map(r=>r.max_tokens),[8192,8192,12288]);
+ assert.equal(s.rows.size,3);
+ assert.match(requests[2].messages[0].content,/token ceiling/);
+ const {modelDiagnosticSchema}=await import("./model-diagnostic");
+ for(const row of s.rows.values()) assert.ok(modelDiagnosticSchema.safeParse(row.diagnostic).success);
+});
+
+test("repeated formatting errors exhaust at three calls with sanitized diagnostics", async t => {
+ const s=setup(t);let calls=0;
+ t.mock.method(globalThis,"fetch",async()=>{calls++;return Response.json({choices:[{finish_reason:"stop",message:{content:"PRIVATE_BROKEN_OUTPUT"}}]});});
+ await assert.rejects(s.generateStructured(options),error=>{
+  assert.ok(error instanceof s.ModelError);assert.equal(error.diagnostic?.boundary?.attempt,3);
+  assert.equal(error.diagnostic?.boundary?.retryReason,undefined);return true;
+ });
+ assert.equal(calls,3);assert.equal(s.rows.size,3);
+ assert.ok(!JSON.stringify([...s.rows.values()]).includes("PRIVATE_BROKEN_OUTPUT"));
+});
+
+test("truncation remains bounded by token and call budgets; failed log prevents a length retry", async t => {
+ const s=setup(t,"update");let calls=0;
+ t.mock.method(globalThis,"fetch",async()=>{calls++;return Response.json({choices:[{finish_reason:"length",message:{content:"PRIVATE_PARTIAL"}}]});});
+ await assert.rejects(s.generateStructured(options));assert.equal(calls,1);
+});
+
+test("planning/support reasons recover, documentation content and reference overflows do not", async t => {
+ for(const [operation,key] of [["documentation-planning","decisions"],["transformation-support","verdicts"]] as const) await t.test(operation,async t=>{
+  const s=setup(t);let calls=0;
+  const schema=z.object({[key]:z.array(z.object({reason:z.string().max(40),claimRefs:z.array(z.string())}).strict())}).strict();
+  t.mock.method(globalThis,"fetch",async()=>{calls++;return Response.json({choices:[{finish_reason:"stop",message:{content:JSON.stringify({[key]:[{reason:calls<3?"PRIVATE_LONG_REASON".repeat(4):"Supported by cited evidence",claimRefs:["claim-1"]}]})}}]});});
+  await s.generateStructured({...options,schema,invocation:{...invocation,operation}});assert.equal(calls,3);
+ });
+ for(const field of ["markdown","evidenceId","pathname","excerpt","code","citation","summary"]) await t.test(field,async t=>{
+  const s=setup(t);let calls=0;
+  t.mock.method(globalThis,"fetch",async()=>{calls++;return Response.json({choices:[{finish_reason:"stop",message:{content:JSON.stringify({[field]:"PRIVATE_PROTECTED".repeat(5)})}}]});});
+  await assert.rejects(s.generateStructured({...options,schema:z.object({[field]:z.string().max(10)}).strict(),invocation:{...invocation,operation:"documentation-transformation"}}));assert.equal(calls,1);
+ });
+});
+
+test("persistent truncation grows only to configured cap and a smaller run budget stops earlier",async t=>{
+ for(const budgeted of [false,true]) await t.test(budgeted?"run budget":"operation cap",async t=>{
+  const s=setup(t);const ceilings:number[]=[];
+  t.mock.method(globalThis,"fetch",async(_url:unknown,init?:RequestInit)=>{
+   ceilings.push(JSON.parse(String(init?.body)).max_tokens);
+   return Response.json({choices:[{finish_reason:"length",message:{content:"PRIVATE_PARTIAL"}}]});
+  });
+  const run=()=>s.generateStructured(options);
+  if(budgeted){
+   const {withRunInferenceBudget}=await import("./inference-budget");
+   await assert.rejects(withRunInferenceBudget(invocation.runId,run,{maxCalls:2}));
+   assert.deepEqual(ceilings,[8192,12288]);
+  }else{
+   await assert.rejects(run(),error=>{assert.ok(error instanceof s.ModelError);assert.equal(error.diagnostic?.retryCount,2);return true;});
+   assert.deepEqual(ceilings,[8192,12288,16384]);
+  }
+ });
+});
+
+test("native composition and vision recover syntax with the same three-attempt limit",async t=>{
+ for(const operation of ["documentation-composition","runtime-vision"] as const) await t.test(operation,async t=>{
+  const s=setup(t);let calls=0;
+  t.mock.method(globalThis,"fetch",async()=>{calls++;return Response.json({model:"meta-fixture",choices:[{finish_reason:"stop",message:{content:"PRIVATE_BROKEN_NATIVE"}}]});});
+  const {generateComposition}:typeof import("./generate-composition")=load("./src/integrations/ai/generate-composition.ts");
+  await assert.rejects(operation==="documentation-composition"?generateComposition("fixture",{invocation:{...invocation,operation}}):s.generateStructuredVision({png,context:"fixture",invocation:{...invocation,operation}}));
+  assert.equal(calls,3);assert.equal(s.rows.size,3);
+  for(const row of s.rows.values()) assert.ok(!JSON.stringify(row.diagnostic).includes("PRIVATE_BROKEN_NATIVE"));
+ });
+});
+
+function enableDemo(t: TestContext) {
+ const prior=process.env.DEMO_RELIABILITY_MODE;process.env.DEMO_RELIABILITY_MODE="true";
+ t.after(()=>{if(prior===undefined)delete process.env.DEMO_RELIABILITY_MODE;else process.env.DEMO_RELIABILITY_MODE=prior;});
+}
+
+test("demo source evidence rejection remains fatal without downstream generation",async t=>{
+ const s=setup(t);enableDemo(t);
+ const {default:fixture}=await import("@/features/sources/analysis/fixtures/blocked-status.json");
+ const {productChangeGenerationOutput}=await import("@/features/sources/analysis/product-change-analysis");
+ const {serializeProductEvidence}=await import("@/features/sources/analysis/product-change-evidence");
+ const {validateWithDiagnostics}=await import("@/features/sources/analysis/analysis-diagnostics");
+ const output={uncertainties:fixture.output.uncertainties,findings:fixture.output.findings.map(({reachabilityEvidenceIds,...finding})=>{
+  assert.ok(reachabilityEvidenceIds);return {...finding,kind:"product-behavior",citations:finding.citations.map(({evidenceId,startLine,endLine})=>({evidenceId,startLine,endLine}))};
+ })};
+ const invalid=structuredClone(output);invalid.findings[2].citations[0].evidenceId="PRIVATE_INVENTED_REFERENCE";
+ const bundle=fixture.bundle as import("@/features/sources/analysis/product-change-analysis").ProductBundle;
+ const input=serializeProductEvidence(bundle);const requests:{messages:{content:string}[];max_tokens:number}[]=[];
+ t.mock.method(globalThis,"fetch",async(_url:unknown,init?:RequestInit)=>{
+  requests.push(JSON.parse(String(init?.body)));
+  const content=requests.length===1?invalid:requests.length===2?output:{value:"downstream"};
+  return Response.json({choices:[{finish_reason:"stop",message:{content:JSON.stringify(content)}}],usage:{prompt_tokens:20,completion_tokens:10}});
+ });
+ const validate=(generated:import("./generate-structured").StructuredGenerationResult<typeof productChangeGenerationOutput>)=>s.validateInvocation(generated.invocationId,()=>validateWithDiagnostics(generated.data,bundle,input,true),"grounding-rejection",undefined,{deferAcceptance:true});
+ await assert.rejects(s.generateStructured({...options,input,schema:productChangeGenerationOutput,postValidation:true,validate}),/unknown-evidence/);
+ assert.equal(requests.length,1);
+ const rows=[...s.rows.values()];assert.equal(rows[0].status,"failed");assert.equal(rows[0].failureKind,"grounding-rejection");
+ assert.equal(rows[0].inputTokens,20);assert.equal(rows[0].outputTokens,10);
+});
+
+test("demo shares five attempts across format/truncation and at most two semantic corrections",async t=>{
+ const s=setup(t);enableDemo(t);
+ const {withValidationDiagnostic}=await import("./invocation-debug");
+ const schema=z.object({reference:z.string()}).strict();let calls=0;
+ t.mock.method(globalThis,"fetch",async()=>{
+  calls++;return Response.json({choices:[{finish_reason:"stop",message:{content:calls<3?"broken":JSON.stringify({reference:calls<5?"PRIVATE_BAD":"source-1"})}}]});
+ });
+ const generated=await s.generateStructured({...options,invocation:{...invocation,operation:"documentation-planning"},schema,validate:g=>s.validateInvocation(g.invocationId,()=>{
+  if(g.data.reference!=="source-1")throw withValidationDiagnostic(new Error("PRIVATE_BODY"),{validator:"source-analysis",code:"unknown-evidence",path:"findings[0].citations[0]"});
+ },"grounding-rejection",undefined,{deferAcceptance:true})});
+ assert.equal(calls,5);assert.equal(generated.metadata?.retryCount,4);assert.equal(generated.metadata?.semanticCorrectionCount,2);
+ assert.equal(generated.metadata?.boundary?.attempt,5);
+});
+
+for(const formattingFirst of [false,true])test(`demo exhausts semantic corrections without restarting (${formattingFirst})`,async t=>{
+ const s=setup(t);enableDemo(t);let calls=0;
+ const {withValidationDiagnostic}=await import("./invocation-debug");
+ t.mock.method(globalThis,"fetch",async()=>{calls++;return Response.json({choices:[{finish_reason:"stop",message:{content:formattingFirst&&calls<5?"broken":'{"value":"bad"}'}}]});});
+ await assert.rejects(s.generateStructured({...options,invocation:{...invocation,operation:"documentation-planning"},validate:g=>s.validateInvocation(g.invocationId,()=>{
+  throw withValidationDiagnostic(new Error("PRIVATE_REJECTED_BODY"),{validator:"documentation-planning",code:"unknown-claim-reference",path:"decisions[0].claimRefs"});
+ },"grounding-rejection",undefined,{deferAcceptance:true})}));
+ assert.equal(calls,formattingFirst?5:3);
+ assert.ok([...s.rows.values()].every(row=>row.status==="failed"));
+ assert.ok(!JSON.stringify([...s.rows.values()].map(row=>row.diagnostic)).includes("PRIVATE_REJECTED_BODY"));
+});
+
+for(const code of ["unsupported-change-claim","unresolved-contradiction-assessment","unsupported-route","unauthorized-decision-target","missing-source-support"] as const)test(`demo does not retry ${code}`,async t=>{
+ const s=setup(t);enableDemo(t);let calls=0;
+ const {withValidationDiagnostic}=await import("./invocation-debug");
+ t.mock.method(globalThis,"fetch",async()=>{calls++;return Response.json({choices:[{finish_reason:"stop",message:{content:'{"value":"unsupported"}'}}]});});
+ await assert.rejects(s.generateStructured({...options,validate:g=>s.validateInvocation(g.invocationId,()=>{
+  throw withValidationDiagnostic(new Error("Semantic rejection"),{validator:"product-impact",code});
+ },"grounding-rejection",undefined,{deferAcceptance:true})}));assert.equal(calls,1);
+});
+
+test("demo truncation escalates known models to conservative caps across five logged calls",async t=>{
+ const s=setup(t);enableDemo(t);const ceilings:number[]=[];
+ t.mock.method(globalThis,"fetch",async(_url:unknown,init?:RequestInit)=>{ceilings.push(JSON.parse(String(init?.body)).max_tokens);return Response.json({choices:[{finish_reason:"length",message:{content:"PRIVATE_PARTIAL"}}]});});
+ await assert.rejects(s.generateStructured(options));
+ assert.deepEqual(ceilings,[16384,24576,32768,32768,32768]);assert.equal(s.rows.size,5);
+});
+
+test("demo missing supported coverage regenerates a ledger and revalidates it",async t=>{
+ const s=setup(t);enableDemo(t);let calls=0;
+ const {coverageFailure}=await import("@/features/sources/impact/source-coverage");
+ const schema=z.object({covered:z.boolean()}).strict();
+ t.mock.method(globalThis,"fetch",async()=>{calls++;return Response.json({choices:[{finish_reason:"stop",message:{content:JSON.stringify({covered:calls>1})}}]});});
+ const generated=await s.generateStructured({...options,schema,invocation:{...invocation,operation:"product-impact"},validate:g=>s.validateInvocation(g.invocationId,()=>{if(!g.data.covered)coverageFailure("missing-or-duplicate-finding");},"grounding-rejection",undefined,{deferAcceptance:true})});
+ assert.equal(calls,2);assert.equal(generated.metadata?.semanticCorrection?.category,"supported-coverage");
+ assert.equal(generated.metadata?.semanticCorrection?.code,"missing-or-duplicate-finding");
+});
+
+test("demo failed semantic logging and cancellation prevent correction calls",async t=>{
+ for(const failure of ["update","cancel"] as const)await t.test(failure,async t=>{
+  const s=setup(t,failure==="update"?"update":undefined);enableDemo(t);let calls=0;const controller=new AbortController();
+  const {withValidationDiagnostic}=await import("./invocation-debug");
+  t.mock.method(globalThis,"fetch",async()=>{calls++;return Response.json({choices:[{finish_reason:"stop",message:{content:'{"value":"bad"}'}}]});});
+  await assert.rejects(s.generateStructured({...options,signal:controller.signal,validate:g=>s.validateInvocation(g.invocationId,()=>{
+   if(failure==="cancel")controller.abort();
+   throw withValidationDiagnostic(new Error("Invalid ref"),{validator:"source-analysis",code:"unknown-evidence"});
+  },"grounding-rejection",undefined,{deferAcceptance:true})}));assert.equal(calls,1);
+ });
+});
+
+test("demo inspection stage corrects a finding ID then resolves the original route and citations",async t=>{
+ const s=setup(t);enableDemo(t);
+ const path=load.resolve("./src/features/sources/runtime/decide-runtime-inspection.ts"), prior=load.cache[path];delete load.cache[path];
+ t.after(()=>{if(prior)load.cache[path]=prior;else delete load.cache[path];});
+ const {decideRuntimeInspection}:typeof import("@/features/sources/runtime/decide-runtime-inspection")=load(path);
+ const {default:fixture}=await import("@/features/sources/impact/fixtures/blocked-impact.json");
+ const {storedProductResult}=await import("@/features/sources/analysis/stored-product-result");
+ const source=storedProductResult.parse(fixture.source);assert.ok(source.analysis);source.analysis.findings=source.analysis.findings.slice(0,1);
+ let calls=0;const inputs:string[]=[];
+ t.mock.method(globalThis,"fetch",async(_url:unknown,init?:RequestInit)=>{
+  calls++;const request=JSON.parse(String(init?.body));inputs.push(request.messages[1].content);
+  return Response.json({choices:[{finish_reason:"stop",message:{content:JSON.stringify({status:"inspect",reason:"Inspect status controls",staticEvidence:"sufficient",targets:[{findingRef:calls===1?"finding-4":"finding-1",targetRef:"target-0",reason:"Observe Blocked status"}],uncertainties:[]})}}]});
+ });
+ const result=await decideRuntimeInspection(source,{invocation:{...invocation,operation:"runtime-decision"},operatorCapabilities:{workflow:{id:"issues",version:"1",sha256:"a".repeat(64)},capabilities:[{id:"issues",pathname:"/",description:"Inspect issue status"}]}});
+ assert.equal(calls,2);assert.equal(inputs[0],inputs[1]);assert.equal(result.decision.targets[0].pathname,"/");
+ assert.deepEqual(result.decision.targets[0].citations,source.analysis.findings[0].citations);
+ assert.deepEqual([...s.rows.values()].map(row=>row.status),["failed","succeeded"]);
+});
+
+test("demo impact stage repairs missing supported coverage and retains canonical provenance",async t=>{
+ const s=setup(t);enableDemo(t);
+ const path=load.resolve("./src/features/sources/impact/synthesize-product-impact.ts"),prior=load.cache[path];delete load.cache[path];
+ t.after(()=>{if(prior)load.cache[path]=prior;else delete load.cache[path];});
+ const {synthesizeProductImpact}:typeof import("@/features/sources/impact/synthesize-product-impact")=load(path);
+ const {default:fixture}=await import("@/features/sources/impact/fixtures/blocked-impact.json");
+ const {storedProductResult}=await import("@/features/sources/analysis/stored-product-result");
+ const {validateProductImpact}=await import("@/features/sources/impact/validate-product-impact");
+ const source=storedProductResult.parse(fixture.source);assert.ok(source.analysis);source.analysis.findings=source.analysis.findings.slice(0,1);
+ let calls=0;
+ t.mock.method(globalThis,"fetch",async()=>{
+  calls++;return Response.json({choices:[{finish_reason:"stop",message:{content:JSON.stringify({assessment:"product-change",summary:"Issues can start in Blocked status",claims:[{description:source.analysis!.findings[0].description,kind:"behavior-change",confidence:"high",confidenceReason:"Cited source",beforeRef:null,afterRef:null,references:["source-1"],uncertainties:[]}],contradictions:[],uncertainties:[],...(calls>1?{sourceCoverage:[{findingId:"source-1",status:"incorporated"}]}:{})})}}]});
+ });
+ const result=await synthesizeProductImpact({source},{invocation});
+ assert.equal(calls,2);assert.equal(result.impact.provenance.source.head,source.bundle.head);
+ assert.deepEqual(result.impact.provenance.sourceReferences[0].finding.citations,source.analysis.findings[0].citations);
+ assert.equal(validateProductImpact(result.impact).claims.length,1);
+ assert.deepEqual([...s.rows.values()].map(row=>row.status),["failed","succeeded"]);
+});
+
+test("demo native composition truncation stops at its model allowance",async t=>{
+ const s=setup(t);enableDemo(t);const ceilings:number[]=[];
+ const {generateComposition}:typeof import("./generate-composition")=load("./src/integrations/ai/generate-composition.ts");
+ t.mock.method(globalThis,"fetch",async(_url:unknown,init?:RequestInit)=>{ceilings.push(JSON.parse(String(init?.body)).max_completion_tokens);return Response.json({model:"muse-wonder-1.0",choices:[{finish_reason:"length",message:{content:"PRIVATE_PARTIAL"}}]});});
+ await assert.rejects(generateComposition("fixture",{invocation:{...invocation,operation:"documentation-composition"}}));
+ assert.deepEqual(ceilings,[8192,12288,16384,16384,16384]);assert.equal(s.rows.size,5);
+});
+
+test("demo semantic corrections cannot escape frozen single-attempt verification",async t=>{
+ const s=setup(t);enableDemo(t);let calls=0;
+ const {withInferenceBudget}=await import("./inference-budget");
+ const {resolveInference,inferenceSnapshot}=await import("./operation-policy");
+ const {withValidationDiagnostic}=await import("./invocation-debug");
+ const settings=resolveInference("baseten","source-analysis");
+ t.mock.method(globalThis,"fetch",async()=>{calls++;return Response.json({choices:[{finish_reason:"stop",message:{content:'{"value":"bad"}'}}]});});
+ await withInferenceBudget(invocation.runId,{"source-analysis":{provider:"baseten",model:settings.model,config:inferenceSnapshot("source-analysis",settings)}},async()=>{
+  await assert.rejects(s.generateStructured({...options,validate:g=>s.validateInvocation(g.invocationId,()=>{throw withValidationDiagnostic(new Error("Invalid reference"),{validator:"source-analysis",code:"unknown-evidence"});},"grounding-rejection",undefined,{deferAcceptance:true})}));
+ });assert.equal(calls,1);
 });

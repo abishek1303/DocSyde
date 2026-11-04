@@ -1,3 +1,4 @@
+import { responseTextMetrics } from "../response-text-metrics";
 import "server-only";
 import { assertReliabilityTransport } from "@/integrations/reliability/execution-context";
 import { assertInferenceTransport } from "../inference-budget";
@@ -43,7 +44,7 @@ export async function invokeBaseten(options: { instructions: string; input: stri
     const usage = modelDiagnosticSchema.shape.usage.unwrap().strip().safeParse(parsed.data.usage);
     diagnostic = { ...diagnostic, completionReason, ...(usage.success ? { usage: usage.data } : {}),
       // Measure only visible content, even on truncation. Never retain reasoning fields.
-      ...(choice.message.content !== null ? { visibleResponse: { bytes: Buffer.byteLength(choice.message.content, "utf8"), characters: choice.message.content.length } } : {}),
+      ...(choice.message.content !== null ? { visibleResponse: responseTextMetrics(choice.message.content) } : {}),
     };
     if (choice.message.refusal) throw new BasetenError("refused");
     if (choice.finish_reason !== "stop" || choice.message.content === null) throw new BasetenError("incomplete-output");

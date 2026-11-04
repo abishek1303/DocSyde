@@ -1,4 +1,5 @@
 import "server-only";
+import { maxModelAttempts, recoverableModelError, truncationSettings, formatCorrection, structuredParseFailure } from "./model-output-recovery";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { compositionOutputSchema } from "./composition-output";
@@ -34,21 +35,34 @@ leaked into user instructions where an evidenced product equivalent exists. Retu
 export function compositionConfigured() { return Boolean(process.env.META_API_KEY?.trim() || process.env.META_COMPOSITION_MODEL?.trim()); }
 export async function generateComposition(input: string, options: { invocation?: InvocationContext; signal?: AbortSignal } = {}) {
   if (Buffer.byteLength(input) > 24 * 1024) throw new ModelError("invalid-input");
-  const settings = resolveInference("meta", "documentation-composition");
+  let settings = resolveInference("meta", "documentation-composition");
   const schema = z.toJSONSchema(compositionOutputSchema);
-  return logStructuredInvocation({ provider: "meta", settings, postValidation: true,
-    invocation: { ...options.invocation, stage: options.invocation?.stage ?? "documentation-transformation", operation: "documentation-composition" },
-    input, instructions, schema: JSON.stringify(schema),
-    structuredOutput: { mode: "native", schemaName: "DocumentationComposition", schemaVersion: "documentation-composition-v1", schemaSha256: createHash("sha256").update(JSON.stringify(schema)).digest("hex"), fallbackReason: null },
-  }, async () => {
-    const started = Date.now();
-    const result = await invokeMetaComposition({ input, instructions, schema, settings, signal: options.signal }).catch((error: unknown) => {
-      throw error instanceof MetaCompositionError ? new ModelError(error.code, error.retryAfterSeconds, error.diagnostic) : new ModelError("upstream");
-    });
-    try { return { data: parseStructuredOutput(result.text, compositionOutputSchema), model: result.model, elapsedMs: Date.now() - started, metadata: result.metadata }; }
-    catch (error) {
-      if (error instanceof ModelError) throw new ModelError(error.code, error.retryAfterSeconds, { ...result.metadata, kind: error.code === "invalid-json" ? "invalid-json" : "schema-mismatch" });
-      throw error;
+  let correction = "";
+  for (let attempt = 1; attempt <= maxModelAttempts(); attempt++) {
+    options.signal?.throwIfAborted();
+    try {
+      return await logStructuredInvocation({ provider: "meta", settings, attempt, postValidation: true,
+        invocation: { ...options.invocation, stage: options.invocation?.stage ?? "documentation-transformation", operation: "documentation-composition" },
+        input, instructions: instructions + correction, schema: JSON.stringify(schema),
+        structuredOutput: { mode: "native", schemaName: "DocumentationComposition", schemaVersion: "documentation-composition-v1", schemaSha256: createHash("sha256").update(JSON.stringify(schema)).digest("hex"), fallbackReason: null },
+      }, async () => {
+        const started = Date.now();
+        const result = await invokeMetaComposition({ input, instructions: instructions + correction, schema, settings, signal: options.signal }).catch((error: unknown) => {
+          const failure = error instanceof MetaCompositionError ? new ModelError(error.code, error.retryAfterSeconds, { ...error.diagnostic, kind: error.diagnostic?.kind ?? "provider-failure", attempt, retryCount: attempt - 1 }) : new ModelError("upstream");
+          throw recoverableModelError(failure, attempt, true) ?? failure;
+        });
+        try { return { data: parseStructuredOutput(result.text, compositionOutputSchema), model: result.model, elapsedMs: Date.now() - started, metadata: { ...result.metadata, attempt, retryCount: attempt - 1 } }; }
+        catch (error) {
+          if (error instanceof ModelError) throw structuredParseFailure(error, result.metadata, attempt);
+          throw error;
+        }
+      });
+    } catch (error) {
+      const recovery = recoverableModelError(error, attempt);
+      if (!recovery) throw error;
+      correction = formatCorrection(recovery.diagnostic?.retryReason);
+      if (recovery.diagnostic?.retryReason === "output-truncated") settings = truncationSettings("documentation-composition", settings);
     }
-  });
+  }
+  throw new ModelError("invalid-json");
 }

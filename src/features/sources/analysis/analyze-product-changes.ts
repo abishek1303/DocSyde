@@ -1,4 +1,5 @@
 import "server-only";
+import { reliabilityBudget } from "@/integrations/ai/demo-reliability";
 import type { InvocationContext } from "@/integrations/ai/invocation-context";
 import { validateInvocation } from "@/integrations/ai/invocation-log";
 import type { SourceProgress } from "./analysis-progress";
@@ -22,7 +23,7 @@ export async function analyzeProductChanges(raw: unknown, capturedSnapshot?: Gen
   const paths = [...new Set(input.paths.map(path => repositoryPathInput.parse(path)))];
   assertAllowedRepository(input.owner, input.repo);
   return withSourceAccess(async () => {
-    const deadline = AbortSignal.any([AbortSignal.timeout(180_000), ...(options.signal ? [options.signal] : [])]);
+    const deadline = AbortSignal.any([AbortSignal.timeout(reliabilityBudget(180_000, 600_000)), ...(options.signal ? [options.signal] : [])]);
     const signal = AbortSignal.any([deadline, AbortSignal.timeout(60_000)]);
     await onProgress?.({ step: "read-evidence", status: "running", summary: "Reading pinned commits, patches and selected source files." });
     if (options.currentState) {
@@ -68,7 +69,7 @@ async function analyzeSourceBundle(bundle: ProductBundle, generationSnapshot: Ge
   if (!bundle.evidence.some(e => (bundle.mode === "current-state" || e.changed) && e.text)) return result;
   await onProgress?.({ step: "understand-impact", status: "running", summary: "Interpreting product behavior and validating citations." });
   try {
-    const generated = await generateStructured({ postValidation: true, invocation: { stage: "source-analysis", operation: "source-analysis", ...options.invocation }, instructions: bundle.mode === "current-state" ? currentStateInstructions : productChangeInstructions, input: payload, schema: productChangeGenerationOutput, maxOutputTokens: PRODUCT_CHANGE_OUTPUT_TOKENS, signal: deadline });
+    const generated = await generateStructured({ postValidation: true, invocation: { stage: "source-analysis", operation: "source-analysis", ...options.invocation }, instructions: bundle.mode === "current-state" ? currentStateInstructions : productChangeInstructions, input: payload, schema: productChangeGenerationOutput, validate: generated => validateInvocation(generated.invocationId, () => validateWithDiagnostics(generated.data, bundle, payload, true), "grounding-rejection", undefined, { deferAcceptance: true }), maxOutputTokens: PRODUCT_CHANGE_OUTPUT_TOKENS, signal: deadline });
     deadline.throwIfAborted();
     const canonical = await validateInvocation(generated.invocationId, () => validateWithDiagnostics(generated.data, bundle, payload, true), "grounding-rejection");
     await onProgress?.({ step: "understand-impact", status: "completed", summary: `${generated.data.findings.length} validated finding${generated.data.findings.length === 1 ? "" : "s"} · ${canonical.assessment}.` });

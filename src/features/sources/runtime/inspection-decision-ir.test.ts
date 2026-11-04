@@ -32,13 +32,13 @@ test("not-needed/unresolved meanings and bounded uncertainty are preserved", () 
   assert.ok(!inspectionDecisionIRSchema.safeParse({ ...inspect, targets: unresolved.targets }).success);
   assert.ok(!inspectionDecisionIRSchema.safeParse({ ...unresolved, targets: inspect.targets }).success);
 });
-test("three targets and 80-character prose accept equality, reject overflow/control characters/echoes", () => {
-  const max = { ...inspect, reason: "x".repeat(80), targets: [1, 2, 3].map(i => ({ findingRef: `finding-${i}`, targetRef: "target-0", reason: "x".repeat(80) })), uncertainties: Array(3).fill("x".repeat(80)) };
+test("three targets and 180-character prose accept equality, reject overflow/control characters/echoes", () => {
+  const max = { ...inspect, reason: "x".repeat(180), targets: [1, 2, 3].map(i => ({ findingRef: `finding-${i}`, targetRef: "target-0", reason: "x".repeat(180) })), uncertainties: Array(3).fill("x".repeat(80)) };
   assert.ok(inspectionDecisionIRSchema.safeParse(max).success);
   const three = resolveRuntimeDecision(max, source, targets);
   assert.equal(three.targets.length, 3);
   validateRuntimeDecision(three, source.bundle, [], authority);
-  for (const output of [{ ...max, reason: "x".repeat(81) }, { ...max, targets: [...max.targets, max.targets[0]] }, { ...max, uncertainties: Array(4).fill("unknown") }, { ...max, uncertainties: ["x".repeat(81)] }, { ...max, targets: [{ ...max.targets[0], reason: "x".repeat(81) }] }, { ...inspect, reason: "x\ny" }, { ...inspect, reason: "x\u2028y" }, { ...inspect, reason: " " }, { ...inspect, targets: [{ ...inspect.targets[0], pathname: "/invented" }] }, { ...inspect, impact: {} }]) assert.ok(!inspectionDecisionIRSchema.safeParse(output).success);
+  for (const output of [{ ...max, reason: "x".repeat(181) }, { ...max, targets: [...max.targets, max.targets[0]] }, { ...max, uncertainties: Array(4).fill("unknown") }, { ...max, uncertainties: ["x".repeat(181)] }, { ...max, targets: [{ ...max.targets[0], reason: "x".repeat(181) }] }, { ...inspect, reason: "x\ny" }, { ...inspect, reason: "x\u2028y" }, { ...inspect, reason: " " }, { ...inspect, targets: [{ ...inspect.targets[0], pathname: "/invented" }] }, { ...inspect, impact: {} }]) assert.ok(!inspectionDecisionIRSchema.safeParse(output).success);
 });
 test("invented finding/target IDs and duplicate selections reject with safe correspondence diagnostics", () => {
   const withoutFourth = { ...source, analysis: { ...source.analysis!, findings: source.analysis!.findings.slice(0, 3) } };
@@ -69,8 +69,8 @@ test("mocked Meta dispatch and canonical return preserve runtime inspection comp
   const mock = t.mock.method(globalThis, "fetch", async (url: unknown, init?: RequestInit) => {
     assert.equal(url, "https://inference.baseten.co/v1/chat/completions");
     const body = JSON.parse(String(init?.body)); assert.equal(body.model, "meta-models/muse-spark-open-1026"); assert.equal(body.max_tokens, 4096);
-    assert.equal(body.reasoning_effort, "low"); assert.equal(body.response_format.json_schema.strict, true);
-    assert.ok(!body.messages[0].content.includes("Return only JSON matching this schema:"));
+    assert.equal(body.reasoning_effort, "low"); assert.equal(body.response_format, undefined);
+    assert.ok(body.messages[0].content.includes("Return only JSON matching this schema:"));
     assert.match(body.messages[0].content, /No wrapper/); assert.match(body.messages[0].content, /chain-of-thought/);
     const input = JSON.parse(body.messages[1].content); assert.equal(input.targets[0].targetRef, "target-0"); assert.equal(input.analysis.findings[2].findingRef, "finding-3");
     return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(output) } }] });
@@ -97,7 +97,7 @@ test("request budgets and pre-cancellation fail before dispatch; malformed model
   const old = process.env.BASETEN_API_KEY; process.env.BASETEN_API_KEY = "fixture";
   t.after(() => { if(old === undefined) delete process.env.BASETEN_API_KEY; else process.env.BASETEN_API_KEY = old; });
   const mock = t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: "malformed" } }] }));
-  const tooLarge = structuredClone(source); tooLarge.bundle.evidence[0].text += "x".repeat(70000);
+  const tooLarge = structuredClone(source); tooLarge.bundle.evidence[0].text += "x".repeat(110000);
   await assert.rejects(decideRuntimeInspection(tooLarge), /request-over-budget/);
   const controller = new AbortController(); controller.abort();
   await assert.rejects(decideRuntimeInspection(source, { signal: controller.signal })); assert.equal(mock.mock.callCount(), 0);

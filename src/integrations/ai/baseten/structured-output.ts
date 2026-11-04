@@ -8,7 +8,11 @@ type JsonSchema = z.core.JSONSchema.BaseSchema;
 export type BasetenResponseFormat = { type: "json_schema"; json_schema: { name: string; strict: true; schema: JsonSchema } };
 /** Explicit model capability scope. No inference, fallback request or model substitution. */
 export function basetenCapabilities(model: string) {
- return { nativeJsonSchema: ["meta-models/muse-spark-open", "meta-models/muse-spark-open-1026"].includes(model) };
+ // Baseten documents that Muse Spark Open accepts json_schema without enforcing
+ // it. Request acceptance is not constrained decoding; use the prompt boundary.
+ // No other model has been verified for native enforcement in this adapter.
+ void model;
+ return { nativeJsonSchema: false };
 }
 function closedSchema(value: unknown): boolean {
  if (!value || typeof value !== "object" || Array.isArray(value)) return false;

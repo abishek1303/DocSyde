@@ -1,4 +1,5 @@
 import "server-only";
+import { markSemanticFailureLogged } from "./semantic-recovery";
 import { assertReliabilitySideEffect, ReliabilityIsolationError } from "@/integrations/reliability/execution-context";
 import { admitInference, stopInferenceBudget, requireInferenceLog } from "./inference-budget";
 import { randomUUID } from "node:crypto";
@@ -46,7 +47,7 @@ export async function logStructuredInvocation<T extends { model: string; metadat
     inserted = true;
   } catch (error) { if (error instanceof ReliabilityIsolationError) throw error; warn(id); }
   requireInferenceLog(inserted);
-  if (options.attempt === 2 && !inserted) throw new ModelError("invocation-log-unavailable");
+  if ((options.attempt ?? 1) > 1 && !inserted) throw new ModelError("invocation-log-unavailable");
   const started = Date.now();
   try {
     const result = await invoke();
@@ -68,7 +69,7 @@ export async function logStructuredInvocation<T extends { model: string; metadat
     }
     return { ...result, invocationId: inserted ? id : undefined };
   } catch (error) {
-    if (!(error instanceof ModelError && error.diagnostic?.boundary?.retryReason)) stopInferenceBudget();
+    if (!(error instanceof ModelError && (error.diagnostic?.retryReason || error.diagnostic?.boundary?.retryReason))) stopInferenceBudget();
     const elapsedMs = Date.now() - started;
     let failureLogged = false;
     if (inserted) {
@@ -80,11 +81,11 @@ export async function logStructuredInvocation<T extends { model: string; metadat
       try { await updateAiModelInvocation(id, { ...metadata(safe), model: safe?.model ?? configured.slice(0, 300),
         elapsedMs, status: "failed", failureKind: code, diagnostic: safe ?? null, responsePayload: null, responseOmissionReason: "model-failure" }); failureLogged = true; } catch (error) { if (error instanceof ReliabilityIsolationError) throw error; warn(id); }
     }
-    // Never issue a paid format retry if its predecessor could not be retained.
-    if (!failureLogged && error instanceof ModelError && error.diagnostic?.boundary?.retryReason) {
-      const boundary = { ...error.diagnostic.boundary };
-      delete boundary.retryReason;
-      throw new ModelError(error.code, error.retryAfterSeconds, { ...error.diagnostic, boundary });
+    // Never issue a paid structural retry if its predecessor could not be retained.
+    if (!failureLogged && error instanceof ModelError && (error.diagnostic?.retryReason || error.diagnostic?.boundary?.retryReason)) {
+      const boundary = error.diagnostic.boundary ? { ...error.diagnostic.boundary } : undefined;
+      if (boundary) delete boundary.retryReason;
+      throw new ModelError(error.code, error.retryAfterSeconds, { ...error.diagnostic, retryReason: undefined, boundary });
     }
     throw error;
   }
@@ -93,7 +94,7 @@ export async function logStructuredInvocation<T extends { model: string; metadat
 /** Called only beside existing feature validators. Does not alter provider metadata. */
 export async function finishInvocationValidation(id: string | undefined, rejection?: "grounding-rejection" | "correspondence-rejection", accepted?: () => ApprovedInvocationResponse, diagnostic?: ValidationDiagnostic, options?: { independentWork?: boolean }) {
   if (rejection && !options?.independentWork) stopInferenceBudget();
-  if (!id) return;
+  if (!id) return false;
   assertReliabilitySideEffect("invocation-persistence");
   let response: { payload: unknown; reason: string | null } = { payload: null, reason: rejection ? "validation-rejected" : "not-allowlisted" };
   let operation: string | undefined;
@@ -105,15 +106,15 @@ export async function finishInvocationValidation(id: string | undefined, rejecti
   // final acceptance changes status, not the model output. Other operations keep their existing projections.
   try { await updateAiModelInvocation(id, { status: rejection ? "failed" : "succeeded", failureKind: rejection ?? null,
     ...(accepted && !rejection && operation !== "visual-selection" ? { responsePayload: response.payload, responseOmissionReason: response.reason } : {}),
-    ...(rejection ? { diagnostic: validationDiagnosticSchema.parse(diagnostic ?? rejectionDiagnostic(undefined, rejection)) } : {}) }, true, operation); }
-  catch (error) { if (error instanceof ReliabilityIsolationError) throw error; warn(id); stopInferenceBudget(); }
+    ...(rejection ? { diagnostic: validationDiagnosticSchema.parse(diagnostic ?? rejectionDiagnostic(undefined, rejection)) } : {}) }, true, operation); return true; }
+  catch (error) { if (error instanceof ReliabilityIsolationError) throw error; warn(id); stopInferenceBudget(); return false; }
 }
 
 /** Scope the callback to existing validation only, never progress/persistence/downstream work. */
-export async function validateInvocation<T>(id: string | undefined, validate: () => T | Promise<T>, rejection: "grounding-rejection" | "correspondence-rejection", accepted?: () => ApprovedInvocationResponse): Promise<T> {
+export async function validateInvocation<T>(id: string | undefined, validate: () => T | Promise<T>, rejection: "grounding-rejection" | "correspondence-rejection", accepted?: () => ApprovedInvocationResponse, options: { deferAcceptance?: boolean } = {}): Promise<T> {
   let result: T;
   try { result = await validate(); }
-  catch (error) { await finishInvocationValidation(id, rejection, undefined, rejectionDiagnostic(error, rejection)); throw error; }
-  await finishInvocationValidation(id, undefined, accepted);
+  catch (error) { if (await finishInvocationValidation(id, rejection, undefined, rejectionDiagnostic(error, rejection))) markSemanticFailureLogged(error); throw error; }
+  if (!options.deferAcceptance) await finishInvocationValidation(id, undefined, accepted);
   return result;
 }

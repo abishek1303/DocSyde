@@ -49,7 +49,7 @@ test("confirmed canonical Muse fields serialize exactly without leaking unrelate
   assert.equal(result.data.value,"ok"); assert.equal(fetch.mock.callCount(),1);
 });
 
-test("Baseten native schema changes only formatting, preserving all operation ceilings and controls", async t => {
+test("Muse Spark Open prompt schema preserves all operation ceilings and controls", async t => {
   const previous = { BASETEN_MODEL: process.env.BASETEN_MODEL, BASETEN_API_KEY: process.env.BASETEN_API_KEY };
   delete process.env.BASETEN_MODEL; process.env.BASETEN_API_KEY = "offline";
   t.after(() => { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
@@ -61,8 +61,7 @@ test("Baseten native schema changes only formatting, preserving all operation ce
       assert.deepEqual(JSON.parse(String(init?.body)), {
         model: "meta-models/muse-spark-open-1026", stream: false, max_tokens: max,
         ...(expectedEfforts[operation] ? { reasoning_effort: expectedEfforts[operation] } : {}),
-        response_format: { type: "json_schema", json_schema: { name: operationPolicy(operation)?.[1], strict: true, schema: z.toJSONSchema(schema) } },
-        messages: [{ role: "system", content: "Extract" }, { role: "user", content: "value" }],
+        messages: [{ role: "system", content: `Extract\nReturn only JSON matching this schema: ${JSON.stringify(z.toJSONSchema(schema))}` }, { role: "user", content: "value" }],
       });
       return Response.json({ choices: [{ finish_reason: "stop", message: { content: '{"value":"ok"}' } }] });
     });

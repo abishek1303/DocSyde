@@ -1,3 +1,4 @@
+import { compactImpactReply } from "./fixtures/compact-impact-reply";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -57,9 +58,9 @@ test("Blocked synthesis uses common schema-bearing dispatch; canonical provenanc
     assert.equal(format.additionalProperties, false); assert.equal(format.properties.claims.items.additionalProperties, false);
     assert.equal(format.properties.provenance, undefined);
     const input = JSON.parse(body.messages[1].content);
-    assert.equal(input.source.head, fixture.source.bundle.head); assert.equal(input.captures.length, 2);
+    assert.equal(input.source.head, undefined); assert.equal(input.source.repository, undefined); assert.equal(input.captures.length, 2);
     assert.ok(input.source.findings.some((f: {description:string}) => f.description.includes("Blocked")));
-    return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(returned) } }] });
+    return Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(compactImpactReply(returned, input.source.findings)) } }] });
   });
   const source = storedProductResult.parse(fixture.source);
   const runtime = runtimeVisualEvidenceList.parse(fixture.runtime);

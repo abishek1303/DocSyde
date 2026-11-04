@@ -61,3 +61,27 @@ test("Blocked routing extras normalize but invented references, expanded routes 
   const citations=decision.targets[0].citations.map(c=>({...c,excerpt:"fabricated"}));
   assert.throws(()=>validateRuntimeDecision({...decision,targets:[{...decision.targets[0],citations}]},source.bundle,[],authority));
 });
+
+test("length recovery admits only pure authored-prose overflow and emits counts, not rejected values", async () => {
+  const { proseLengthIssues, proseLengthCorrection } = await import("./prose-length-feedback");
+  const schema = z.object({ findings: z.array(z.object({ description: z.string().max(500), confidenceReason: z.string().max(200),
+    before: z.string().max(400).nullable(), kind: z.enum(["product-behavior"]), citations: z.array(z.object({ evidenceId: z.string().max(30) }).strict()).max(2),
+  }).strict()).max(4) }).strict();
+  const finding = { description: "PRIVATE_TEXT".repeat(50), confidenceReason: "Direct source", before: null, kind: "product-behavior", citations: [{ evidenceId: "p1" }] };
+  const input = { findings: [finding] };
+  const feedback = proseLengthIssues("source-analysis", schema, input)!;
+  assert.deepEqual(feedback, [{ path: "findings.0.description", maximum: 500, actual: 600 }]);
+  assert.ok(!proseLengthCorrection(feedback).includes("PRIVATE_TEXT"));
+  assert.equal(input.findings[0].description.length, 600, "No string slicing or mutation.");
+  for (const value of [
+    { findings: [{ ...finding, kind: "invented" }] },
+    { findings: [{ ...finding, confidenceReason: undefined }] },
+    { findings: [{ ...finding, before: "x".repeat(401) }] },
+    { findings: [{ ...finding, citations: [{ evidenceId: "x".repeat(31) }] }] },
+    { findings: Array(5).fill(finding) },
+    { findings: [{ ...finding, description: 123 }] },
+  ]) assert.equal(proseLengthIssues("source-analysis", schema, value), undefined);
+  assert.equal(proseLengthIssues("documentation-transformation", schema, input), undefined);
+  const summary = z.object({ summary: z.string().max(300) });
+  assert.deepEqual(proseLengthIssues("product-impact", summary, { summary: "x".repeat(301) }), [{ path: "summary", maximum: 300, actual: 301 }]);
+});

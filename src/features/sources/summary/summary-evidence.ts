@@ -1,3 +1,4 @@
+import { reliabilityBudget } from "@/integrations/ai/demo-reliability";
 import type { ChangeEvidence } from "@/integrations/github/change-evidence";
 import type { GeneratedSummary, SummaryResult } from "./change-summary";
 
@@ -5,7 +6,7 @@ export function selectEvidence(evidence: ChangeEvidence): SummaryResult {
   if (evidence.files.length > 30) throw new Error("Choose a narrower range: the analysis budget is 30 changed files.");
   const fileUrl = (commit: string, path: string) => `${evidence.repository.location}/blob/${commit}/${path.split("/").map(encodeURIComponent).join("/")}`;
   const files = evidence.files.map((file, index) => {
-    const coverage = file.patch === null ? "unavailable" as const : Buffer.byteLength(file.patch, "utf8") > 12 * 1024 ? "over-budget" as const : file.patch === "" ? "empty" as const : "included" as const;
+    const coverage = file.patch === null ? "unavailable" as const : Buffer.byteLength(file.patch, "utf8") > reliabilityBudget(12 * 1024, 32 * 1024) ? "over-budget" as const : file.patch === "" ? "empty" as const : "included" as const;
     return { ...file, id: `f${index + 1}`, coverage,
       patch: coverage === "included" || coverage === "empty" ? file.patch : null,
       url: fileUrl(file.kind === "deleted" ? evidence.base.commitId : evidence.head.commitId, file.path),
@@ -17,7 +18,7 @@ export function selectEvidence(evidence: ChangeEvidence): SummaryResult {
     summary: null, model: null, elapsedMs: null,
     notice: "Analysis uses GitHub-supplied patches only; patches may be incomplete. Runtime behavior, deployment, and test success are not verified." };
   result.bytes = Buffer.byteLength(modelInput(result), "utf8");
-  if (result.bytes > 64 * 1024) throw new Error("Choose a narrower range: selected evidence exceeds 64 KiB. No model analysis was performed.");
+  if (result.bytes > reliabilityBudget(64 * 1024, 192 * 1024)) throw new Error(`Choose a narrower range: selected evidence exceeds ${reliabilityBudget(64, 192)} KiB. No model analysis was performed.`);
   return result;
 }
 export function modelInput(result: SummaryResult): string {

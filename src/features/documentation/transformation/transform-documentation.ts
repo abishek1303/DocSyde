@@ -1,7 +1,7 @@
 import { groundingRisk } from "./grounding-risk";
 import { validateSourceNormalization } from "./source-normalization";
 import { documentUnitId } from "./document-units";
-import { rejectionDiagnostic as entryRejectionDiagnostic, type ValidationDiagnostic } from "@/integrations/ai/invocation-debug";
+import { withValidationDiagnostic, rejectionDiagnostic as entryRejectionDiagnostic, type ValidationDiagnostic } from "@/integrations/ai/invocation-debug";
 import "server-only";
 import { discoveredAssociations } from "./route-associations";
 import type { ProductRoute } from "@/features/sources/product-evidence";
@@ -9,7 +9,7 @@ import { compositionConfigured, generateComposition } from "@/integrations/ai/ge
 import { compositionInput, applyComposition } from "./compose-documentation";
 import { admitWorkItems, withRunInferenceBudget, InferenceBudgetError } from "@/integrations/ai/inference-budget";
 import type { InvocationContext } from "@/integrations/ai/invocation-context";
-import { finishInvocationValidation } from "@/integrations/ai/invocation-log";
+import { finishInvocationValidation, validateInvocation } from "@/integrations/ai/invocation-log";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { isDeepStrictEqual } from "node:util";
@@ -138,7 +138,17 @@ async function executeTransformation(input: TransformationInput,
       await progress(batchIndex + 1, null); continue;
     }
     try {
-      const generated = await generateStructured({ postValidation: true, invocation: { stage: "documentation-transformation", operation: "documentation-transformation", ...invocation }, instructions: transformationInstructions, input: request.input, schema: transformationEnvelopeSchema, maxOutputTokens: TRANSFORMATION_OUTPUT_TOKENS, signal });
+      const generated = await generateStructured({ postValidation: true, invocation: { stage: "documentation-transformation", operation: "documentation-transformation", ...invocation }, instructions: transformationInstructions, input: request.input, schema: transformationEnvelopeSchema, maxOutputTokens: TRANSFORMATION_OUTPUT_TOKENS, signal, validate: generated => validateInvocation(generated.invocationId, () => {
+        const ids = new Set(batch.items.map(auth => auth.decisionId));
+        if (generated.data.entries.some(raw => !raw || typeof raw !== "object" || !("decisionId" in raw) || typeof raw.decisionId !== "string" || !ids.has(raw.decisionId)))
+          throw withValidationDiagnostic(new Error("Unknown transformation entry."), { validator: "documentation-transformation", code: "unknown-generation-entry" });
+        for (const auth of batch.items) {
+          const entries = generated.data.entries.filter(raw => raw && typeof raw === "object" && "decisionId" in raw && raw.decisionId === auth.decisionId);
+          if (entries.length !== 1) throw withValidationDiagnostic(new Error("Missing or duplicate transformation entry."), { validator: "documentation-transformation", code: "missing-or-duplicate-generation-entry" });
+          const change = validateTransformationEntry(entries[0], auth, auth.target.documentId ? baselines.get(auth.target.documentId) : undefined);
+          validateSourceNormalization(change, input.impact, input.plan, auth.decision.claimRefs);
+        }
+      }, "correspondence-rejection", undefined, { deferAcceptance: true }) });
       signal?.throwIfAborted();
       record.status = "completed"; record.model = { model: generated.model, elapsedMs: generated.elapsedMs };
       let rejected = false;

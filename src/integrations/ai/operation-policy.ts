@@ -1,4 +1,5 @@
 import "server-only";
+import { demoReliabilityMode, demoModelLimits } from "./demo-reliability";
 import { z } from "zod";
 import { ModelError } from "./structured-output";
 
@@ -17,7 +18,7 @@ const policies = {
   "runtime-decision": [4096, "runtime-decision-v3"],
   "visual-selection": [3072, "visual-selection-v3"],
   "runtime-vision": [4096, "runtime-vision-v2"],
-  "product-impact": [8192, "product-impact-v2"],
+  "product-impact": [8192, "product-impact-v3"],
   "documentation-planning": [4096, "documentation-planning-v3"],
   "documentation-draft": [8192, "documentation-draft-v2"],
   "documentation-composition": [4096, "documentation-composition-v1"],
@@ -60,11 +61,14 @@ function checkedOptions(provider: "baseten" | "meta", model: string, raw?: Infer
 }
 export function resolveInference(provider: "baseten" | "meta", operation: string, maxOutputTokens?: number, raw?: InferenceOptions) {
   const model = configuredModel(provider, operation);
-  const max = maxOutputTokens ?? operationPolicy(operation)?.[0] ?? 4096;
+  const normal = maxOutputTokens ?? operationPolicy(operation)?.[0] ?? 4096;
+  if (!Number.isSafeInteger(normal) || normal < 1) throw new ModelError("invalid-input");
+  const limits = demoReliabilityMode() ? demoModelLimits(provider, model) : undefined;
+  const max = limits && operationPolicy(operation) ? Math.min(limits.outputCap, Math.max(normal, limits.initialOutput)) : normal;
   if (!Number.isSafeInteger(max) || max < 1) throw new ModelError("invalid-input");
   const defaults = provider === "baseten" && museReasoning(model) && Object.hasOwn(operationInference, operation)
     ? operationInference[operation as ModelOperation] : undefined;
-  return { model, maxOutputTokens: max, ...checkedOptions(provider, model, { ...defaults, ...raw }) };
+  return { model, maxOutputTokens: max, ...checkedOptions(provider, model, { ...defaults, ...(provider === "baseten" && model === "meta-models/muse-spark-open" && operation === "source-analysis" ? { temperature: 0 } : {}), ...raw }) };
 }
 export type ResolvedInference = ReturnType<typeof resolveInference>;
 export function inferenceSnapshot(operation: string, settings: ResolvedInference) {
@@ -93,3 +97,13 @@ export const runInferencePolicy = Object.freeze({
   maxWorkItems: 8,
 });
 export type RunInferenceLimits = { [K in keyof typeof runInferencePolicy]: number };
+
+/** Hard recovery ceilings, used only after a provider-confirmed length completion. */
+export function recoveryOutputTokenCap(operation: string) {
+  const initial = operationPolicy(operation)?.[0];
+  return initial === undefined ? undefined : Math.min(initial * 2, 16_384);
+}
+
+export function effectiveRunInferencePolicy() {
+  return demoReliabilityMode() ? { ...runInferencePolicy, maxCalls: 96, maxTokens: 8 * 1024 * 1024, maxInputTokensPerCall: 512 * 1024 } : runInferencePolicy;
+}

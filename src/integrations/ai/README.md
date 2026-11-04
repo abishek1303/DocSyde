@@ -19,7 +19,7 @@ Muse Spark Open does not enforce JSON Schema: the adapter prompts for JSON,
 checks completion/refusal, parses final answer text, and validates with Zod.
 It never salvages JSON from reasoning or strips arbitrary prose. Validation
 proves shape, not truth. Defaults: 4096 output tokens, 120-second request deadline,
-no retries. Errors distinguish missing credentials, billing/auth/model failures,
+up to three attempts for recoverable formatting or token truncation (see [boundary policy](structured-output-boundary.md)). Model outputs vary and recovery cannot guarantee success. Errors distinguish missing credentials, billing/auth/model failures,
 rate limits, cancellation, timeouts, incomplete output, and invalid structures.
 No raw provider response body, secrets or reasoning is logged. Only operation-approved
 bounded sanitized snapshots described below are retained.
@@ -61,8 +61,8 @@ inherited from Baseten. The fixed endpoint is `https://api.meta.ai/v1/chat/compl
 auth, a developer message, text/image content parts and an inline PNG data URL.
 See Meta's [image-input contract](https://dev.meta.ai/docs/image-understanding) and
 [Chat Completions contract](https://dev.meta.ai/docs/protocols/chat-completions).
-Requests are nonstreaming, capped at 4096 completion tokens and 120 seconds, with
-caller cancellation, no retries and no provider fallback. Account/model access must
+Requests are nonstreaming, initially capped at 4096 completion tokens and 120 seconds each, with
+caller cancellation, bounded syntax/truncation recovery and no provider fallback. Account/model access must
 be verified separately; failures never route to Baseten.
 
 Public failures use `ModelError.code`: `invalid-input`, `invalid-image`,
@@ -118,3 +118,13 @@ locally, without retries or repairs. Selector instructions/input/schema and sche
 output use the existing bounded sanitized debug envelopes; fixed code/path diagnostics
 survive post-validation failures. Malformed/schema-invalid raw output remains excluded.
 Historical approved projections remain readable. See [MODEL_USAGE.md](../../../MODEL_USAGE.md) for exact bounds.
+
+
+`DEMO_RELIABILITY_MODE=true` opts into five total attempts per operation (including
+at most two logged semantic correspondence corrections), larger bounded evidence
+and conservative model-specific output allowances. Only confirmed truncation
+increases output tokens. Original feature validators and human review still apply;
+unsupported content and contradictions remain blocking. Defaults stay unchanged
+when disabled. See [SETUP](../../../SETUP.md#hackathon-demo-reliability-mode) for
+limits, exclusions and increased inference cost. No live inference is needed to
+run the mocked regression suite.

@@ -1,3 +1,4 @@
+import { compactImpactReply } from "./fixtures/compact-impact-reply";
 import { PRODUCT_CITATION_EXCERPT_CHARACTERS } from "../analysis/product-change-limits";
 import { reconstructProductAnalysis } from "../analysis/product-change-evidence";
 import { test, type TestContext } from "node:test";
@@ -54,7 +55,7 @@ function provider(t: TestContext, response: unknown) {
   const fetch = t.mock.method(globalThis, "fetch", async (url: unknown, init: RequestInit) => {
     assert.equal(url, "https://inference.baseten.co/v1/chat/completions");
     const body = JSON.parse(String(init.body)); payload = body.messages[1].content; instructions = body.messages[0].content;
-    return Response.json({ choices: [{ finish_reason: "stop", message: { content: typeof response === "string" ? response : JSON.stringify(response) } }] });
+    return Response.json({ choices: [{ finish_reason: "stop", message: { content: typeof response === "string" ? response : JSON.stringify(compactImpactReply(response, JSON.parse(payload).source.findings)) } }] });
   });
   return { fetch, payload: () => JSON.parse(payload), instructions: () => instructions };
 }
@@ -262,7 +263,7 @@ test("synthesis advertises the exact claim-kind permissions enforced for capabil
   await synthesizeProductImpact({ source: input });
   assert.deepEqual(p.payload().source.findings[0].allowedClaimKinds, ["behavior-change", "ui-change"]);
   response.claims[0].kind = "workflow-change";
-  t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(response) } }] }));
+  t.mock.method(globalThis, "fetch", async () => Response.json({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(compactImpactReply(response, p.payload().source.findings)) } }] }));
   await assert.rejects(synthesizeProductImpact({ source: input }), (error: unknown) => {
     assert.ok(error instanceof Error && "diagnostic" in error);
     const diagnostic = error.diagnostic as { kind: string; model: string; issues: { code: string; path: string }[] };
@@ -313,6 +314,10 @@ test("larger valid canonical excerpts cannot expand the aggregate evidence reque
     citations: Array.from({ length: 4 }, () => ({ evidenceId: "p1", startLine: 3, endLine: 3, excerpt })),
   }));
   const p = provider(t, output());
-  await assert.rejects(synthesizeProductImpact({ source: input }), /request-over-budget/);
+  const capture = runtime();
+  capture.vision.data.elements = Array.from({ length: 20 }, () => ({ description: "é".repeat(300), visibleText: "é".repeat(500), bounds: null, certainty: "uncertain" }));
+  capture.vision.data.observations = Array(10).fill("é".repeat(500));
+  capture.vision.data.limitations = Array(10).fill("é".repeat(500));
+  await assert.rejects(synthesizeProductImpact({ source: input, runtime: [capture] }), /request-over-budget/);
   assert.equal(p.fetch.mock.callCount(), 0, "aggregate UTF-8 limit still blocks inference before transport");
 });

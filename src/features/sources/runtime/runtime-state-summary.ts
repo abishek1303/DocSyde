@@ -1,4 +1,5 @@
 import "server-only";
+import { reliabilityBudget } from "@/integrations/ai/demo-reliability";
 import { createHash } from "node:crypto";
 import { runtimeTraceSchema, type RuntimeTrace } from "@/integrations/browser/runtime-trace";
 import { redactRuntimeText, runtimePath } from "@/integrations/browser/runtime-redaction";
@@ -22,17 +23,18 @@ export function summarizeRuntimeStates(source: ProductResult, raw: RuntimeTrace,
     before: finding.before === null ? null : clean(finding.before, 400), after: finding.after === null ? null : clean(finding.after, 400),
     support: finding.support, uncertainties: finding.uncertainties.map(value => clean(value, 300)),
   }));
+  const textLimit = reliabilityBudget(2000, 4000), regionLimit = reliabilityBudget(500, 1000);
   const stateSummaries = trace.states.map(state => {
     const snapshot = state.snapshot;
     return { stateId: state.stateId, order: state.order, trigger: state.trigger, occurrences: state.occurrences,
       effects: state.effects.map(value => clean(value, 100)), pathname: runtimePath(snapshot.pathname, secrets),
-      headings: snapshot.headings.map(value => clean(value, 300)), text: clean(snapshot.text, 2000),
-      regions: snapshot.regions.map(region => ({ name: clean(region.name, 100), text: clean(region.text, 500) })),
+      headings: snapshot.headings.map(value => clean(value, 300)), text: clean(snapshot.text, textLimit),
+      regions: snapshot.regions.map(region => ({ name: clean(region.name, 100), text: clean(region.text, regionLimit) })),
       controls: snapshot.controls.map(control => ({ ...control, role: clean(control.role, 50), name: clean(control.name, 200) })),
       overlays: snapshot.overlays.map(value => clean(value, 300)),
       hostContext: snapshot.hostContext ? { applicationId: clean(snapshot.hostContext.applicationId, 100),
         route: runtimePath(snapshot.hostContext.route, secrets), featureIds: snapshot.hostContext.featureIds.map(value => clean(value, 100)) } : null,
-      truncated: snapshot.truncated || snapshot.text.length > 2000 || snapshot.regions.some(region => region.text.length > 500),
+      truncated: snapshot.truncated || snapshot.text.length > textLimit || snapshot.regions.some(region => region.text.length > regionLimit),
     };
   });
   const fingerprints = new Map<string, string>();
@@ -51,7 +53,7 @@ export function summarizeRuntimeStates(source: ProductResult, raw: RuntimeTrace,
     else { candidates.push({ checkpointId: cp.captureId, stateId: cp.stateId, crop: cp.crop }); fingerprints.set(fingerprint, cp.captureId); }
     hashes.set(cp.screenshot.sha256, representativeId ?? cp.captureId);
   }
-  const omittedDetails = trace.states.some(state => state.snapshot.text.length > 2000 || state.snapshot.regions.some(region => region.text.length > 500));
+  const omittedDetails = trace.states.some(state => state.snapshot.text.length > textLimit || state.snapshot.regions.some(region => region.text.length > regionLimit));
   return {
     trace,
     input: { workflow: clean(description, 500), viewport: trace.viewport, findings,

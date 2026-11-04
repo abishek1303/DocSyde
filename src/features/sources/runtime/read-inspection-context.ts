@@ -1,4 +1,5 @@
 import "server-only";
+import { reliabilityBudget } from "@/integrations/ai/demo-reliability";
 import { repositoryPathInput } from "@/integrations/github/source-reader";
 import { readPinnedSourceContext } from "../context/read-source-context";
 import { withSourceAccess } from "../repository/local-source-access";
@@ -24,7 +25,7 @@ export function boundInspectionContext(files: ContextFile[], head: string): Insp
     const entry = { path: file.path, commitId: head, text: null };
     if (file.status !== "available") return { ...entry, status: file.status === "excluded" ? "oversized" : file.status === "error" ? "error" : "missing-or-unsupported" };
     const size = Buffer.byteLength(file.text, "utf8");
-    if (bytes + size > 16 * 1024) return { ...entry, status: "oversized" };
+    if (bytes + size > reliabilityBudget(16 * 1024, 64 * 1024)) return { ...entry, status: "oversized" };
     bytes += size;
     return { ...entry, status: "available", text: file.text };
   });

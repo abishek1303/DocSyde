@@ -1,3 +1,4 @@
+import { compactImpactReply } from "@/features/sources/impact/fixtures/compact-impact-reply";
 import { reliabilityContext } from "@/integrations/reliability/execution-context";
 import { reliabilityEnvironment } from "@/integrations/reliability/subprocess-environment";
 import { test } from "node:test";
@@ -41,7 +42,7 @@ test("retained priority inputs → corrected synthesis → planner → transform
   const corrected = productImpactOutputSchema.parse({
     assessment: "product-change", summary: "Request Desk adds Normal and Urgent request priority.",
     claims: sourceRefs.map((finding, index) => ({ description: index === 0 ? "Request creation offers Normal and Urgent priority, defaulting to Normal." : index === 1 ? "Request lists and details display priority." : "Session data preserves priority; older entries default to Normal.",
-      kind: ["ui-change", "workflow-change", "behavior-change"][index], confidence: finding.confidence, confidenceReason: finding.confidenceReason,
+      kind: ["ui-change", "workflow-change", "behavior-change"][index], confidence: finding.confidence, confidenceReason: "Pinned source evidence supports this behavior.",
       before: finding.before, after: finding.after, references: [`source-${index + 1}`], uncertainties: finding.uncertainties,
     })).concat([{ description: "The captured request details display Priority: Urgent.", kind: "visual-observation", confidence: "high", confidenceReason: "Visible text in the single selected live image.", before: null, after: null, references: [visionRef], uncertainties: [] }]),
     contradictions: [], uncertainties: [...runtimeInspection.unresolvedQuestions, "Only the resulting request detail was observed; no prior state or persistence was visually verified."],
@@ -54,7 +55,7 @@ test("retained priority inputs → corrected synthesis → planner → transform
     const input = JSON.parse(JSON.parse(String(init?.body)).messages[1].content);
     if (input.source?.findings) {
       assert.deepEqual(input.source.findings[0].allowedClaimKinds, ["behavior-change", "ui-change"]);
-      return response(outputs.length ? outputs.shift() : corrected);
+      return response(compactImpactReply(outputs.length ? outputs.shift() : corrected, input.source.findings));
     }
     if (input.candidateCoverage) return response({decisions:[{action:"revise",documentId:baseline.id,sectionId:baseline.sections[2].id,
       reason:"The Create a request section omits the new priority choice and how it appears in request views.",updateIntent:"Explain Normal/Urgent priority while preserving the existing request instructions.",claimRefs:["claim-1","claim-2","claim-3"]}],uncertainties:[]});

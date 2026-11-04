@@ -1,8 +1,9 @@
 import "server-only";
+import { demoReliabilityMode, demoModelLimits } from "./demo-reliability";
 import { reliabilityContext } from "@/integrations/reliability/execution-context";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { isDeepStrictEqual } from "node:util";
-import { inferenceSnapshot, runInferencePolicy, type RunInferenceLimits, type ResolvedInference } from "./operation-policy";
+import { inferenceSnapshot, runInferencePolicy, effectiveRunInferencePolicy, type RunInferenceLimits, type ResolvedInference } from "./operation-policy";
 
 export type FrozenInference = { provider: "baseten" | "meta"; model: string; config: Omit<ReturnType<typeof inferenceSnapshot>, "contractVersion"> & { contractVersion: string | null } };
 type Budget = {
@@ -29,7 +30,7 @@ export function withInferenceBudget<T>(runId: string, expected: Record<string, F
   return scope.run(newBudget(runId, limits, expected, beforeCall), action);
 }
 function newBudget(runId: string, limits: Partial<RunInferenceLimits>, expected?: Record<string, FrozenInference>, beforeCall?: () => Promise<void>): Budget {
-  const resolved = { ...runInferencePolicy, ...limits };
+  const resolved = { ...(expected ? runInferencePolicy : effectiveRunInferencePolicy()), ...limits };
   if (Object.values(resolved).some(value => !Number.isSafeInteger(value) || value < 1)) throw new Error("Invalid run inference limits.");
   return { runId, expected, limits: resolved, calls: 0, tokens: 0, workItems: 0, startedAt: Date.now(), operations: new Set(), stopped: false, beforeCall };
 }
@@ -55,7 +56,8 @@ export function admitWorkItems(count: number) {
     budget.workItems += count;
   }
 }
-// Explicit experiment scopes disable format retries; production retries still consume the shared budget.
+// Explicit experiment scopes disable structural retries (format or prose length);
+// production retries still consume the shared budget.
 export function formatRetryAllowed() { return !scope.getStore()?.expected; }
 // Fail-fast experiments stay fail-fast. Independent production batches can still be support-checked.
 export function stopInferenceBudget() { const budget = scope.getStore(); if (budget?.expected) budget.stopped = true; }
@@ -79,6 +81,9 @@ export function assertPlannedGenerationBatches(count: number, _infeasible = fals
   }
 }
 export async function admitInference(provider: "baseten" | "meta", operation: string, settings: ResolvedInference, runId?: string, inputTokens = 0) {
+  const modelLimits = demoReliabilityMode() ? demoModelLimits(provider, settings.model) : undefined;
+  if (modelLimits && (settings.maxOutputTokens > modelLimits.outputCap || inputTokens + settings.maxOutputTokens > modelLimits.contextCap))
+    throw new InferenceBudgetError("inference-budget-exceeded");
   const budget = scope.getStore();
   if (!budget) {
     if (process.env.DOCSYDE_RELIABILITY_MANIFEST || reliabilityContext()?.mode === "scenario") throw new InferenceBudgetError("unguarded-baseline-call");

@@ -1,9 +1,11 @@
 import { freshSourceClaims, freshFallbackDecisions } from "./fresh-source-targets";
 import "server-only";
+import { demoReliabilityMode, reliabilityBudget } from "@/integrations/ai/demo-reliability";
+import { withValidationDiagnostic } from "@/integrations/ai/invocation-debug";
 import type { InvocationContext } from "@/integrations/ai/invocation-context";
 import { validateInvocation } from "@/integrations/ai/invocation-log";
 import { z } from "zod";
-import { generateStructured } from "@/integrations/ai/generate-structured";
+import { generateStructured, type StructuredGenerationResult } from "@/integrations/ai/generate-structured";
 import { validateProductImpact, type ProductImpact } from "@/features/sources/product-analysis";
 import { DOCUMENTATION_DRAFT_INPUT_BUDGET_BYTES } from "../drafts/draft-limits";
 import { documentationImpactGenerationSchema, documentationImpactPlanSchema } from "./documentation-impact";
@@ -51,25 +53,27 @@ export async function planDocumentationImpact(
   const instructions = fresh ? freshInstructions : documentationPlanningInstructions;
   const schema = fresh ? freshGenerationSchema : documentationImpactGenerationSchema;
   const request = JSON.stringify({ instructions, input, schema: z.toJSONSchema(schema), maxOutputTokens });
-  if (Buffer.byteLength(request, "utf8") > DOCUMENTATION_DRAFT_INPUT_BUDGET_BYTES) throw new Error("Documentation impact request exceeds 32 KiB. Nothing was omitted.");
+  if (Buffer.byteLength(request, "utf8") > reliabilityBudget(DOCUMENTATION_DRAFT_INPUT_BUDGET_BYTES, 64 * 1024)) throw new Error(`Documentation impact request exceeds ${reliabilityBudget(32, 64)} KiB. Nothing was omitted.`);
   options.signal?.throwIfAborted();
-  const generate = (instructions: string) => generateStructured({ postValidation: true, invocation: { stage: "documentation-planning", operation: "documentation-planning", ...options.invocation }, instructions, input, schema, maxOutputTokens, signal: options.signal });
-  const buildPlan = (generated: Awaited<ReturnType<typeof generate>>) => validateInvocation(generated.invocationId, () => {
+  const generate = (instructions: string) => generateStructured({ postValidation: true, invocation: { stage: "documentation-planning", operation: "documentation-planning", ...options.invocation }, instructions, input, schema, maxOutputTokens, signal: options.signal, validate: generated => buildPlan(generated, true) });
+  const buildPlan = (generated: StructuredGenerationResult<typeof schema>, deferAcceptance = false) => validateInvocation(generated.invocationId, () => {
     validateImpactDecisions(impact, generated.data.decisions, documents, { fresh });
+    if (demoReliabilityMode() && fresh && freshSourceClaims(impact).length && !generated.data.decisions.some(decision => decision.action === "add"))
+      throw withValidationDiagnostic(new Error("Supported fresh claims have no draft targets."), { validator: "documentation-planning", code: "unaddressed-claims" });
     return documentationImpactPlanSchema.parse({ ...generated.data, ...(fresh ? { objective: "fresh" } : {}), ...(selection ? { candidateSelection: selection } : {}),
       source: { repository: impact.provenance.source.repository, base: impact.provenance.source.base, head: impact.provenance.source.head },
       claimCatalog: catalog,
       qualifications: { ...(impact.provenance.runtimeInspection ? { runtimeInspection: impact.provenance.runtimeInspection } : {}), assessment: impact.assessment, uncertainties: impact.uncertainties, contradictions: impact.contradictions,
         source: { limited: impact.provenance.source.limited, notice: impact.provenance.source.notice, uncertainties: impact.provenance.source.uncertainties } },
     });
-  }, "grounding-rejection");
+  }, "grounding-rejection", undefined, { deferAcceptance });
   let generated = await generate(instructions);
   let elapsedMs = generated.elapsedMs;
   let plan = await buildPlan(generated);
   if (fresh && !plan.decisions.some(decision => decision.action === "add") && freshSourceClaims(impact).length) {
     const corrective = instructions + "\nCORRECTIVE FULL SCAN ATTEMPT: The first plan had no draft targets. Produce fresh add targets with null document/section IDs for the eligible source-supported claim IDs: "
       + freshSourceClaims(impact).map(claim => claim.id).join(", ") + ". Ground every intent in those claims. Do not require screenshot confirmation, existing documentation, or a historical change. Preserve all source limitations; do not invent routes or behavior.";
-    if (Buffer.byteLength(JSON.stringify({ instructions: corrective, input, schema: z.toJSONSchema(schema), maxOutputTokens }), "utf8") > DOCUMENTATION_DRAFT_INPUT_BUDGET_BYTES) throw new Error("Corrective planning request exceeds its input budget.");
+    if (Buffer.byteLength(JSON.stringify({ instructions: corrective, input, schema: z.toJSONSchema(schema), maxOutputTokens }), "utf8") > reliabilityBudget(DOCUMENTATION_DRAFT_INPUT_BUDGET_BYTES, 64 * 1024)) throw new Error("Corrective planning request exceeds its input budget.");
     options.signal?.throwIfAborted();
     generated = await generate(corrective); elapsedMs += generated.elapsedMs;
     plan = await buildPlan(generated);

@@ -15,7 +15,7 @@ export async function updateAiModelInvocation(id: string, values: Partial<Omit<R
     await tx.execute(sql`SET LOCAL statement_timeout = '5000ms'`);
     // Preserve safe boundary metadata when feature validation adds a rejection.
     const updates = validationOnly && values.diagnostic ? { ...values,
-      diagnostic: sql`(coalesce(${aiModelInvocations.diagnostic}, '{}'::jsonb) - 'kind' - 'attempt') || ${JSON.stringify(values.diagnostic)}::jsonb`,
+      diagnostic: sql`(coalesce(${aiModelInvocations.diagnostic}, '{}'::jsonb) - 'kind') || ${JSON.stringify(values.diagnostic)}::jsonb`,
     } : values;
     await tx.update(aiModelInvocations).set(updates).where(and(eq(aiModelInvocations.id, id),
       validationOnly ? eq(aiModelInvocations.status, "structured-success") : undefined,

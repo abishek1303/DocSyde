@@ -1,4 +1,5 @@
 import "server-only";
+import { maxModelAttempts, recoverableModelError, truncationSettings, formatCorrection, structuredParseFailure } from "./model-output-recovery";
 import { resolveInference } from "./operation-policy";
 import { logStructuredInvocation } from "./invocation-log";
 import type { InvocationContext } from "./invocation-context";
@@ -36,27 +37,38 @@ export async function generateStructuredVision(options: { invocation?: Invocatio
     throw new ModelError("invalid-image");
   }
   if (options.signal?.aborted) throw new ModelError("cancelled");
-  const settings = resolveInference("meta", "runtime-vision", 4096);
-  const result = await logStructuredInvocation({ invocation: options.invocation, provider: "meta", settings,
-    acceptedResponse: result => ({ operation: "runtime-vision", payload: {
-      elements: result.data.elements.map(({ bounds, certainty }, index) => ({ index, bounds, certainty })),
-      observationCount: result.data.observations.length, limitationCount: result.data.limitations.length,
-    } }),
-  }, async () => {
-    const started = Date.now();
-    const result = await invokeMetaVision({ ...options, settings,
-      instructions: `${instructions}\n${JSON.stringify(visualEvidenceJsonSchema)}`,
-    }).catch((error: unknown) => {
-      throw error instanceof MetaError ? new ModelError(error.code, error.retryAfterSeconds, error.diagnostic) : new ModelError("upstream");
-    });
+  let settings = resolveInference("meta", "runtime-vision", 4096);
+  let correction = "";
+  for (let attempt = 1; attempt <= maxModelAttempts(); attempt++) {
+    options.signal?.throwIfAborted();
     try {
-      return { data: parseStructuredOutput(result.text, visualEvidenceSchema), model: result.model, elapsedMs: Date.now() - started, metadata: result.metadata };
-    } catch (error) {
-      if (error instanceof ModelError) throw new ModelError(error.code, error.retryAfterSeconds, {
-        ...result.metadata, ...error.diagnostic, kind: error.code === "invalid-json" ? "invalid-json" : "schema-mismatch",
+      const result = await logStructuredInvocation({ invocation: options.invocation, provider: "meta", settings, attempt,
+        acceptedResponse: result => ({ operation: "runtime-vision", payload: {
+          elements: result.data.elements.map(({ bounds, certainty }, index) => ({ index, bounds, certainty })),
+          observationCount: result.data.observations.length, limitationCount: result.data.limitations.length,
+        } }),
+      }, async () => {
+        const started = Date.now();
+        const result = await invokeMetaVision({ ...options, settings,
+          instructions: `${instructions}\n${JSON.stringify(visualEvidenceJsonSchema)}${correction}`,
+        }).catch((error: unknown) => {
+          const failure = error instanceof MetaError ? new ModelError(error.code, error.retryAfterSeconds, { ...error.diagnostic, kind: error.diagnostic?.kind ?? "provider-failure", attempt, retryCount: attempt - 1 }) : new ModelError("upstream");
+          throw recoverableModelError(failure, attempt, true) ?? failure;
+        });
+        try {
+          return { data: parseStructuredOutput(result.text, visualEvidenceSchema), model: result.model, elapsedMs: Date.now() - started, metadata: { ...result.metadata, attempt, retryCount: attempt - 1 } };
+        } catch (error) {
+          if (error instanceof ModelError) throw structuredParseFailure(error, result.metadata, attempt);
+          throw error;
+        }
       });
-      throw error;
+      return { data: result.data, model: result.model, elapsedMs: result.elapsedMs };
+    } catch (error) {
+      const recovery = recoverableModelError(error, attempt);
+      if (!recovery) throw error;
+      correction = formatCorrection(recovery.diagnostic?.retryReason);
+      if (recovery.diagnostic?.retryReason === "output-truncated") settings = truncationSettings("runtime-vision", settings);
     }
-  });
-  return { data: result.data, model: result.model, elapsedMs: result.elapsedMs };
+  }
+  throw new ModelError("invalid-json");
 }

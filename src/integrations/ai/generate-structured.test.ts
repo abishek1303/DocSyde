@@ -8,7 +8,7 @@ for (const [content, reason, code] of [[ '{"value":"yes"}', "stop", null ], ["oo
     const previous = process.env.BASETEN_API_KEY; process.env.BASETEN_API_KEY = "test";
     t.after(() => { if (previous === undefined) delete process.env.BASETEN_API_KEY; else process.env.BASETEN_API_KEY = previous; });
     t.mock.method(globalThis, "fetch", async (_url: unknown, init: RequestInit) => {
-      assert.equal(JSON.parse(String(init.body)).response_format.json_schema.strict, true);
+      assert.equal(JSON.parse(String(init.body)).response_format, undefined);
       return Response.json({ choices: [{ finish_reason: reason, message: { content, reasoning_content: "ignored" } }] });
     });
     if (code) await assert.rejects(generateStructured(options), new RegExp(code));
@@ -153,7 +153,7 @@ test("repository understanding uses shared extraction and narrow structural norm
  }
 });
 
-test("native formatting is out-of-band, bounded and still strictly validated without retries", async t => {
+test("Muse Spark Open supplies schema in the prompt and retains strict semantic validation", async t => {
  const before={key:process.env.BASETEN_API_KEY,mode:process.env.BASETEN_STRUCTURED_OUTPUT_MODE};
  process.env.BASETEN_API_KEY="fixture";process.env.BASETEN_STRUCTURED_OUTPUT_MODE="auto";
  t.after(()=>{if(before.key===undefined)delete process.env.BASETEN_API_KEY;else process.env.BASETEN_API_KEY=before.key;if(before.mode===undefined)delete process.env.BASETEN_STRUCTURED_OUTPUT_MODE;else process.env.BASETEN_STRUCTURED_OUTPUT_MODE=before.mode;});
@@ -161,16 +161,17 @@ test("native formatting is out-of-band, bounded and still strictly validated wit
  let content='{"value":"ok"}',calls=0,status=200;
  t.mock.method(globalThis,"fetch",async(_url:unknown,init?:RequestInit)=>{
   calls++; const body=JSON.parse(String(init?.body));
-  assert.equal(body.max_tokens,4096); assert.equal(body.messages[0].content,"Extract meaning only.");
-  assert.deepEqual(body.response_format,{type:"json_schema",json_schema:{name:"documentation-planning-v3",strict:true,schema:z.toJSONSchema(schema)}});
+  assert.equal(body.max_tokens,4096); assert.ok(body.messages[0].content.startsWith("Extract meaning only."));
+  assert.equal(body.response_format,undefined);
+  assert.ok(body.messages[0].content.includes(JSON.stringify(z.toJSONSchema(schema))));
   return Response.json({choices:[{finish_reason:"stop",message:{content}}]},{status});
  });
  const run=()=>generateStructured({instructions:"Extract meaning only.",input:"fixture",schema,invocation:{operation:"documentation-planning",stage:"offline"}});
  assert.deepEqual((await run()).data,{value:"ok"});
- for(content of ['{"value":" "}','{"value":3}','{"value":"ok","extra":"invented"}','```json\n{"value":"ok"}\n```']) {
+ for(content of ['{"value":" "}','{"value":3}']) {
   const prior=calls;await assert.rejects(run(),error=>error instanceof ModelError);assert.equal(calls,prior+1);
  }
- status=400;const prior=calls;await assert.rejects(run(),/invalid-request/);assert.equal(calls,prior+1,"native rejection must not trigger a paid fallback");
+ status=400;const prior=calls;await assert.rejects(run(),/invalid-request/);assert.equal(calls,prior+1,"provider rejection must not trigger another request");
 });
 
 test("provider capability and schema checks choose fallback before any request", async t => {
@@ -178,10 +179,10 @@ test("provider capability and schema checks choose fallback before any request",
  const prior=process.env.BASETEN_STRUCTURED_OUTPUT_MODE;delete process.env.BASETEN_STRUCTURED_OUTPUT_MODE;
  t.after(()=>{if(prior===undefined)delete process.env.BASETEN_STRUCTURED_OUTPUT_MODE;else process.env.BASETEN_STRUCTURED_OUTPUT_MODE=prior;});
  const closed=z.toJSONSchema(z.object({value:z.string()}).strict());
- assert.equal(basetenCapabilities("meta-models/muse-spark-open-1026").nativeJsonSchema,true);
+ assert.equal(basetenCapabilities("meta-models/muse-spark-open-1026").nativeJsonSchema,false);
  assert.equal(basetenStructuredOutput("unsupported-model","source-analysis",closed).metadata.fallbackReason,"model-unsupported");
  const opaque=basetenStructuredOutput("meta-models/muse-spark-open-1026","documentation-transformation",z.toJSONSchema(z.object({entries:z.array(z.unknown())}).strict()));
- assert.equal(opaque.metadata.mode,"prompt");assert.equal(opaque.responseFormat,undefined);assert.equal(opaque.metadata.fallbackReason,"schema-unsupported");
+ assert.equal(opaque.metadata.mode,"prompt");assert.equal(opaque.responseFormat,undefined);assert.equal(opaque.metadata.fallbackReason,"model-unsupported");
  const open=basetenStructuredOutput("meta-models/muse-spark-open-1026","source-analysis",z.toJSONSchema(z.object({value:z.string()}).passthrough()));assert.equal(open.metadata.mode,"prompt");
 });
 
@@ -217,7 +218,7 @@ test("Baseten accounts for actual reasoning and visible size without retaining h
     const check = (metadata: import("./model-diagnostic").ModelInvocationMetadata | undefined) => {
       assert.equal(metadata?.usage?.completion_tokens, 100);
       assert.deepEqual(metadata?.usage?.completion_tokens_details, { reasoning_tokens: 90 });
-      assert.deepEqual(metadata?.visibleResponse, { bytes: Buffer.byteLength(content), characters: content.length });
+      assert.deepEqual(metadata?.visibleResponse, { bytes: Buffer.byteLength(content), characters: content.length, jsonWhitespaceCharacters: 0, longestJsonWhitespaceRun: 0 });
       assert.equal(metadata?.reasoningEffort, "low"); assert.equal(metadata?.completionReason, finish);
       assert.ok(!JSON.stringify(metadata).includes("PRIVATE"));
     };
@@ -236,4 +237,16 @@ test("omitted, null or malformed reasoning details preserve available aggregate 
     assert.equal(result.metadata?.usage?.completion_tokens, 8);
     assert.equal(result.metadata?.usage?.completion_tokens_details?.reasoning_tokens, undefined);
   }
+});
+
+
+test("response size diagnostics distinguish formatting padding from string contents without storing either", async () => {
+  const { responseTextMetrics } = await import("./response-text-metrics");
+  const text = '{"private":"a   b\\\" c"}' + " ".repeat(10_000);
+  const metrics = responseTextMetrics(text);
+  assert.equal(metrics.jsonWhitespaceCharacters, 10_000);
+  assert.equal(metrics.longestJsonWhitespaceRun, 10_000);
+  assert.ok(!JSON.stringify(metrics).includes("private"));
+  assert.equal(responseTextMetrics('{"partial":"a   b').jsonWhitespaceCharacters, 0);
+  assert.equal(responseTextMetrics('{\n  "value": "é"\n}').jsonWhitespaceCharacters, 5);
 });

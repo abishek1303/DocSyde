@@ -29,6 +29,14 @@ export function parseStructuredOutput<S extends z.ZodType>(text: string, schema:
       ...(retainShapeDiagnostics ? { schemaFailure: { schemaSha256: hash(schemaJson), outputSha256: hash(text), outputBytes: Buffer.byteLength(text, "utf8") } } : {}),
       issues: validated.error.issues.slice(0, 8).map(issue => ({ code: issue.code,
       path: issue.path.map(part => typeof part === "number" ? "[]" : known.has(String(part)) ? String(part) : "[unknown]").join(".").slice(0, 300),
+      ...(issue.code === "too_big" && issue.origin === "string" && typeof issue.maximum === "number" ? (() => {
+        let value: unknown = parsed;
+        for (const key of issue.path) {
+          if (!value || typeof value !== "object" || typeof key === "symbol") return {};
+          value = Reflect.get(value, key);
+        }
+        return typeof value === "string" ? { maximum: issue.maximum, actual: value.length } : {};
+      })() : {}),
       ...(issue.code === "custom" && diagnosticInvariant.safeParse(issue.params?.invariant).success
         ? { category: "cross-field" as const, invariant: diagnosticInvariant.parse(issue.params?.invariant) } : {}),
       ...(retainShapeDiagnostics && issue.code === "unrecognized_keys" ? (() => {
