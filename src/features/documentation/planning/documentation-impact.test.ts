@@ -311,3 +311,10 @@ test("invalid upstream citation references reject before planner inference", asy
  await assert.rejects(p.planDocumentationImpact({impact:input}));
  assert.equal(p.fetch.mock.callCount(),0);
 });
+
+test("Latest Changes unresolved planning remains single attempt with no fresh fallback", async t => {
+  const p = setup(t, [], decision(null, "unresolved"));
+  const { plan } = await p.planDocumentationImpact({ impact: impact() });
+  assert.equal(p.fetch.mock.callCount(), 1);
+  assert.equal(plan.decisions[0].action, "unresolved");
+});

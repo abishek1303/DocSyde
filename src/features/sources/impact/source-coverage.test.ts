@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { synthesizeProductImpact } from "./synthesize-product-impact";
-import { isProductImpactCoverageError, validateSourceCoverage } from "./source-coverage";
+import { validateSourceCoverage } from "./source-coverage";
 import { validateProductImpact } from "./validate-product-impact";
 import { ModelError } from "@/integrations/ai/structured-output";
 import type { ProductImpact } from "./product-impact";
@@ -63,7 +63,7 @@ for (const kind of ["internal-change", "undetermined"] as const) test(`${kind} f
   provider(t, value); const { impact } = await synthesizeProductImpact({ source: input });
   assert.deepEqual(impact.claims, []); validateProductImpact(impact);
 });
-for (const variant of ["missing", "duplicate", "unknown", "false-incorporation", "all-uncertain", "false-exclusion", "fake-contradiction"] as const) test(`${variant} coverage is rejected in one call, without semantic retry`, async t => {
+for (const variant of ["missing", "duplicate", "unknown", "false-incorporation", "all-uncertain", "false-exclusion", "fake-contradiction"] as const) test(`${variant} bookkeeping is nonblocking and source claims remain usable in one call`, async t => {
   const value = output();
   if (variant === "missing") delete value.sourceCoverage;
   if (variant === "duplicate") value.sourceCoverage![1] = { findingId: "source-1", status: "incorporated" };
@@ -76,7 +76,10 @@ for (const variant of ["missing", "duplicate", "unknown", "false-incorporation",
   // Keep an independently valid visual-only impact, reproducing the historical loss case.
   if (!value.claims.length) { value.assessment = "insufficient-evidence"; value.claims = [{ ...output().claims[0], kind: "visual-observation", description: "Empty Projects screen.", references: [visual] }]; }
   const fetch = provider(t, value);
-  await assert.rejects(synthesizeProductImpact({ source: source(), runtime: [runtime()] }), error => isProductImpactCoverageError(error));
+  const { impact } = await synthesizeProductImpact({ source: source(), runtime: [runtime()] });
+  assert.ok(impact.claims.some(claim => claim.kind !== "visual-observation" && claim.references.includes("source-1")));
+  validateProductImpact(impact);
+  if (variant === "missing" || variant === "duplicate" || variant === "unknown") assert.ok(impact.sourceCoverageDiagnostic);
   assert.equal(fetch.mock.callCount(), 1);
 });
 test("retained ledger tampering is rejected and explanations do not enter diagnostics", () => {

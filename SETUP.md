@@ -250,4 +250,4 @@ The run timeline shows an immediate Starting indicator while execution is being 
 
 Run Artifacts lists retained checkpoint screenshots from the existing inspection endpoint, including selected status. Thumbnails open the shared image preview overlay; no additional capture or inference is performed.
 
-Product-impact synthesis now requires a compact source-coverage ledger. Missing/inconsistent accounting stops the run incomplete at impact synthesis, before planning; no semantic retry or additional inference is performed. Historical impacts remain readable. See the [coverage contract](src/features/sources/impact/README.md#source-coverage).
+Source-coverage bookkeeping is nonblocking and retained as a diagnostic. Full Scan preserves cited current behavior independently of screenshots; valid unresolved planning receives one corrective attempt, then source-grounded draft targets only where verified route evidence matches. Existing transformation, evidence, and human publication checks still apply. Latest Changes planning is unchanged. See the [coverage contract](src/features/sources/impact/README.md#source-coverage).

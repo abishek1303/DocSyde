@@ -720,3 +720,15 @@ for (const [copy, verdict, category, expected] of [
   assert.deepEqual(p.counts(), { generations: 1, supports: 1 }, "no additional verification stage/call");
   if (expected === "warnings") assert.equal(proposal.results[0].support, "uncertain");
 });
+
+test("fresh source-grounded fallback targets reach validated candidates despite a global incomplete assessment", async t => {
+  const { freshFallbackDecisions } = await import("../planning/fresh-source-targets");
+  const impact = transformationImpactFixture(); impact.assessment = "insufficient-evidence";
+  impact.provenance.source.base = impact.provenance.source.head;
+  const routes = [{ id: "screen", pathname: "/", sourcePaths: impact.provenance.sourceEvidence.map(e => e.path), evidence: { label: "Requests", method: "file-page" as const, commitId: impact.provenance.source.head, sources: [{ path: "app/page.tsx", line: 1, excerpt: "Page" }], requiresConfirmation: false } }];
+  const plan = { ...transformationPlanFixture(impact, freshFallbackDecisions(impact, routes)), objective: "fresh" as const };
+  const p = setup(t, []);
+  const proposal = await p.transformDocumentation({ impact, plan, routes });
+  assert.equal(proposal.status, "complete"); assert.ok(proposal.results.every(result => result.reviewReady));
+  assert.equal(proposal.candidates.length, 1); assert.equal(p.writes.mock.callCount(), 0);
+});

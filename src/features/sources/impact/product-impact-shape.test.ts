@@ -51,7 +51,7 @@ test("Blocked synthesis uses common schema-bearing dispatch; canonical provenanc
     assert.equal(url, "https://inference.baseten.co/v1/chat/completions"); calls++;
     const body = JSON.parse(String(init?.body)); assert.equal(body.max_tokens, 8192); assert.equal(body.stream, false);
     assert.equal(body.response_format, undefined);
-    assert.match(body.messages[0].content, /exactly these six keys: assessment, summary, sourceCoverage, claims, contradictions, uncertainties/);
+    assert.match(body.messages[0].content, /these five required keys: assessment, summary, claims, contradictions, uncertainties/);
     assert.match(body.messages[0].content, /Do not wrap/);
     const format = JSON.parse(body.messages[0].content.split("Return only JSON matching this schema: ")[1]);
     assert.equal(format.additionalProperties, false); assert.equal(format.properties.claims.items.additionalProperties, false);

@@ -46,7 +46,7 @@ export function validateDocumentationProposal(raw: unknown) {
     const actionable = result.decision.action === "revise" || result.decision.action === "add";
     const baseline = p.targets.find(t => t.document.id === result.decision.documentId)?.document;
     if (actionable) assert(result.generation !== "not-required" && result.generation !== "pending" && result.support !== "pending");
-    try { validateImpactDecisions(impact, [result.decision], p.targets.map(t => t.document)); }
+    try { validateImpactDecisions(impact, [result.decision], p.targets.map(t => t.document), { fresh: p.plan.objective === "fresh" }); }
     catch { assert(!result.reviewReady && !result.change && result.generation !== "generated"); }
     if (!actionable) assert(["not-required", "incomplete", "failed"].includes(result.generation) && result.support === "not-required" && !result.change && !result.reviewReady && !result.saveCompatible && ["not-applicable", "blocked"].includes(result.materialization));
     const auth = p.authorizations.find(a => a.decisionId === result.decisionId);

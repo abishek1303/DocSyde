@@ -14,7 +14,7 @@ export const sourceCoverageSchema = z.array(z.discriminatedUnion("status", [
 export const productImpactOutputSchema = z.object({
   assessment: z.enum(["product-change", "internal-only", "insufficient-evidence"]),
   summary: text(500),
-  // Optional only for retained historical impacts; new synthesis requires the ledger.
+  // Optional bookkeeping, never authority for claim support or generation eligibility.
   sourceCoverage: sourceCoverageSchema.optional(),
   claims: z.array(z.object({
     description: text(500),
@@ -30,6 +30,7 @@ export const productImpactOutputSchema = z.object({
 }).strict();
 
 export const productImpactSchema = productImpactOutputSchema.extend({
+  sourceCoverageDiagnostic: z.string().max(100).optional(),
   provenance: z.object({
     runtimeInspection: runtimeInspectionContextSchema.optional(),
     source: z.object({ repository: z.string().max(2048), base: z.string().length(40), head: z.string().length(40),

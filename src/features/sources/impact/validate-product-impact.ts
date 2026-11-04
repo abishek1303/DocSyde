@@ -1,4 +1,3 @@
-import { validateSourceCoverage } from "./source-coverage";
 import { supportsImpactClaim } from "./impact-claim-support";
 import { productImpactSchema } from "./product-impact";
 import { RUNTIME_REVISION_WARNING } from "../runtime/runtime-visual-evidence";
@@ -71,6 +70,5 @@ export function validateProductImpact(raw: unknown) {
   if (impact.assessment === "internal-only" && (source.limited || !impact.claims.some(claim => claim.kind === "internal-change")
     || impact.claims.some(claim => ["behavior-change", "workflow-change", "ui-change"].includes(claim.kind)))) reject();
   if (visualUsed && !impact.uncertainties.includes(RUNTIME_REVISION_WARNING)) reject();
-  if (impact.sourceCoverage) validateSourceCoverage(impact, sourceReferences);
   return impact;
 }

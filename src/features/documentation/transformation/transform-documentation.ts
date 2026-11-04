@@ -73,7 +73,7 @@ async function prepareTransformation({ impact: rawImpact, plan: rawPlan, context
   for (const result of results) {
     if (signal?.aborted) { fail(result, "cancelled-before-transformation"); continue; }
     try {
-      validateImpactDecisions(impact, [result.decision], targets);
+      validateImpactDecisions(impact, [result.decision], targets, { fresh: plan.objective === "fresh" });
       if (result.generation !== "pending") continue;
       const baseline = result.decision.documentId ? baselines.get(result.decision.documentId) : undefined;
       for (const choice of supplied) if (baseline?.context.some(existing => existing.id === choice.id && !isDeepStrictEqual(existing, choice))) throw new Error("Association collision.");

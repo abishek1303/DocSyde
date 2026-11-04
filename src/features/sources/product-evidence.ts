@@ -13,3 +13,5 @@ export { runtimeInspectionContextSchema } from "./runtime/runtime-inspection-con
 export { inspectionDecisionSchema } from "./runtime/inspection-decision";
 
 export { productRouteEvidence, type ProductRoute } from "./runtime/product-route-contract";
+
+export { supportsImpactClaim } from "./impact/impact-claim-support";

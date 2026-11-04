@@ -12,7 +12,7 @@ The strict model root is exactly:
 ```text
 assessment: product-change | internal-only | insufficient-evidence
 summary: nonblank semantic summary <=500 characters
-sourceCoverage: <=4 entries accounting for every supplied source finding
+sourceCoverage: optional diagnostic ledger, <=4 entries
 claims: <=6 strict semantic claim objects
 contradictions: <=4 strict unresolved-contradiction objects
 uncertainties: <=6 nonblank strings <=300 characters (<=5 with runtime)
@@ -83,24 +83,20 @@ all summary fields unexpected would contradict the actual schema.
 ## Source coverage
 
 Source and runtime observations are independent evidence. An empty/redacted screen or an
-unexercised interaction does not contradict cited source behavior. New synthesis must
-retain narrowly supported behavior or account for its uncertainty without inventing facts.
+unexercised interaction does not contradict cited source behavior. Fresh synthesis preserves narrowly supported behavior without requiring screenshots to exercise it. Missing behavior claims can be copied from validated, directly supported source findings, with their references and qualifications; generated documentation still passes the existing evidence validators.
 
-The ledger reuses snapshot-scoped `source-1` … `source-4` IDs from the existing ordered,
+The optional ledger reuses snapshot-scoped `source-1` … `source-4` IDs from the existing ordered,
 immutable source-reference catalog. Each finding appears exactly once: `incorporated`,
 `excluded` (internal-only/unsupported), or `uncertain` (partial-source/contradiction).
 Excluded/uncertain entries require a bounded explanation. Incorporation must match an
 actual compatible claim reference; several findings can support the same claim.
 Contradiction uncertainty must reference an emitted source/visual contradiction. All
 eligible directly supported user-facing findings disappearing without such contradictions
-is a coverage failure, never an instruction to fabricate claims.
+is recorded as a coverage warning, never an instruction to fabricate claims.
 
-Coverage is checked at synthesis and when revalidating a retained ledger. Historical
-impacts without a ledger remain readable; no records are rewritten. Citation and claim-kind
+Coverage bookkeeping is checked at synthesis and retained as a nonblocking `sourceCoverageDiagnostic`. It cannot invalidate otherwise usable claims. Historical impacts without a ledger remain readable; no records are rewritten. Citation and claim-kind
 checks are unchanged. Deterministic checks establish accounting/reference consistency,
 not the semantic truth of a model's explanation or claim.
 
 The existing structured-output retry handles JSON boundary failures only, not semantic
-repair. Coverage failures make no additional model call: they produce a safe
-`source-coverage-incomplete` diagnostic and finish documentation runs incomplete at
-impact synthesis, before planning. Provider/model selection and budgets are unchanged.
+repair. Coverage inconsistencies make no additional model call and do not stop synthesis. Full Scan planning alone permits one corrective attempt for a valid all-unresolved plan with eligible source-supported claims; if that still has no additions, deterministic draft intents require matching pinned, verified source routes. All targets still pass transformation, support checks, and human review. Global sampling uncertainty alone does not invalidate independently supported fresh claims; contradictions still block additions. Latest Changes retains its existing planning behavior. Provider/model selection and budgets are unchanged.
