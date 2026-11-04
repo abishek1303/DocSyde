@@ -53,6 +53,12 @@ async function Setup({ searchParams }: { searchParams: Promise<SetupSearch> }) {
   const fullScan = !search.rerun && search.mode === "full";
   const branches = pendingReview === false && (latest || fullScan) ? await runBranchSelection(repository).catch(() => null) : null;
   const query = new URLSearchParams({ repository: repository.name, ...(repository.branch ? { branch: repository.branch } : {}) });
+  if (pendingReview === false && (latest || fullScan)) {
+    return <main id="main-content" className="mx-auto w-full max-w-3xl space-y-7 px-5 py-9 sm:px-8 sm:py-12">
+      <h1 className="text-3xl font-semibold tracking-tight">{fullScan ? "Generate documentation" : "Latest Changes"}</h1>
+      <BranchRunForm fullScan={fullScan} key={repository.name} repository={repository.name} branches={branches?.names ?? []} latestChanges={branches?.changes ?? []} selected={branches?.selected ?? repository.branch} selectionUnavailable={!branches} />
+    </main>;
+  }
   const unavailableReason = available === null ? "We couldn’t check this project’s documentation. Please try again." : "No documentation is available to update yet.";
   return <AppShell repository={repository.name} branchContext={<span>{search.rerun ? "Rerun" : "New run"}</span>} active="Runs">
     <RunBreadcrumbs repository={repository.name} current={search.rerun ? "Rerun" : latest ? "Latest Changes" : fullScan ? "Full Scan" : "New run"} />
@@ -66,10 +72,7 @@ async function Setup({ searchParams }: { searchParams: Promise<SetupSearch> }) {
       <Link href={`/docs?${new URLSearchParams({ repository: repository.name, tab: "pending" })}`} className={buttonVariants()}>Review pending changes</Link>
       <div className="grid gap-4 sm:grid-cols-2">{["Full Scan", "Latest Changes"].map(mode => <div key={mode} role="group" aria-label={mode} aria-disabled="true" className="rounded-xl border bg-muted/25 p-5 text-sm text-muted-foreground">{mode}</div>)}</div>
       {pendingBatch && pendingBatch.count > 0 && <FreshFullScanForm key={`${repository.name}:${pendingBatch.hash}`} repository={repository.name} branch={repository.branch} expectedHash={pendingBatch.hash} />}
-    </section> : search.rerun ? <Suspense fallback={<LoadingList />}><RerunSetup search={search} /></Suspense> : latest || fullScan ? <>
-      <Link href={`/runs/new?${query}`} className="text-sm text-primary underline">← Run options</Link>
-      <BranchRunForm fullScan={fullScan} key={repository.name} repository={repository.name} branches={branches?.names ?? []} latestChanges={branches?.changes ?? []} selected={branches?.selected ?? repository.branch} selectionUnavailable={!branches} />
-    </> : <>
+    </section> : search.rerun ? <Suspense fallback={<LoadingList />}><RerunSetup search={search} /></Suspense> : <>
       {search.mode === "changes" && <p role="status" className="text-sm text-muted-foreground">{unavailableReason}</p>}
       <div className="grid max-w-4xl gap-5 md:grid-cols-2">
         <Link href={`/runs/new?${query}&mode=full`} className="group flex min-h-72 flex-col rounded-2xl border bg-card p-6 transition-colors hover:border-primary/50 hover:bg-accent/25 focus-visible:outline-2 focus-visible:outline-ring motion-reduce:transition-none">

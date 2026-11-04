@@ -239,3 +239,5 @@ Page navigation uses a shared GSAP fade, with staggered MCP card reveals. Suspen
 The single-repository safeguard is always enabled; no mode flag is needed. Configure exactly one distinct `owner/repository` in `DOCSYDE_ANALYSIS_REPOSITORIES`. Keep `GITHUB_TOKEN` server-side. Run setup verifies GitHub access; the shared client validates the target and blocks REST/GraphQL requests outside it, including CLI calls. An empty, invalid, or multiple-repository configuration fails closed. The setup note asks users to restrict their token manually: this safeguard limits DocSyde, not the token’s full GitHub grants. `npm run github:test` includes mocked safeguard tests and makes no live GitHub/model calls.
 
 An invalid repository configuration renders only the demo restriction alert, without application navigation or links to prefetch. Configuration checks happen locally before GitHub client creation; no GitHub request is made for an empty, invalid, or multiple-repository configuration.
+
+Full Scan and Latest Changes setup show only the page title and the three-step form; repository context is retained in the final review step.
