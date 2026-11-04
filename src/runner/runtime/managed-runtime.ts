@@ -21,7 +21,7 @@ export async function startManagedRuntime(options: Options): Promise<RuntimeSess
   options.signal?.throwIfAborted();
   if (reviewed.checkout.needsDependencies) {
     const present = await Promise.all([reviewed.checkout.cwd, reviewed.checkout.checkout].map(async root => stat(join(root, "node_modules")).then(value => value.isDirectory()).catch(() => false)));
-    if (!present.some(Boolean)) throw new ManagedRuntimeUnavailable("dependencies-missing");
+    if (!present.some(Boolean)) throw new ManagedRuntimeUnavailable("project-dependencies-missing");
   }
   const command = await managedExecutable(reviewed.input.manager, reviewed.checkout.checkout);
   try {

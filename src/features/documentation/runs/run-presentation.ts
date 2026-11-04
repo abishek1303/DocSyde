@@ -41,13 +41,17 @@ export function showRuntimeOutput(stage: RunView["stages"][number]) {
 }
 
 export function skippedRuntimeExplanation(run: RunView) {
+  const executable = run.runtimeStartup?.missingExecutable;
+  const manager = executable && ["npm", "pnpm", "yarn"].includes(executable) ? `“${executable}”` : "the approved package manager";
   const reasons: Record<string, string> = {
+    "managed-package-manager-missing": `DocSyde could not find ${manager}. Make it available in the terminal that starts DocSyde, then restart DocSyde and retry.`,
+    "managed-project-dependencies-missing": "Project dependencies are not installed in the approved checkout. Install them there, then retry.",
     "managed-existing-server-unavailable": "Managed startup is disabled and the existing application server is unavailable.",
     "managed-approval-required": "The local startup configuration needs a new approval.",
-    "managed-dependencies-missing": "The approved package manager or project dependencies are unavailable.",
+    "managed-dependencies-missing": "The approved package manager or project dependencies are unavailable. Check both in the approved checkout before retrying.",
     "managed-port-occupied": "The expected URL is occupied by an unhealthy or different application.",
-    "managed-startup-failed": "The approved startup command could not start the application.",
-    "managed-readiness-timeout": "The application did not become ready at its approved URL before the timeout.",
+    "managed-startup-failed": "The application could not start. Check the target application’s local startup output, correct the issue, then retry.",
+    "managed-readiness-timeout": "The application did not become ready before the timeout. Check its local startup output and the configured application URL and readiness endpoint, then retry.",
     "managed-unsupported-platform": "Managed startup needs POSIX process-group support; use an existing server instead.",
     "no-trusted-workflow": "No trusted runtime workflow is configured.",
     "no-repository-workflow": "No runtime workflow is configured for this repository.",

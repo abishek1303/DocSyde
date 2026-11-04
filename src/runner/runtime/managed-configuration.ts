@@ -22,7 +22,7 @@ export const approvedStartup = z.object({ version: z.literal(1), input: managedS
 export type ApprovedStartup = z.infer<typeof approvedStartup>;
 export type StartupInput = z.input<typeof managedStartupInput>;
 export class ManagedRuntimeUnavailable extends Error {
-  constructor(public readonly code: "approval-required" | "dependencies-missing" | "port-occupied" | "startup-failed" | "readiness-timeout" | "unsupported-platform") { super(`Managed runtime unavailable: ${code}`); }
+  constructor(public readonly code: "approval-required" | "dependencies-missing" | "package-manager-missing" | "project-dependencies-missing" | "port-occupied" | "startup-failed" | "readiness-timeout" | "unsupported-platform", public readonly executable?: "npm" | "pnpm" | "yarn") { super(`Managed runtime unavailable: ${code}`); }
 }
 function inside(root: string, path: string) {
   const local = relative(root, path);
@@ -118,5 +118,5 @@ export async function managedExecutable(manager: "npm" | "pnpm" | "yarn", checko
       return resolved;
     } catch { /* Only installed package managers, never npx or installation fallbacks. */ }
   }
-  throw new ManagedRuntimeUnavailable("dependencies-missing");
+  throw new ManagedRuntimeUnavailable("package-manager-missing", manager);
 }

@@ -42,6 +42,7 @@ export const runRecordV2 = z.object({
   execution: z.object({ token: z.uuid(), heartbeatAt: z.iso.datetime(), cancelRequestedAt: z.iso.datetime().nullable() }).strict().nullable(),
   contextSnapshot: generationContextSnapshot.optional(),
   inspectionContext: inspectionSupportSchema.optional(),
+  runtimeStartup: z.object({ missingExecutable: z.enum(["npm", "pnpm", "yarn"]) }).strict().optional(),
   runtimeResponsePreview: z.string().max(241).optional(),
   runtime: runtimeInspectionContextSchema.optional(), decision: inspectionDecisionSchema.optional(),
   artifacts: z.array(z.object({ kind: z.enum(["runtime-trace", "runtime-analysis"]), key: z.uuid(), sha256: z.string().regex(/^[a-f0-9]{64}$/) }).strict()).max(2).default([]),
@@ -78,6 +79,7 @@ export type RunView = {
   schemaVersion: 1 | 2; lifecycle?: "pending" | "running" | "finished"; activeStage?: string | null; disposition?: RunRecordV2["disposition"]; input: z.infer<typeof runInput>; title: string; status: string; summary: string;
   startedAt: string | null; finishedAt: string | null; stages: (z.infer<typeof workflowStage> | LegacyRunRecord["stages"][number])[];
   contextSnapshot?: z.infer<typeof generationContextSnapshot>; runtime?: z.infer<typeof runtimeInspectionContextSchema>;
+  runtimeStartup?: RunRecordV2["runtimeStartup"];
   retainedProposal?: RunRecordV2["retainedProposal"];
   outputs?: { sourceCoverage?: string; supportRejected?: boolean; analysisSha256?: string; impactAssessment?: string; plan?: { actionable: number; noChange: number; unresolved: number }; transformation?: { status: string; reviewReadyActions: number; riskCounts?: { ready: number; warnings: number; blocked: number }; batchCount?: number; plannedActions?: number; coverageGaps?: string[] }; models: RunRecordV2["models"] };
   responses?: StageResponsePreview[];

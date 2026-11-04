@@ -97,7 +97,7 @@ export async function executeRunWorkflow(id: string, token: string, signal: Abor
         // Only startup failures with completed cleanup may continue source-only. Capture and cleanup failures still stop the run.
         if (!(error instanceof ManagedRuntimeUnavailable) || signal.aborted) throw error;
         startupUnavailable = true;
-        return { runtime: { ...record.runtime!, outcome: "attempted-and-failed", reason: `managed-${error.code}`,
+        return { ...(error.executable ? { runtimeStartup: { missingExecutable: error.executable } } : {}), runtime: { ...record.runtime!, outcome: "attempted-and-failed", reason: `managed-${error.code}`,
           limitations: [...record.runtime!.limitations, "Approved application startup was unavailable; no browser evidence was captured. Documentation must use source evidence only."].slice(0, 8) } };
       }
       await check();

@@ -122,3 +122,29 @@ test("review action stays visible but disabled for unfinished and resolved runs"
     assert.ok(!html.includes('href="/docs?repository=example%2Fproduct&amp;tab=pending'));
   }
 });
+
+for (const [code, executable, expected] of [
+  ["package-manager-missing", "pnpm", /could not find.*pnpm/],
+  ["project-dependencies-missing", undefined, /Install them there, then retry/],
+  ["startup-failed", undefined, /Check the target application/],
+  ["readiness-timeout", undefined, /readiness endpoint/],
+] as const) test(`skipped ${code} shows an actionable explanation and preserves startup details`, () => {
+  const run = fixture(); run.stages[3].status = "skipped";
+  run.runtime = { decision: "inspect", outcome: "attempted-and-failed", reason: `managed-${code}`, requestedTargets: [], uncoveredTargets: [], unresolvedQuestions: [], limitations: [] };
+  if (executable) run.runtimeStartup = { missingExecutable: executable };
+  const html = renderToStaticMarkup(<RunMonitor initial={run} />);
+  assert.match(html, expected);
+  assert.match(html, /Application startup details/);
+  assert.match(html, /No screenshots were captured/);
+});
+
+test("unknown runtime reasons never render raw diagnostic contents", () => {
+  const run = fixture(); run.stages[3].status = "skipped";
+  run.runtime = { decision: "inspect", outcome: "attempted-and-failed", reason: "/private/checkout command --token=SECRET", requestedTargets: [], uncoveredTargets: [], unresolvedQuestions: [], limitations: [] };
+  const html = renderToStaticMarkup(<RunMonitor initial={run} />);
+  const start = html.indexOf("Runtime inspection was skipped");
+  assert.ok(start >= 0);
+  const explanation = html.slice(start, html.indexOf("</p>", start));
+  assert.ok(!explanation.includes("SECRET"));
+  assert.ok(!explanation.includes("/private"));
+});

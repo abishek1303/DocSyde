@@ -11,7 +11,7 @@ import type { TransformationAuthorization } from "../transformation/transformati
 import type { DocumentationChangeProposal } from "../transformation/documentation-change-proposal";
 import type { ProductResult } from "@/features/sources/product-analysis";
 
-for (const failure of ["startup", "cleanup"] as const) test(`${failure} preserves the source-only / cleanup-failure boundary without inference`, async t => {
+for (const failure of ["package-manager-missing", "project-dependencies-missing", "startup-failed", "readiness-timeout", "cleanup"] as const) test(`${failure} preserves the source-only / cleanup-failure boundary without inference`, async t => {
   const load = createRequire(import.meta.url), now = new Date().toISOString();
   const impact = transformationImpactFixture(); impact.provenance.source.repository = impact.provenance.source.repository.toLowerCase();
   const source = impact.provenance.source;
@@ -28,7 +28,7 @@ for (const failure of ["startup", "cleanup"] as const) test(`${failure} preserve
         synthesized = true; assert.deepEqual(input.runtime, []); assert.equal(input.runtimeInspection.outcome, "attempted-and-failed"); assert.match(input.runtimeInspection.limitations.at(-1)!, /source evidence only/);
         return { impact: { ...impact, assessment: "insufficient-evidence", claims: [], provenance: { ...impact.provenance, runtimeInspection: input.runtimeInspection } } };
       } }],
-    ["../../../runner/runtime/capture-workflow.ts", { captureWorkflowWithRuntime: async () => { throw failure === "startup" ? new ManagedRuntimeUnavailable("dependencies-missing") : new RuntimeCleanupError(); } }],
+    ["../../../runner/runtime/capture-workflow.ts", { captureWorkflowWithRuntime: async () => { throw failure !== "cleanup" ? new ManagedRuntimeUnavailable(failure, failure === "package-manager-missing" ? "pnpm" : undefined) : new RuntimeCleanupError(); } }],
   ] as const;
   // Resolve Sources from this module's directory; do not replace its real validators.
   for (const [path, replacement] of replacements) {
@@ -43,7 +43,9 @@ for (const failure of ["startup", "cleanup"] as const) test(`${failure} preserve
   else {
     await executeRunWorkflow("fixture", record.execution!.token, new AbortController().signal, async () => {});
     assert.equal(synthesized, true); assert.equal(record.disposition, "incomplete");
-    assert.equal(record.runtime?.reason, "managed-dependencies-missing");
+    assert.equal(record.runtime?.reason, `managed-${failure}`);
+    assert.equal(runRecordV2.safeParse({ ...record, runtimeStartup: { missingExecutable: "/private/token", command: "secret" } }).success, false);
+    assert.deepEqual(record.runtimeStartup, failure === "package-manager-missing" ? { missingExecutable: "pnpm" } : undefined);
     assert.equal(record.stages.find(stage => stage.key === "runtime-inspection")!.status, "skipped");
     assert.equal(record.artifacts.length, 0);
   }

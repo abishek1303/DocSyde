@@ -51,7 +51,7 @@ test("manifest detection is advisory and approval is separate, explicit and proj
   const f = await fixture(t, true), spawn = t.mock.method(childProcess, "spawn", () => { throw new Error("Discovery must not launch"); });
   const discovered = await inspectCheckout(f.input.repository, f.checkout);
   assert.equal(discovered.suggested.script, "dev"); assert.equal(discovered.suggested.baseUrl, "http://localhost:5173", "prefer frontend URL over the parallel API port");
-  const old = process.env.DOCSYDE_ANALYSIS_REPOSITORIES; process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "fixture/project,fixture/other";
+  const old = process.env.DOCSYDE_ANALYSIS_REPOSITORIES; process.env.DOCSYDE_ANALYSIS_REPOSITORIES = "fixture/project";
   t.after(() => { if (old === undefined) delete process.env.DOCSYDE_ANALYSIS_REPOSITORIES; else process.env.DOCSYDE_ANALYSIS_REPOSITORIES = old; });
   const store = join(f.root, "settings"), { repository, ...input } = f.input; void repository;
   const raw = { ...input, repository: "fixture/project", fingerprint: f.approval.fingerprint };
@@ -59,7 +59,7 @@ test("manifest detection is advisory and approval is separate, explicit and proj
   assert.equal(await getRuntimeSettings("fixture/project", store), null);
   await approveRuntimeSettings({ ...raw, confirmed: true }, store);
   assert.equal((await getRuntimeSettings("fixture/project", store))?.enabled, true);
-  assert.equal(await getRuntimeSettings("fixture/other", store), null);
+  await assert.rejects(getRuntimeSettings("fixture/other", store), /only allows/);
   assert.equal((await loadApprovedRuntimeConfiguration(f.input.repository, store)).status, "approved");
   await disableRuntimeStartup("fixture/project", store);
   const disabled = await loadApprovedRuntimeConfiguration(f.input.repository, store);
@@ -97,14 +97,14 @@ test("offline startup executes only the approved package script and stops its ow
 });
 for (const phase of ["exit", "timeout", "unhealthy"] as const) test(`${phase} is bounded, sanitized and cannot kill an existing server`, async t => {
   const f = await fixture(t), life = lifecycle(t, phase);
-  await assert.rejects(startManagedRuntime({ ...f.options, observer: life.observer }), ManagedRuntimeUnavailable);
+  await assert.rejects(startManagedRuntime({ ...f.options, startupTimeoutMs: phase === "exit" ? 1000 : 50, observer: life.observer }), { code: phase === "timeout" ? "readiness-timeout" : phase === "unhealthy" ? "port-occupied" : "startup-failed" });
   if (phase === "unhealthy") { assert.equal(life.spawn.mock.callCount(), 0); assert.deepEqual(life.signals, []); }
   else assert.ok(life.signals.length > 0 && life.signals.every(value => value.pid === -43210));
   assert.ok(!JSON.stringify(life.events).includes("PRIVATE"));
 });
 test("missing dependencies and cancellation never orphan owned processes", async t => {
   const f = await fixture(t, true), life = lifecycle(t, "offline");
-  await assert.rejects(startManagedRuntime(f.options), { code: "dependencies-missing" }); assert.equal(life.spawn.mock.callCount(), 0);
+  await assert.rejects(startManagedRuntime(f.options), { code: "project-dependencies-missing" }); assert.equal(life.spawn.mock.callCount(), 0);
   const controller = new AbortController(); controller.abort();
   await assert.rejects(startManagedRuntime({ ...f.options, signal: controller.signal })); assert.equal(life.spawn.mock.callCount(), 0);
 });
@@ -112,4 +112,19 @@ test("cancellation during readiness stops the whole owned process group", async 
   const f = await fixture(t), controller = new AbortController(), life = lifecycle(t, "timeout", controller);
   await assert.rejects(startManagedRuntime({ ...f.options, signal: controller.signal, observer: life.observer }));
   assert.ok(life.signals.length > 0 && life.signals.every(value => value.pid === -43210));
+});
+
+test("missing package manager reports only its safe executable name", async t => {
+  const { managedExecutable } = await import("./managed-configuration");
+  const previous = process.env.PATH; process.env.PATH = "";
+  t.after(() => { if (previous === undefined) delete process.env.PATH; else process.env.PATH = previous; });
+  for (const manager of ["npm", "pnpm", "yarn"] as const) {
+    await assert.rejects(() => managedExecutable(manager, "/private/checkout"), error => {
+      assert.ok(error instanceof ManagedRuntimeUnavailable);
+      assert.equal(error.code, "package-manager-missing");
+      assert.equal(error.executable, manager);
+      assert.ok(!JSON.stringify(error).includes("/private/checkout"));
+      return true;
+    });
+  }
 });

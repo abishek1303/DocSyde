@@ -241,3 +241,5 @@ The single-repository safeguard is always enabled; no mode flag is needed. Confi
 An invalid repository configuration renders only the demo restriction alert, without application navigation or links to prefetch. Configuration checks happen locally before GitHub client creation; no GitHub request is made for an empty, invalid, or multiple-repository configuration.
 
 Full Scan and Latest Changes setup show only the page title and the three-step form; repository context is retained in the final review step.
+
+Skipped runtime inspection distinguishes a missing package-manager executable from missing project dependencies, startup failure, and readiness timeout. The run step shows an actionable explanation and retains startup event details; documentation continues source-only. Only an allowlisted package-manager name is stored for this diagnostic, without paths, commands, environment values, or raw output. Older ambiguous startup records remain ambiguous. Pending page cards display their total and included change counts. Documentation screenshots open in a dismissible preview dialog.
