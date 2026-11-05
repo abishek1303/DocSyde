@@ -1,5 +1,10 @@
 # Local runtime boundary
 
+Managed application startup additionally supports approved POSIX process-group
+cleanup through `ownedProcessGroup`; the compatibility launch API defaults to
+direct-child cleanup as described below. See [SETUP](../../../SETUP.md#optional-managed-application-startup)
+for operator approval and installed-dependency requirements.
+
 `captureWorkflowWithRuntime({ runtime, workflow }, storage, signal?)` validates and
 captures one complete scripted workflow with one runtime/browser lifecycle, then
 stops before returning `{ runtime, trace }`. Failures still clean up; combined
@@ -144,7 +149,7 @@ Post-run selection is Sources-owned and requests only checkpoint IDs, sourceRefs
 short questions (80 characters), under the configured 0–3 image limit. The 3072-token
 ceiling is bounded reasoning headroom; the current Baseten Muse integration uses
 strict local parsing/correspondence validation, no provider-side schema enforcement,
-no retries and no repair. The versioned retained selection and safe invocation debug
+shared bounded formatting/overflow/truncation recovery and no evidence repair. The versioned retained selection and safe invocation debug
 snapshots remain readable alongside historical v2 data. No candidate pruning/ranking,
 Runner/capture changes, browser sessions or screenshots are added. The same canonical
 PNG hashes, finding filter and question reach the unchanged vision prompt/schema.

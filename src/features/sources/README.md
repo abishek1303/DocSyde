@@ -30,9 +30,10 @@ local CLI does this automatically.
 The selected-image budget defaults to 3 and accepts integer 0–3. Zero disables both
 selection and vision. Eligible candidates plus nonzero budget cause exactly one
 structured Baseten selection call. The serialized capability request is capped at
-32 KiB, output at 2,048 tokens. Deterministic compaction reduces text/control detail,
+32 KiB (96 KiB in demo mode), output initially at 3,072 tokens in normal mode. Deterministic compaction reduces text/control detail,
 then drops states without candidates, declaring omissions. Still-oversized requests
-fail before inference. No retry/repair loop exists. Local validation rejects invented
+fail before inference. Shared bounded model-output recovery applies; see the
+[boundary policy](../../integrations/ai/structured-output-boundary.md). Local validation rejects invented
 or duplicate IDs/references, inconsistent decisions and excess selections.
 
 All product/source/workflow text and images are untrusted evidence, never model
@@ -51,14 +52,15 @@ documentation mutation grounding restrictions remain unchanged.
 
 `npm run runtime:visual:test` uses a real local browser and mocked providers through
 synthesis/planning. The opt-in paid CLI is documented in
-[SETUP](../../../SETUP.md#runtime-visual-evidence). Request-bound runs remain source-only.
+[local verifier](../../../infra/local/runner/verify-visual-selection.ts). Schema-v2
+runs compose this workflow when trusted runtime configuration is available.
 
 ## Independent product-impact synthesis
 
 `synthesizeProductImpact({ source, runtime? }, { signal? }?)` returns
 `{ impact, model, elapsedMs }` using exactly one existing Baseten structured-text
 call for accepted input. It is downstream of source analysis and optional runtime
-inspection, and is not wired into draft generation. It performs no repository
+inspection, and is composed by schema-v2 runs, while legacy draft generation stays source-only. It performs no repository
 reads, capture, Meta invocation or persistence. Error/no-change results reject
 without inference. Source result/bundle correspondence and existing citations are
 revalidated using the same checks as inspection decisions.

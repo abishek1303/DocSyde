@@ -1,6 +1,46 @@
 # Model usage and evidence flow
 
-Updated October 31, 2026. [ARCHITECTURE.md](ARCHITECTURE.md) defines ownership.
+Current configuration audit: November 4, 2026. [ARCHITECTURE.md](ARCHITECTURE.md) defines ownership.
+
+## Current model configuration
+
+| Model | Provider / configuration | Implemented role |
+| --- | --- | --- |
+| Muse Spark Open | Baseten; `BASETEN_API_KEY`, default `BASETEN_MODEL=meta-models/muse-spark-open-1026` | Repository understanding/discovery, summaries, source analysis, runtime decisions, screenshot selection, product impact, planning, authoring and support checks |
+| Muse Spark 1.3 Vision | Meta Model API; `META_API_KEY`, default `META_VISION_MODEL=muse-spark-1.3` | Visible evidence from selected masked screenshots |
+| Muse Wonder | Meta Model API; `META_API_KEY`, default `META_COMPOSITION_MODEL=muse-wonder-1.0` | Optional editorial finalization before support validation, for Full Scan and Latest Changes |
+
+Defaults come from `src/integrations/ai/operation-policy.ts`. No provider/model fallback
+is automatic. Account access is required and was not revalidated with paid calls in
+this audit. Missing Meta credentials leave explicit vision/finalization limitations.
+Muse Spark Open uses schema-bearing prompts and strict local parsing/grounding;
+Meta vision/composition use structured output plus independent local validation.
+
+The operation policy requests low reasoning for runtime decision, visual selection,
+planning and support; medium for source analysis, impact and transformation. Other
+operations omit effort. Both configured Muse aliases support the effort control;
+sampling controls are restricted to the canonical slug (source analysis uses
+zero temperature only there). No hidden reasoning is retained.
+
+Normal model recovery permits at most three attempts for recoverable formatting,
+allowlisted prose overflow or confirmed truncation. Optional demo mode allows five,
+including at most two allowlisted semantic corrections; all attempts share run
+budgets. See [the authoritative boundary policy](src/integrations/ai/structured-output-boundary.md)
+and [effective demo limits](SETUP.md#hackathon-demo-reliability-mode).
+
+Runs share 32 calls, 768 Ki reserved tokens and a 40-minute deadline in normal mode.
+Generation batches and support checks partition independently; Wonder can run per
+generated decision. Full Scan can make one corrective planning call. Therefore the
+old single-support-call totals below are historical estimates, not current maxima.
+Review, loading, saving, publication, SDK delivery and MCP queries make no model calls.
+
+## Historical capability audits and verification record
+
+The remaining sections preserve earlier audits, live receipts and incremental changes.
+Statements such as “deferred”, “not wired”, “no retry”, “omitted reasoning”, and earlier
+single-call limits describe their snapshot; current policy above and linked code take
+precedence. Local invocation IDs, screenshots and `.artifacts` receipts are not shipped
+fixtures or a fresh-clone reliability guarantee.
 
 ## Schema-v2 run flow and conditional accounting
 
@@ -80,7 +120,6 @@ live-verifier costs. Standalone draft generation remains source-only/v1.
 | Muse Spark Open via Baseten; default `meta-models/muse-spark-open-1026` | `generateStructured({ instructions, input, schema, maxOutputTokens?, signal? })` in [generate-structured.ts](src/integrations/ai/generate-structured.ts). Used by change summaries, semantic product analysis and documentation draft generation. | `BASETEN_MODEL` overrides the requested model. No automatic fallback or retries. Another provider requires changing the capability's internal adapter while preserving output validation and failure behavior; feature callers need no provider HTTP types. |
 | Meta Model API; default `muse-spark-1.3` | `generateStructuredVision({ png, context, signal? })` in [generate-structured-vision.ts](src/integrations/ai/generate-structured-vision.ts); storage wrapper [analyze-screenshot.ts](src/integrations/ai/analyze-screenshot.ts). Describes visible UI elements, observations and limitations. | `META_VISION_MODEL` overrides the requested model. `META_API_KEY` is separate from Baseten credentials. No fallback to Baseten, automatic retries or provider registry. Replacement must preserve the PNG/context and `VisualEvidence` contract. |
 | Local runner + Playwright (no model/provider inference) | [runtime.ts](src/runner/runtime/runtime.ts), [capture.ts](src/integrations/browser/capture.ts), local [capture-runtime.ts](infra/local/runner/capture-runtime.ts). Explicit startup/attach, readiness, scripted capture and cleanup. | Runtime/browser APIs hide Node process and Playwright objects. No alternative runtime/browser adapter exists. Attach never owns the external process; launch stops only its direct child. |
-| Baseten Management API (no model inference) | Billing utility under `integrations/ai/baseten/billing.ts`; independent read-only accounting. | Provider-specific operational utility, not a product reasoning capability or fallback. |
 
 These model IDs and endpoints describe code defaults, not independently verified
 current provider availability or account access. The Baseten event identifier is
@@ -157,15 +196,16 @@ also recorded in the user-supplied [hackathon guide](hackathon.md).
   coverage gaps remain semantic judgments, not locally proven facts. Saved UUIDs
   identify immutable snapshots, never authority or inferred version families.
   No document is generated, saved, replaced or published by this capability.
-- Future combined orchestration belongs to the existing feature workflow, through
+- Combined orchestration now belongs to the existing feature workflow, through
   narrow entries. Provider, browser, runtime, storage and SDK modules retain their
   present responsibilities; no new service, queue or generic framework is needed
   merely to describe this target.
 
 ## Remaining presentation/integration work
 
-Polished run/review UI, live presentation-only Playwright streaming, MCP tooling and
-final demo polish remain deferred. The schema-v2 run now connects decision, capture,
+Historical status: run/review UI, runtime inspection previews and MCP were deferred
+at this audit snapshot; all three now have implemented local interfaces. Continuous
+video streaming is not implemented. The schema-v2 run now connects decision, capture,
 selection, vision, synthesis, planning, transformation and retained proposal state.
 Human approval/save/publication remain separate model-free operations. Local verifier
 and historical proof descriptions below do not imply those capabilities are still

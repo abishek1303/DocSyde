@@ -34,9 +34,9 @@ Author is a nullable display name, not a GitHub account object. Dates are nullab
 ISO strings. File kinds are `added`, `deleted`, `modified`, `renamed`, `copied`, or
 `type-changed`. Provider statuses and payloads stay inside the adapter.
 
-Types remain colocated with their first producer. A future local Git implementation
-can produce equivalent values without emulating GitHub JSON; there is no provider
-interface, registry, or runner implementation yet.
+Types remain colocated with their first producer. The independent [local Git adapter](../local-git/README.md)
+produces equivalent values without emulating GitHub JSON; no provider registry or
+automatic fallback is used.
 
 ### Completeness and limits
 
@@ -75,16 +75,12 @@ request objects and credentials are never returned or logged.
 From the repository root:
 
 ```sh
-npm run github:verify -- abishek1303 DocSyde 40bd71f8adb0a8380f0de20ff65aa6915fb7654c 78695f525dce698832c9ef9dbdb4109dd86fdd9c --path hackathon.md
+npm run github:verify -- <owner> <repo> <base> <head> [--path <path>]
 npm run github:test
 ```
 
-These existing commits demonstrate the addition of the hackathon guide. They must
-be accessible on the remote to the configured token. General usage:
-
-```sh
-npm run github:verify -- <owner> <repo> <base> <head> [--path <path>]
-```
+Use the exact repository configured in `DOCSYDE_ANALYSIS_REPOSITORIES` and refs
+accessible to the token. The single-repository safeguard also applies to this CLI.
 
 The CLI prints `{ comparison, file? }` as JSON. `--path` reads at the resolved head,
 not the possibly moving input ref. Diagnostics go to stderr and failures exit
@@ -92,7 +88,8 @@ nonzero. For stdout containing only JSON, use `npm run --silent github:verify --
 No repository writes, database, app server, or model credentials are involved.
 
 This is a trusted local CLI proof, not a user-authorized API. Project/resource
-authorization belongs in feature operations before any future user-facing exposure.
+authorization is enforced by the Sources feature for the current local UI; public
+exposure still requires user authentication and resource authorization.
 
 ### Single revision source review
 

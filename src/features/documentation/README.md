@@ -1,4 +1,11 @@
-# Documentation drafts
+# Documentation workflows
+
+Current reviewer workflow: [SETUP](../../../SETUP.md#first-understanding-and-documentation).
+This guide also retains standalone capability and legacy v1 implementation notes;
+those local API boundaries do not describe the complete current run workflow.
+Full Scan generates fresh guides; Latest Changes targets live publications;
+consolidated Pending Changes explicitly approves, saves and publishes in one transaction.
+Shared model recovery is documented in the [AI boundary policy](../../integrations/ai/structured-output-boundary.md).
 
 ## Organization
 
@@ -58,7 +65,8 @@ all generation requests together at 128 KiB. Required target content is never
 truncated. Output is capped at 8,192 tokens, 800 characters per authored block and
 12 conservative block-capacity units per batch (section operation: two; complete
 document: eight). This conservatively budgets possible output, not just input size.
-Worst case is eight individually unbatchable generation calls plus one check.
+Support checks partition independently (at most sixteen verdict units per call) and
+run after each generation batch, after optional Wonder composition.
 Individually infeasible/aggregate-over-budget work becomes explicitly incomplete.
 
 Sharing a request grants no shared authority. Each entry selects only its own
@@ -66,9 +74,10 @@ authorized claims/facts/associations, exact target and snapshot hash. A bounded 
 envelope is parsed first, then each entry is strictly validated independently.
 Missing/duplicate IDs, fabricated targets/references/provenance or unsupported markup
 reject that entry. Unknown entries are explicit protocol issues. Invalid whole JSON
-or provider failure fails its batch; no salvage, retries or repair loops occur.
+or unrecoverable provider failure fails its batch. Shared bounded model recovery
+does not bypass per-entry validation.
 
-At most one 32 KiB batched support call evaluates newly authored/materially modified
+Bounded 32 KiB support calls evaluate newly authored/materially modified
 factual titles, blocks and factual placement rationale. Exact retained sections and
 unchanged titles are excluded. The checker sees authorized current claims/facts and,
 for placement only, a structural outline. It cannot reassess targeting, necessity,
@@ -93,8 +102,8 @@ contains up to eight evidence contexts (comparison, assessment, coverage, limits
 48 facts, 16 findings and 64 evidence entries. Findings/evidence own context IDs;
 facts inherit origin through their findings. Citations cannot cross incompatible
 contexts; pinned file commits must match the owning comparison, while patches retain
-their original base/head context. The existing four-section/two-block limits and
-128 KiB UTF-8 document limit remain. V2 allows up to 52 context associations.
+their original base/head context. V1 keeps four sections; v2 allows up to 32 sections after same-route consolidation.
+Two blocks per section and the 128 KiB UTF-8 document limit remain. V2 allows up to 52 context associations.
 
 V2 revision metadata separately records the current evidence context, based-on UUID
 and normalized hash, plan hash and applied decision IDs. Ordinary changes deterministically
@@ -111,7 +120,7 @@ saved documents. Explicit retained review now uses existing immutable persistenc
 publication/host DTO behavior remains unchanged. `saveCompatible` means canonical
 validation succeeded, not saved/approved/published. Proposal approval is always
 `not-requested`; accepted review lives in a separate retained record described below.
-No run-result or UI orchestration is added.
+The transformation operation itself performs no run/UI orchestration; `runs/` composes it.
 
 Run `npm run documentation:transform:test` for the mocked planner-to-candidate proof,
 and `npm run documentation:transform:persistence:test` after `npm run db:migrate` for
@@ -183,8 +192,8 @@ The claim catalog maps local IDs to original claim indices/claims and evidence r
 Downstream callers retain the original ProductImpact to resolve those refs through
 its original provenance; no second impact identity or duplicated provenance catalog
 is introduced. Run `npm run documentation:test` for mocked planning and existing
-draft/preparation regressions. Planning has not been live-model verified or wired
-into the documentation workflow.
+draft/preparation regressions. Schema-v2 runs compose planning; historical live
+verification receipts are recorded separately in MODEL_USAGE.md.
 
 ## Canonical v1 representation
 
@@ -234,9 +243,9 @@ Optional arguments: base head followed by explicit context paths. It prints the
 proposed draft and bounded provenance, not full source bodies. Requires existing
 GitHub/Baseten credentials and uses API credit. Invalid output is withheld.
 
-Deferred: editing UI, document history, workflow wiring of impact targeting, automatic updates,
-Markdown export, embeddings and investigation. Explicit publication and SDK delivery
-are implemented narrowly below.
+Deferred: freeform editing UI, Markdown export, embeddings and autonomous investigation.
+Run orchestration, retained review, explicit publication, publication Archive and SDK
+delivery are implemented. Legacy draft generation remains available separately.
 
 Live verification: the existing database comparison (4cf816f → 40bd71f) produced
 a three-section draft faithful to supplied create/read and local-setup facts,
@@ -355,7 +364,8 @@ Migration 0004 adds `docsyde.documentation_publications`: UUID, existing canonic
 repository identity, route, saved-draft FK, publication time; repository/route is
 unique. Row existence means published. Same-document publishing is idempotent.
 Replace/unpublish require the observed publication UUID; replacement changes the
-association UUID/time and FK atomically. No history, content copy or status exists.
+association UUID/time and FK atomically. Migration 0007 adds publication archives;
+prior live snapshots remain readable without changing canonical content.
 
 `publication-operations.ts` owns validation, repository allowlist enforcement and
 host-visible projection. `integrations/database/documentation-publications.ts`
@@ -379,15 +389,15 @@ its own fixture UUIDs, blocks external fetches, removes provider credentials, an
 checks lifecycle, isolation, immutable snapshots, projection and CORS. Delivery
 never creates or regenerates a suitable document for a demo proof.
 
-## Static and runtime evidence status
+## Legacy standalone draft evidence status
 
-The current orchestration in `generate-documentation-draft.ts` freezes advisory
+The legacy standalone orchestration in `drafts/generate-documentation-draft.ts` freezes advisory
 context, calls Sources semantic analysis, and generates a new draft from validated
 source findings. It does not retrieve existing saved documentation for analysis,
 request runtime inspection, call vision, or merge screenshot/DOM evidence. Saving
 and publication are explicit; publication replacement changes the saved-document
-reference rather than editing its content. The intended combined-evidence flow and
-planned implementation steps are recorded in [MODEL_USAGE.md](../../../MODEL_USAGE.md).
+reference rather than editing its content. The implemented schema-v2 combined-evidence flow and
+historical verification notes are recorded in [MODEL_USAGE.md](../../../MODEL_USAGE.md).
 
 ## Retained proposal review, immutable save and optional publication
 
@@ -455,7 +465,9 @@ Review/save loads no inference capability and makes **zero model calls**, with o
 without provider credentials. No approval UI, HTTP mutation surface, automatic run
 orchestration, editing/rebasing, changed final selection, or general audit/history
 system is included. Legacy signed new-draft saving remains separate and unchanged.
-See [SETUP.md](../../../SETUP.md#proposal-review-proof) for CLI commands.
+See [the local review CLI](../../../infra/local/documentation/review.ts) for arguments;
+`npm run documentation:review -- ...` is an explicit state-changing developer tool.
+Use [SETUP](../../../SETUP.md#first-understanding-and-documentation) for the reviewer UI.
 
 ## Schema-v2 run orchestration
 

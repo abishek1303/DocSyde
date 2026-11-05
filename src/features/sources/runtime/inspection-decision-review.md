@@ -1,5 +1,10 @@
 # Exact focused contract changes for review
 
+Historical implementation review against the named base commit. Diffs are retained
+as written and are not patches to apply to the current tree. Later reason limits,
+reasoning controls and bounded recovery supersede the original settings; see the
+[current boundary policy](../../../integrations/ai/structured-output-boundary.md).
+
 Base commit: 64151549fc4c28cbd7e0f39aa8031f9d66a4d8b7. These are exact unified diffs, without unrelated tests or setup edits. The old canonical inspectionDecisionSchema is unchanged.
 
 ## src/features/sources/runtime/inspection-decision-ir.ts

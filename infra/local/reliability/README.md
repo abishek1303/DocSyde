@@ -1,5 +1,12 @@
 # Request Desk reliability baseline
 
+This is the optional Request Desk experiment harness, not reviewer setup. Frozen
+experiment recipes and historical receipts below retain their original policy and
+local artifact references. Those artifacts/databases are not included in a fresh clone.
+Current ordinary run limits/recovery are in [SETUP](../../../SETUP.md#bounded-documentation-runs);
+use the [Quick Start](../../../README.md#quick-start) for the submitted application.
+Live experiment commands require separate credentials and can incur inference cost.
+
 This suite prepares three independent changes against
 `45799b2fae07f1326296b8ba85fae51476fd153d`. It preserves existing architecture,
 model identifiers, prompts/contracts, output ceilings, omitted sampling/reasoning

@@ -1,5 +1,10 @@
 # Meta Global AI Developer Hackathon Participant Guide
 
+Historical participant guide supplied for the submitted Meta Global AI Developer
+Hackathon. Event dates, eligibility rules and planning implications below are retained
+as supplied; they are not DocSyde setup instructions or claims about implemented
+features. For the submitted implementation, read [README](README.md).
+
 Source: [Cerebral Valley event details](https://cerebralvalley.ai/e/meta-ai-developer-hackathon/details).
 
 This reference preserves the event information supplied by the user on October 28, 2026, reformatted for readability. It is not an independently verified live copy. Resource labels in the supplied text did not include destination URLs; those resources must be opened from the event page. Dates below refer to the 2026 event.

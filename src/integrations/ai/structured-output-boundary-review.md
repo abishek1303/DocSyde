@@ -1,5 +1,9 @@
 # Structured-output boundary: exact code review
 
+Historical implementation review. These diffs preserve the boundary’s initial
+implementation, not the complete current tree or current retry policy. For current
+capabilities, limits and recovery, read [structured-output-boundary.md](structured-output-boundary.md).
+
 Diffs compare the clean starting checkout with this implementation. Only boundary, policy, logging and UI code is included; canonical feature schemas and feature grounding validators have no changes. Stage flexibility is declared centrally in `boundaryPolicies`. Provider/model dispatch configuration and output ceilings have no changes.
 
 ## src/integrations/ai/model-boundary.ts

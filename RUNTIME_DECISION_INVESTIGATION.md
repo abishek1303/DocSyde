@@ -1,5 +1,12 @@
 # Runtime-decision invocation investigation
 
+Historical investigation of the recorded runtime-decision-v2 failure. Invocation
+IDs, local receipts, source excerpts and “current” descriptions below refer to that
+investigation snapshot, not a reproducible fresh-clone fixture or current policy.
+Preserved for failure-analysis rationale; use [MODEL_USAGE](MODEL_USAGE.md) and
+the [current boundary policy](src/integrations/ai/structured-output-boundary.md) for
+subsequent contracts, logging and recovery behavior.
+
 ## Finding and retained evidence
 
 Invocation `002339e0-772c-4768-9b28-392e09ce0640`, run

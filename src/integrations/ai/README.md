@@ -1,8 +1,8 @@
 # Text model capability
 
 See the root [model usage audit](../../../MODEL_USAGE.md) for intended model roles,
-current feature callers, provider replacement boundaries and missing orchestration.
-The vision capability below is independent of the product's source-to-draft flow.
+current feature callers and provider replacement boundaries. Schema-v2 runs compose
+text, optional vision and Wonder; the legacy standalone source-to-draft flow is text-only.
 
 `generateStructured({ instructions, input, schema, maxOutputTokens?, inference?, signal? })`
 returns `{ data, model, elapsedMs }`. `data` is inferred from the supplied Zod
@@ -52,7 +52,7 @@ each, descriptions to 300 characters, and visible text/statements to 500. Visibl
 text and bounds can be null. Bounds use finite normalized coordinates in `[0,1]`
 from the top-left, with strictly increasing edges. Uncertain elements require null
 bounds; clear but unlocated elements also retain null bounds and cannot supply a UI location. Empty evidence is valid. The production Meta request uses strict JSON Schema with nested `anyOf` variants to constrain certainty and bounds together. Local Zod independently rechecks that relationship and enforces edge ordering, which the provider schema cannot express. Contradictions are rejected without normalization or retry; safe diagnostics identify the invariant without retaining rejected UI values. Validation proves neither factual
-accuracy nor localization quality. Results are returned only, not persisted.
+accuracy nor localization quality. The capability returns results; the calling run workflow persists retained evidence.
 
 Set `META_API_KEY` in ignored `.env` or process environment; it is required lazily
 at invocation. The model defaults to `muse-spark-1.3`; optionally override it with
@@ -80,16 +80,18 @@ npm run ai:vision:verify -- <artifact-key> 'Describe visible form controls and l
 
 The verifier loads root `.env`, uses configured storage and prints validated evidence.
 Tests use in-memory storage and mocked HTTP without developer `.env` or network.
-The Baseten text API/transport remains text-only. No runner, semantic change analysis,
-database, UI or documentation-generation workflow is connected to vision.
+The Baseten text API/transport remains text-only. Schema-v2 runs connect the runner,
+selected screenshots, vision and source/visual synthesis before documentation planning.
 
 
 ## Requested inference controls and debug payloads
 
 `generateStructured` accepts strict optional `inference` fields: `reasoningEffort`,
-`temperature`, `topP`. Existing callers leave these omitted. Current hackathon `-1026`
-model overrides are unconfirmed and reject before fetch; only the documented canonical
-Muse slug accepts explicitly requested controls. Provider wire names stay in transports.
+`temperature`, `topP`. The operation policy requests low reasoning for runtime decision, visual selection,
+planning and support; medium for source analysis, product impact and transformation.
+Both canonical Muse and the configured `-1026` alias accept top-level reasoning effort.
+Sampling overrides remain restricted to the canonical slug (source analysis requests
+temperature zero there). Meta calls retain omitted reasoning/sampling controls. Provider wire names stay in transports.
 The operation policy supplies explicit ceilings/revisions for debug snapshots; no
 provider-default values are inferred. There is no arbitrary provider-options passthrough.
 
@@ -114,7 +116,7 @@ continue into the unchanged vision contract; no other operation's settings chang
 The small JSON body leaves headroom because Muse may spend completion budget reasoning.
 The current Baseten Muse transport has no supported provider-side JSON Schema
 enforcement: instructions carry the schema and JSON/Zod/correspondence checks run
-locally, without retries or repairs. Selector instructions/input/schema and schema-valid
+locally, with shared bounded formatting/overflow/truncation recovery. No evidence is repaired. Selector instructions/input/schema and schema-valid
 output use the existing bounded sanitized debug envelopes; fixed code/path diagnostics
 survive post-validation failures. Malformed/schema-invalid raw output remains excluded.
 Historical approved projections remain readable. See [MODEL_USAGE.md](../../../MODEL_USAGE.md) for exact bounds.

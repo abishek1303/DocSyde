@@ -40,7 +40,10 @@ src/
   lib/                    small, genuinely shared, general-purpose helpers
 ```
 
-This is an ownership map. Create subfolders and implementation files when there is real code for them. README files may document planned modules; do not add fake implementations, empty exports, or placeholder APIs just to populate the tree.
+Additional implemented boundaries: `src/runner/runtime/` owns local process lifecycle;
+`src/sdk/` owns browser context/retrieval helpers; `infra/local/` owns local setup and
+verification harnesses. Product-knowledge MCP queries belong to Documentation, not
+the planned Assistant feature. The directory names above are an ownership map. Create subfolders and implementation files when there is real code for them. README files may document planned modules; do not add fake implementations, empty exports, or placeholder APIs just to populate the tree.
 
 ## Module boundaries
 
@@ -86,6 +89,8 @@ This is an ownership map. Create subfolders and implementation files when there 
 ## Verification and handoff
 
 - Update `SETUP.md` when setup commands, required configuration, or implemented workflows change. Keep it concise, distinguish working behavior from planned work, and link to existing integration guides rather than duplicating their details.
+- Start from `README.md` and `SETUP.md`. Local setup is `npm ci`, then `npm run db:setup`; run Next.js bound to `127.0.0.1`. Configure exactly one `DOCSYDE_ANALYSIS_REPOSITORIES` target. Chromium is optional unless capturing runtime evidence or running browser checks.
+- There is no aggregate test/typecheck script. Use `npx next typegen` then `npx tsc --noEmit`, `npm run lint`, and `npm run build -- --webpack`. Focused mocked checks include `ai:test`, `github:test`, `sources:test`, `documentation:test`, and `mcp:test`. Database/browser suites need their documented prerequisites. `*:verify` and reliability commands may call paid providers or write fixtures; inspect them first.
 - Inspect `package.json` and use the available scripts. For source changes, run lint, type checking, and the production build when applicable. Resolve failures caused by your change and report unrelated or environment failures accurately.
 - For TypeScript checking, use the project's typecheck script if present; otherwise use the installed TypeScript compiler with `--noEmit`. Generate Next.js route types first if the installed version requires it.
 - Test meaningful business behavior, validation, and authorization when implementing those paths. Do not introduce a testing framework for a static starter cleanup or tests that only mirror folder structure.

@@ -1,5 +1,11 @@
 # Runtime-decision v3 compact semantic IR
 
+The v3 reference/authority contract remains implemented. Failure diagnosis and
+provider-budget commentary below preserve the original investigation snapshot.
+Reasons now accept 180 characters (80 remains the prompt target), runtime decision
+requests low reasoning effort, and shared bounded model-output recovery applies.
+See the [current boundary policy](../../../integrations/ai/structured-output-boundary.md).
+
 Implementation: `decide-runtime-inspection.ts:decideRuntimeInspection`.
 The entire old/new instruction text and exact changed code appear in
 [the focused review diff](inspection-decision-review.md). No provider run was made.

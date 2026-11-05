@@ -1,5 +1,21 @@
 # DocSyde Architecture
 
+## Current implementation and reading guide
+
+DocSyde is one local Next.js modular monolith backed by PostgreSQL/Drizzle and
+local artifact storage. Sources owns GitHub access and saved repository understanding;
+Documentation owns Full Scan, Latest Changes, run orchestration, retained review,
+publication, contextual delivery and read-only MCP. Integrations own provider I/O;
+Runner owns process lifecycle; SDK owns browser context and retrieval helpers.
+Assistant and Embed directories remain planned ownership, with no packaged widget.
+
+This document preserves incremental architectural decisions. Early “first slice” and
+independent-proof sections describe their original scope, not missing current features.
+Later sections supersede earlier status/limits, especially Full Scan, publication
+Archive, runtime approval, batching and MCP. Use [SETUP](SETUP.md) for current
+commands and [MODEL_USAGE](MODEL_USAGE.md) for current model policy. No new
+service, queue, vector database or production authentication is implemented.
+
 ## Purpose
 
 DocSyde keeps product documentation synchronized with the software itself.
@@ -118,6 +134,9 @@ The application layer should not directly depend on Baseten, Git CLI commands, d
 ---
 
 ### Persistence
+
+The initial persistence proof below is historical; current tables also persist runs,
+repository understanding/context, proposals, publications/archive and invocation logs.
 
 Stores DocSyde state and structured documentation data.
 
@@ -556,7 +575,7 @@ browsing operations; GitHub normalizes repository metadata and recent commits.
 Documentation filters existing provenance in SQL before pagination and supports
 scoped detail reads. No Project binding or schema migration is added. The existing
 reader and technical source tools remain available. Run persistence and execution tracking are described below. Existing-document
-updates remain deferred.
+updates are implemented by the later schema-v2 and consolidated-publication slices.
 
 
 ## Schema-v2 analysis runs

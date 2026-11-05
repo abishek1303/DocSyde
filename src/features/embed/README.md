@@ -4,4 +4,6 @@ Planned ownership: documentation and assistant UI inside host applications. Use 
 
 Colocate feature UI, operations, schemas, types, and queries here when implemented. Follow the ownership and dependency rules in the root AGENTS.md.
 
-No implementation exists yet.
+No feature implementation exists in this directory. The implemented browser context
+and retrieval helpers live in [src/sdk](../../sdk/README.md); DocSyde does not ship
+a packaged embedded documentation widget or assistant UI.
